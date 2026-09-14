@@ -2,8 +2,11 @@
 
 :root {
   color-scheme: light;
+  --header-height: 52px;
   --background: #f4efe6;
   --foreground: #111827;
+  --navy: #092944;
+  --paper-grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paper)' opacity='.032'/%3E%3C/svg%3E");
 }
 
 * {
@@ -18,9 +21,10 @@ html {
 body {
   min-height: 100vh;
   margin: 0;
+  padding-top: var(--header-height);
   background-color: var(--background);
   background-image:
-    url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paper)' opacity='.032'/%3E%3C/svg%3E"),
+    var(--paper-grain),
     radial-gradient(
       circle at top left,
       rgb(255 255 255 / 46%),
@@ -30,4 +34,16 @@ body {
   background-attachment: fixed;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.site-header {
+  border-bottom: 1px solid rgb(9 41 68 / 12%);
+  background-color: rgb(244 239 230 / 96%);
+  background-image: var(--paper-grain);
+  box-shadow: 0 2px 12px rgb(9 41 68 / 3%);
+  backdrop-filter: blur(8px);
+}
+
+.font-handwriting {
+  font-family: var(--font-handwriting), cursive;
 }
