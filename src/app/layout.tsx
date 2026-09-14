@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { handwriting } from "@/lib/fonts";
 
@@ -15,7 +16,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="ko" className={handwriting.variable}>
       <body>
         <SiteHeader />
-        {children}
+        <div className="flex min-h-[calc(100vh-var(--header-height))] flex-col">
+          <div className="flex-1">{children}</div>
+          <SiteFooter />
+        </div>
       </body>
     </html>
   );
