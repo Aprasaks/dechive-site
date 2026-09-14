@@ -2,6 +2,8 @@
 
 :root {
   color-scheme: light;
+  --background: #f4efe6;
+  --foreground: #111827;
 }
 
 * {
@@ -10,13 +12,22 @@
 
 html {
   min-width: 320px;
-  background: #ffffff;
+  background: var(--background);
 }
 
 body {
   min-height: 100vh;
   margin: 0;
-  background: #ffffff;
-  color: #111827;
+  background-color: var(--background);
+  background-image:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paper)' opacity='.032'/%3E%3C/svg%3E"),
+    radial-gradient(
+      circle at top left,
+      rgb(255 255 255 / 46%),
+      transparent 44rem
+    ),
+    linear-gradient(135deg, rgb(132 92 48 / 2%), transparent 55%);
+  background-attachment: fixed;
+  color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
