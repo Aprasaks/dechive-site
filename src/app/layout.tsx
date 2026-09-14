@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { handwriting } from "@/lib/fonts";
+import { body, editorial, handwriting } from "@/lib/fonts";
 
 import "./globals.css";
 
@@ -13,7 +13,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ko" className={handwriting.variable}>
+    <html
+      lang="ko"
+      className={`${body.variable} ${editorial.variable} ${handwriting.variable}`}
+    >
       <body>
         <SiteHeader />
         <div className="flex min-h-[calc(100vh-var(--header-height))] flex-col">

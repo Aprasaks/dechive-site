@@ -11,7 +11,7 @@ const navigation = [
 export function SiteHeader() {
   return (
     <header className="site-header fixed inset-x-0 top-0 z-50 h-[var(--header-height)] text-[var(--navy)]">
-      <div className="relative flex h-full w-full items-center px-5 sm:px-7 lg:px-10">
+      <div className="relative mx-auto flex h-full w-full max-w-[1440px] items-center px-5 sm:px-7 lg:px-10 xl:px-12">
         <Link
           href="/"
           className="text-sm font-bold tracking-[0.24em] sm:text-[15px]"

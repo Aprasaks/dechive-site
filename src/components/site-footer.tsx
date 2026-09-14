@@ -10,7 +10,7 @@ const footerNavigation = [
 export function SiteFooter() {
   return (
     <footer className="border-t border-[color:rgb(9_41_68_/_12%)] text-[var(--navy)]">
-      <div className="flex min-h-16 flex-col justify-center gap-3 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-7 lg:px-10">
+      <div className="mx-auto flex min-h-16 w-full max-w-[1440px] flex-col justify-center gap-3 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-7 lg:px-10 xl:px-12">
         <div className="leading-none">
           <Link
             href="/"

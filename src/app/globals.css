@@ -6,6 +6,7 @@
   --background: #f4efe6;
   --foreground: #111827;
   --navy: #092944;
+  --terracotta: #b94f2c;
   --paper-grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paper)' opacity='.032'/%3E%3C/svg%3E");
 }
 
@@ -33,7 +34,7 @@ body {
     linear-gradient(135deg, rgb(132 92 48 / 2%), transparent 55%);
   background-attachment: fixed;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), Arial, Helvetica, sans-serif;
 }
 
 .site-header {
@@ -46,4 +47,29 @@ body {
 
 .font-handwriting {
   font-family: var(--font-handwriting), cursive;
+}
+
+.font-editorial {
+  font-family: var(--font-editorial), Georgia, serif;
+}
+
+.mock-image {
+  overflow: hidden;
+  border: 1px solid rgb(9 41 68 / 14%);
+  background-color: rgb(9 41 68 / 4%);
+  background-image:
+    linear-gradient(135deg, rgb(9 41 68 / 4%) 25%, transparent 25%),
+    linear-gradient(225deg, rgb(9 41 68 / 4%) 25%, transparent 25%),
+    linear-gradient(45deg, rgb(9 41 68 / 4%) 25%, transparent 25%),
+    linear-gradient(315deg, rgb(9 41 68 / 4%) 25%, transparent 25%);
+  background-position:
+    8px 0,
+    8px 0,
+    0 0,
+    0 0;
+  background-size: 16px 16px;
+  color: rgb(9 41 68 / 42%);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
 }
