@@ -90,8 +90,7 @@ export default function AiUpdatePage() {
           </div>
 
           <h1 className="font-editorial mt-4 text-[2.15rem] leading-[1.17] font-semibold tracking-[-0.045em] sm:text-[2.75rem] lg:text-[3rem]">
-            오늘의 가장 중요한
-            <br className="hidden sm:block" /> AI 변화
+            오늘의 가장 중요한 AI 변화
           </h1>
           <p className="mt-4 max-w-xl text-[13px] leading-6 opacity-66 sm:text-sm">
             글로벌 빅테크의 새로운 멀티모달 모델과 AI 검색 서비스 경쟁이
