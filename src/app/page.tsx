@@ -246,17 +246,22 @@ export default function Home() {
             <span className="text-xs text-[var(--terracotta)]">더보기 →</span>
           </div>
 
-          <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+          <div className="mt-3">
             {practiceStories.map((story) => (
-              <article key={story.title}>
+              <article
+                key={story.title}
+                className="grid grid-cols-[minmax(112px,0.44fr)_minmax(0,0.56fr)] gap-4 border-t border-[color:rgb(9_41_68_/_12%)] py-4 first:border-t-0 first:pt-0"
+              >
                 <MockImage label="MOCK IMAGE" className="aspect-[16/9]" />
-                <h3 className="font-editorial mt-3 text-base leading-snug font-semibold">
-                  {story.title}
-                </h3>
-                <p className="mt-1 text-xs leading-5 opacity-62">
-                  {story.description}
-                </p>
-                <p className="mt-1.5 text-[11px] opacity-48">{story.meta}</p>
+                <div className="self-center">
+                  <h3 className="font-editorial text-base leading-snug font-semibold">
+                    {story.title}
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 opacity-62">
+                    {story.description}
+                  </p>
+                  <p className="mt-1.5 text-[11px] opacity-48">{story.meta}</p>
+                </div>
               </article>
             ))}
           </div>
