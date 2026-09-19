@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { body, editorial, handwriting } from "@/lib/fonts";
+import { SanityLive } from "@/sanity/lib/live";
 
 import "./globals.css";
 
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <div className="flex-1">{children}</div>
           <SiteFooter />
         </div>
+        <SanityLive />
       </body>
     </html>
   );

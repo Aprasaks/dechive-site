@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
         hostname: "contents.kyobobook.co.kr",
         pathname: "/sih/fit-in/**",
       },
+      {
+        protocol: "https",
+        hostname: "cdn.sanity.io",
+        pathname: "/images/5e2ms6sb/production/**",
+      },
     ],
   },
 };

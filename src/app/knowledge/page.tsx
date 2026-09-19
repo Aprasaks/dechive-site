@@ -1,95 +1,93 @@
 import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
 
-type MockImageProps = {
-  label: string;
-  className?: string;
-};
-
-const knowledgeStories = [
-  {
-    date: "2026.09.05",
-    dateTime: "2026-09-05",
-    title: "좋은 질문이 좋은 데이터셋을 만든다",
-    description:
-      "좋은 데이터는 좋은 질문에서 시작됩니다. 문제를 어떻게 정의하느냐에 따라 수집할 데이터와 결과의 깊이가 달라집니다.",
-    meta: "8 min read",
-  },
-  {
-    date: "2026.09.03",
-    dateTime: "2026-09-03",
-    title: "데이터 시대의 바람직한 사고란 무엇인가",
-    description:
-      "데이터를 보는 관점과 맥락을 읽는 힘, 그리고 불확실함을 다루는 태도에 관해 이야기합니다.",
-    meta: "7 min read",
-  },
-  {
-    date: "2026.09.01",
-    dateTime: "2026-09-01",
-    title: "RAG란 무엇인가",
-    description:
-      "외부 지식을 활용하는 AI의 작동 원리와 RAG의 개념, 구조, 실제 활용 사례를 쉽게 살펴봅니다.",
-    meta: "9 min read",
-  },
-  {
-    date: "2026.08.30",
-    dateTime: "2026-08-30",
-    title: "데이터를 읽는 새로운 방법",
-    description:
-      "숫자와 사실 너머의 의미를 읽어내고 데이터의 맥락과 한계를 발견하는 방법을 소개합니다.",
-    meta: "6 min read",
-  },
-];
+import { formatPublishedDate, readingTime } from "@/lib/knowledge";
+import { getKnowledgePosts } from "@/sanity/lib/knowledge";
+import { knowledgeImageUrl } from "@/sanity/lib/knowledge-image";
+import type { KnowledgeSummary } from "@/sanity/lib/types";
 
 export const metadata: Metadata = {
   title: "Knowledge | DECHIVE",
   description: "질문하고 확인하며 쌓아가는 DECHIVE의 지식 아카이브",
 };
 
-function MockImage({ label, className = "" }: MockImageProps) {
+function KnowledgeImage({
+  post,
+  priority = false,
+}: {
+  post: KnowledgeSummary;
+  priority?: boolean;
+}) {
   return (
-    <div
-      className={`mock-image flex items-center justify-center ${className}`}
-      role="img"
-      aria-label={`${label} 이미지 준비 중`}
-    >
-      <span>{label}</span>
-    </div>
+    <Image
+      src={knowledgeImageUrl(post.thumbnail, 1600, 900)}
+      alt={post.thumbnail.alt}
+      fill
+      priority={priority}
+      sizes="(min-width: 1024px) 58vw, 100vw"
+      className="object-cover"
+    />
   );
 }
 
-export default function KnowledgePage() {
+export default async function KnowledgePage() {
+  const posts = await getKnowledgePosts();
+  const [featured, ...latest] = posts;
+
+  if (!featured) {
+    return (
+      <main className="mx-auto flex min-h-[60vh] w-full max-w-[1440px] items-center px-5 text-[var(--navy)] sm:px-7 lg:px-10 xl:px-12">
+        <div>
+          <p className="text-xs font-bold tracking-[0.16em] text-[var(--terracotta)]">
+            KNOWLEDGE
+          </p>
+          <h1 className="font-editorial mt-4 text-4xl font-semibold">
+            아직 발행된 글이 없습니다
+          </h1>
+          <p className="mt-4 text-sm opacity-60">
+            Sanity에서 검증을 마친 글을 발행하면 이곳에 표시됩니다.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto w-full max-w-[1440px] px-5 pt-4 pb-8 text-[var(--navy)] sm:px-7 lg:px-10 xl:px-12">
       <section className="grid gap-6 border-b border-[color:rgb(9_41_68_/_18%)] pb-6 lg:grid-cols-[minmax(0,0.41fr)_minmax(0,0.59fr)] lg:items-stretch lg:gap-10">
         <div className="flex flex-col justify-center py-5 lg:pr-3">
           <div className="flex items-center gap-4 text-xs tracking-[0.08em]">
             <span className="font-bold text-[var(--terracotta)]">
-              KNOWLEDGE
+              {featured.category?.toUpperCase() ?? "KNOWLEDGE"}
             </span>
             <span className="h-px w-5 bg-[var(--terracotta)]" />
-            <time className="opacity-50" dateTime="2026-09-06">
-              2026.09.06
+            <time className="opacity-50" dateTime={featured.publishedAt}>
+              {formatPublishedDate(featured.publishedAt)}
             </time>
           </div>
 
           <h1 className="font-editorial mt-5 text-[2.25rem] leading-[1.16] font-semibold tracking-[-0.045em] sm:text-5xl lg:text-[3.25rem]">
-            Dataset이란 무엇인가
+            {featured.title}
           </h1>
           <p className="mt-5 max-w-xl text-sm leading-7 opacity-68 sm:text-[15px]">
-            데이터셋은 모아둔 데이터가 아니라 만들어진 결과입니다. 무엇을 넣고
-            무엇을 뺄지, 어디서 구할지, 누가 정할지에 대한 선택이 모여 하나의
-            데이터셋이 됩니다. 데이터셋을 보는 새로운 관점과 그 중요성을
-            살펴봅니다.
+            {featured.summary}
           </p>
-          <span className="mt-7 w-fit border-b border-[var(--terracotta)] pb-1 text-sm font-semibold text-[var(--terracotta)]">
+          <Link
+            href={`/knowledge/${featured.slug}`}
+            className="mt-7 w-fit border-b border-[var(--terracotta)] pb-1 text-sm font-semibold text-[var(--terracotta)] transition-opacity hover:opacity-60"
+          >
             읽어보기 →
-          </span>
+          </Link>
         </div>
 
-        <MockImage
-          label="FEATURED MOCK IMAGE"
-          className="aspect-[16/9] lg:aspect-auto lg:min-h-[290px]"
-        />
+        <Link
+          href={`/knowledge/${featured.slug}`}
+          className="relative block aspect-[16/9] overflow-hidden border border-[color:rgb(9_41_68_/_14%)] lg:aspect-auto lg:min-h-[290px]"
+          aria-label={`${featured.title} 읽기`}
+        >
+          <KnowledgeImage post={featured} priority />
+        </Link>
       </section>
 
       <section className="py-6">
@@ -97,38 +95,54 @@ export default function KnowledgePage() {
           LATEST KNOWLEDGE
         </h2>
 
-        <div className="mt-4 divide-y divide-[color:rgb(9_41_68_/_14%)] border-y border-[color:rgb(9_41_68_/_16%)]">
-          {knowledgeStories.map((story) => (
-            <article
-              key={story.title}
-              className="grid gap-4 py-5 sm:grid-cols-[minmax(180px,0.34fr)_minmax(0,0.66fr)] sm:items-center sm:gap-6 lg:grid-cols-[minmax(260px,0.3fr)_minmax(0,0.7fr)] lg:gap-8"
-            >
-              <MockImage
-                label="MOCK IMAGE"
-                className="aspect-[16/7] sm:aspect-[16/6]"
-              />
+        {latest.length > 0 ? (
+          <div className="mt-4 divide-y divide-[color:rgb(9_41_68_/_14%)] border-y border-[color:rgb(9_41_68_/_16%)]">
+            {latest.map((post) => (
+              <article
+                key={post._id}
+                className="grid gap-4 py-5 sm:grid-cols-[minmax(180px,0.34fr)_minmax(0,0.66fr)] sm:items-center sm:gap-6 lg:grid-cols-[minmax(260px,0.3fr)_minmax(0,0.7fr)] lg:gap-8"
+              >
+                <Link
+                  href={`/knowledge/${post.slug}`}
+                  className="relative block aspect-[16/7] overflow-hidden border border-[color:rgb(9_41_68_/_14%)] sm:aspect-[16/6]"
+                  aria-label={`${post.title} 읽기`}
+                >
+                  <KnowledgeImage post={post} />
+                </Link>
 
-              <div className="min-w-0">
-                <div className="flex items-center gap-3 text-[11px] tracking-[0.06em]">
-                  <span className="font-bold text-[var(--terracotta)]">
-                    KNOWLEDGE
-                  </span>
-                  <span className="h-px w-4 bg-[var(--terracotta)] opacity-60" />
-                  <time className="opacity-48" dateTime={story.dateTime}>
-                    {story.date}
-                  </time>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-3 text-[11px] tracking-[0.06em]">
+                    <span className="font-bold text-[var(--terracotta)]">
+                      {post.category?.toUpperCase() ?? "KNOWLEDGE"}
+                    </span>
+                    <span className="h-px w-4 bg-[var(--terracotta)] opacity-60" />
+                    <time className="opacity-48" dateTime={post.publishedAt}>
+                      {formatPublishedDate(post.publishedAt)}
+                    </time>
+                  </div>
+                  <h3 className="font-editorial mt-2 text-xl leading-snug font-semibold sm:text-[1.35rem]">
+                    <Link
+                      href={`/knowledge/${post.slug}`}
+                      className="transition-opacity hover:opacity-60"
+                    >
+                      {post.title}
+                    </Link>
+                  </h3>
+                  <p className="mt-1.5 max-w-3xl text-xs leading-5 opacity-62 sm:text-[13px]">
+                    {post.summary}
+                  </p>
+                  <p className="mt-2 text-[11px] opacity-48">
+                    {readingTime(post.bodyText)} min read
+                  </p>
                 </div>
-                <h3 className="font-editorial mt-2 text-xl leading-snug font-semibold sm:text-[1.35rem]">
-                  {story.title}
-                </h3>
-                <p className="mt-1.5 max-w-3xl text-xs leading-5 opacity-62 sm:text-[13px]">
-                  {story.description}
-                </p>
-                <p className="mt-2 text-[11px] opacity-48">{story.meta}</p>
-              </div>
-            </article>
-          ))}
-        </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 border-y border-[color:rgb(9_41_68_/_16%)] py-8 text-sm opacity-55">
+            다음 Knowledge 글을 준비하고 있습니다.
+          </p>
+        )}
       </section>
     </main>
   );
