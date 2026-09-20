@@ -8,7 +8,7 @@ type ImageDimensions = {
 
 export type KnowledgeImage = {
   _key?: string;
-  _type: "image" | "bodyImage";
+  _type: "image" | "bodyImage" | "relatedImage";
   alt: string;
   caption?: string;
   crop?: {
@@ -63,4 +63,29 @@ export type KnowledgeSummary = {
 
 export type KnowledgePost = KnowledgeSummary & {
   body: KnowledgeBodyBlock[];
+};
+
+export type AiUpdateRelatedImage = KnowledgeImage & {
+  _key: string;
+  _type: "relatedImage";
+};
+
+export type AiUpdateBodyBlock = PortableTextBlock | AiUpdateRelatedImage;
+
+export type AiUpdateSummary = {
+  _id: string;
+  title: string;
+  summary: string;
+  slug: string;
+  publishedAt: string;
+  thumbnail: KnowledgeImage;
+  bodyText: string;
+};
+
+export type AiUpdatePost = AiUpdateSummary & {
+  body: AiUpdateBodyBlock[];
+  changes: PortableTextBlock[];
+  possibilities: PortableTextBlock[];
+  officialLink: string;
+  officialLinkLabel: string;
 };

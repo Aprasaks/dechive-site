@@ -15,4 +15,6 @@ export const structure: StructureResolver = (S) =>
               S.documentTypeListItem("knowledgeCategory").title("카테고리"),
             ]),
         ),
+      S.divider(),
+      S.documentTypeListItem("aiUpdate").title("AI Update"),
     ]);

@@ -1,3 +1,8 @@
+import Link from "next/link";
+
+import { formatUpdateDate } from "@/lib/ai-update";
+import { getAiUpdates } from "@/sanity/lib/ai-update";
+
 type MockImageProps = {
   label: string;
   className?: string;
@@ -27,29 +32,6 @@ const latestStories = [
 const knowledgeStories = [
   { title: "좋은 질문이 좋은 데이터셋을 만든다", meta: "4 min read" },
   { title: "데이터 시대의 바람직한 사고란 무엇인가", meta: "6 min read" },
-];
-
-const aiUpdates = [
-  {
-    date: "2026.09.05",
-    title: "OpenAI, 새로운 멀티모달 모델 발표",
-    description: "텍스트, 이미지, 비디오를 하나의 모델로 통합",
-  },
-  {
-    date: "2026.09.04",
-    title: "구글, Gemini 2.0 정식 출시",
-    description: "더 강력한 추론과 긴 컨텍스트 지원",
-  },
-  {
-    date: "2026.09.03",
-    title: "Anthropic, Claude의 새 기능 공개",
-    description: "컴퓨터 작업을 수행하는 에이전트 기능 강화",
-  },
-  {
-    date: "2026.09.01",
-    title: "국내 AI 스타트업 3곳, 글로벌 투자 유치",
-    description: "K-AI의 새로운 가능성에 주목",
-  },
 ];
 
 const practiceStories = [
@@ -108,7 +90,9 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function Home() {
+export default async function Home() {
+  const aiUpdates = (await getAiUpdates()).slice(0, 4);
+
   return (
     <main className="mx-auto w-full max-w-[1440px] px-5 pt-4 pb-8 text-[var(--navy)] sm:px-7 lg:px-10 xl:px-12">
       <section className="grid gap-6 border-b border-[color:rgb(9_41_68_/_18%)] pb-5 lg:grid-cols-[minmax(0,0.39fr)_minmax(0,0.61fr)] lg:items-stretch lg:gap-9">
@@ -215,29 +199,48 @@ export default function Home() {
         <div className="border-t border-[color:rgb(9_41_68_/_14%)] py-5 lg:border-t-0 lg:px-6">
           <div className="flex items-center justify-between">
             <SectionHeading>AI UPDATE</SectionHeading>
-            <span className="text-xs text-[var(--terracotta)]">더보기 →</span>
+            <Link
+              href="/ai-update"
+              className="text-xs text-[var(--terracotta)] transition-opacity hover:opacity-60"
+            >
+              더보기 →
+            </Link>
           </div>
 
-          <div className="mt-3 divide-y divide-[color:rgb(9_41_68_/_12%)] border-t border-[color:rgb(9_41_68_/_12%)]">
-            {aiUpdates.map((update) => (
-              <article
-                key={update.title}
-                className="grid grid-cols-[80px_1fr] gap-3 py-3"
-              >
-                <time className="text-[11px] opacity-48" dateTime={update.date}>
-                  {update.date}
-                </time>
-                <div>
-                  <h3 className="font-editorial text-sm leading-snug font-semibold">
-                    {update.title}
-                  </h3>
-                  <p className="mt-0.5 text-[11px] leading-4 opacity-52">
-                    {update.description}
-                  </p>
-                </div>
-              </article>
-            ))}
-          </div>
+          {aiUpdates.length > 0 ? (
+            <div className="mt-3 divide-y divide-[color:rgb(9_41_68_/_12%)] border-t border-[color:rgb(9_41_68_/_12%)]">
+              {aiUpdates.map((update) => (
+                <article
+                  key={update._id}
+                  className="grid grid-cols-[80px_1fr] gap-3 py-3"
+                >
+                  <time
+                    className="text-[11px] opacity-48"
+                    dateTime={update.publishedAt}
+                  >
+                    {formatUpdateDate(update.publishedAt)}
+                  </time>
+                  <div>
+                    <h3 className="font-editorial text-sm leading-snug font-semibold">
+                      <Link
+                        href={`/ai-update/${update.slug}`}
+                        className="transition-opacity hover:opacity-60"
+                      >
+                        {update.title}
+                      </Link>
+                    </h3>
+                    <p className="mt-0.5 text-[11px] leading-4 opacity-52">
+                      {update.summary}
+                    </p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 border-y border-[color:rgb(9_41_68_/_12%)] py-8 text-xs leading-5 opacity-50">
+              첫 번째 AI Update를 준비하고 있습니다.
+            </p>
+          )}
         </div>
 
         <div className="border-t border-[color:rgb(9_41_68_/_14%)] py-5 lg:border-t-0 lg:pl-6">

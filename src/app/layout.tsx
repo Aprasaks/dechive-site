@@ -8,8 +8,9 @@ import { SanityLive } from "@/sanity/lib/live";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://dechive.dev"),
   title: "DECHIVE",
-  description: "DECHIVE",
+  description: "AI가 만들고 인간이 검증하는 지식 아카이브, DECHIVE",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
