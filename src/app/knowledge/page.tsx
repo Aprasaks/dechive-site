@@ -32,6 +32,20 @@ function KnowledgeImage({
   );
 }
 
+function splitTitle(title: string) {
+  const separator = " — ";
+  const separatorIndex = title.indexOf(separator);
+
+  if (separatorIndex === -1) {
+    return { headline: title, subheading: null };
+  }
+
+  return {
+    headline: title.slice(0, separatorIndex),
+    subheading: title.slice(separatorIndex + separator.length),
+  };
+}
+
 export default async function KnowledgePage() {
   const posts = await getKnowledgePosts();
   const [featured, ...latest] = posts;
@@ -54,9 +68,11 @@ export default async function KnowledgePage() {
     );
   }
 
+  const { headline, subheading } = splitTitle(featured.title);
+
   return (
     <main className="mx-auto w-full max-w-[1440px] px-5 pt-4 pb-8 text-[var(--navy)] sm:px-7 lg:px-10 xl:px-12">
-      <section className="grid gap-6 border-b border-[color:rgb(9_41_68_/_18%)] pb-6 lg:grid-cols-[minmax(0,0.41fr)_minmax(0,0.59fr)] lg:items-stretch lg:gap-10">
+      <section className="grid gap-6 border-b border-[color:rgb(9_41_68_/_18%)] pb-6 lg:grid-cols-[minmax(0,0.45fr)_minmax(0,0.55fr)] lg:items-stretch lg:gap-10">
         <div className="flex flex-col justify-center py-5 lg:pr-3">
           <div className="flex items-center gap-4 text-xs tracking-[0.08em]">
             <span className="font-bold text-[var(--terracotta)]">
@@ -68,8 +84,15 @@ export default async function KnowledgePage() {
             </time>
           </div>
 
-          <h1 className="font-editorial mt-5 text-[2.1rem] leading-[1.18] font-semibold tracking-[-0.04em] text-balance break-keep sm:text-[2.6rem] lg:text-[2.75rem]">
-            {featured.title}
+          <h1 className="font-editorial mt-5 break-keep">
+            <span className="block text-[2rem] leading-[1.2] font-semibold tracking-[-0.035em] text-balance sm:text-[2.25rem] lg:text-[2.5rem]">
+              {headline}
+            </span>
+            {subheading ? (
+              <span className="mt-3 block text-xl leading-snug font-medium tracking-[-0.025em] opacity-68 sm:text-[1.4rem] lg:text-2xl">
+                {subheading}
+              </span>
+            ) : null}
           </h1>
           <p className="mt-5 max-w-xl text-sm leading-7 opacity-68 sm:text-[15px]">
             {featured.summary}
