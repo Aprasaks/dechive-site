@@ -12,6 +12,8 @@ type Body = {
   text?: string;
   platforms: string[];
   tiktokPrivacy?: string;
+  videoSize?: number;
+  videoType?: string;
 };
 
 type Result = {
@@ -127,12 +129,19 @@ async function publishThreads(connection: ThreadsConnection, body: Body): Promis
 }
 
 async function publishTikTok(connection: TikTokConnection, body: Body): Promise<Result> {
+  if (!body.videoSize || body.videoSize <= 0) {
+    return { platform: "tiktok", status: "failed", message: "영상 크기 정보를 확인할 수 없습니다." };
+  }
+  if (body.videoSize > 64 * 1024 * 1024) {
+    return { platform: "tiktok", status: "failed", message: "수업용 TikTok 업로드는 64MB 이하 영상을 사용하세요." };
+  }
+
   const creatorResponse = await fetch(
     "https://open.tiktokapis.com/v2/post/publish/creator_info/query/",
     {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${connection.accessToken}`,
+        Authorization: \`Bearer \${connection.accessToken}\`,
         "Content-Type": "application/json; charset=UTF-8",
       },
     },
@@ -141,38 +150,106 @@ async function publishTikTok(connection: TikTokConnection, body: Body): Promise<
   if (!creatorResponse.ok || creator?.error?.code !== "ok") {
     return { platform: "tiktok", status: "failed", message: JSON.stringify(creator) };
   }
+
   const allowed = creator?.data?.privacy_level_options || [];
   const privacy = allowed.includes(body.tiktokPrivacy)
     ? body.tiktokPrivacy
-    : allowed[0] || "SELF_ONLY";
+    : allowed.includes("SELF_ONLY")
+      ? "SELF_ONLY"
+      : allowed[0];
+
+  if (!privacy) {
+    return { platform: "tiktok", status: "failed", message: "사용 가능한 TikTok 공개 범위를 가져오지 못했습니다." };
+  }
 
   const initResponse = await fetch(
     "https://open.tiktokapis.com/v2/post/publish/video/init/",
     {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${connection.accessToken}`,
+        Authorization: \`Bearer \${connection.accessToken}\`,
         "Content-Type": "application/json; charset=UTF-8",
       },
       body: JSON.stringify({
         post_info: {
-          title: [body.title, body.text].filter(Boolean).join("\n\n").slice(0, 2000),
+          title: [body.title, body.text].filter(Boolean).join("\\n\\n").slice(0, 2200),
           privacy_level: privacy,
           disable_comment: false,
           disable_duet: false,
           disable_stitch: false,
         },
         source_info: {
-          source: "PULL_FROM_URL",
-          video_url: body.videoUrl,
+          source: "FILE_UPLOAD",
+          video_size: body.videoSize,
+          chunk_size: body.videoSize,
+          total_chunk_count: 1,
         },
       }),
     },
   );
   const initialized = await initResponse.json();
-  return initResponse.ok && initialized?.data?.publish_id
-    ? { platform: "tiktok", status: "submitted", id: initialized.data.publish_id, message: "TikTok 게시 요청이 접수되었습니다." }
-    : { platform: "tiktok", status: "failed", message: JSON.stringify(initialized) };
+  const publishId = initialized?.data?.publish_id;
+  const uploadUrl = initialized?.data?.upload_url;
+  if (!initResponse.ok || !publishId || !uploadUrl) {
+    return { platform: "tiktok", status: "failed", message: JSON.stringify(initialized) };
+  }
+
+  const sourceResponse = await fetch(body.videoUrl);
+  if (!sourceResponse.ok) {
+    return { platform: "tiktok", status: "failed", message: "임시 영상 파일을 읽지 못했습니다." };
+  }
+  const bytes = await sourceResponse.arrayBuffer();
+  if (bytes.byteLength !== body.videoSize) {
+    return { platform: "tiktok", status: "failed", message: "영상 크기가 업로드 정보와 일치하지 않습니다." };
+  }
+
+  const uploadResponse = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": body.videoType || "video/mp4",
+      "Content-Length": String(bytes.byteLength),
+      "Content-Range": \`bytes 0-\${bytes.byteLength - 1}/\${bytes.byteLength}\`,
+    },
+    body: bytes,
+  });
+  if (!uploadResponse.ok && uploadResponse.status !== 206 && uploadResponse.status !== 201) {
+    return { platform: "tiktok", status: "failed", message: await uploadResponse.text() };
+  }
+
+  for (let index = 0; index < 6; index += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    const statusResponse = await fetch(
+      "https://open.tiktokapis.com/v2/post/publish/status/fetch/",
+      {
+        method: "POST",
+        headers: {
+          Authorization: \`Bearer \${connection.accessToken}\`,
+          "Content-Type": "application/json; charset=UTF-8",
+        },
+        body: JSON.stringify({ publish_id: publishId }),
+      },
+    );
+    const statusJson = await statusResponse.json();
+    const current = statusJson?.data?.status;
+    if (current === "PUBLISH_COMPLETE" || current === "SEND_TO_USER_INBOX") {
+      return { platform: "tiktok", status: "published", id: publishId, message: current };
+    }
+    if (current === "FAILED") {
+      return {
+        platform: "tiktok",
+        status: "failed",
+        id: publishId,
+        message: statusJson?.data?.fail_reason || "TikTok 처리 실패",
+      };
+    }
+  }
+
+  return {
+    platform: "tiktok",
+    status: "submitted",
+    id: publishId,
+    message: "TikTok에서 영상을 처리 중입니다.",
+  };
 }
 
 export async function POST(req: NextRequest) {
