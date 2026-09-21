@@ -127,6 +127,8 @@ export default function MultiPostLivePage() {
           text,
           platforms: selected,
           tiktokPrivacy: "SELF_ONLY",
+          videoSize: file.size,
+          videoType: file.type || "video/mp4",
         }),
       });
 
