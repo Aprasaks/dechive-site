@@ -1,7 +1,12 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import { formatUpdateDate } from "@/lib/ai-update";
+import { formatPublishedDate, readingTime } from "@/lib/knowledge";
 import { getAiUpdates } from "@/sanity/lib/ai-update";
+import { getKnowledgePosts } from "@/sanity/lib/knowledge";
+import { knowledgeImageUrl } from "@/sanity/lib/knowledge-image";
+import type { KnowledgeSummary } from "@/sanity/lib/types";
 
 type MockImageProps = {
   label: string;
@@ -9,12 +14,6 @@ type MockImageProps = {
 };
 
 const latestStories = [
-  {
-    category: "KNOWLEDGE",
-    title: "RAG란 무엇인가",
-    description: "외부 지식을 활용하는 AI의 작동 원리와 가능성",
-    meta: "4 min read",
-  },
   {
     category: "LECTURE",
     title: "AI Agent의 구조",
@@ -27,11 +26,6 @@ const latestStories = [
     description: "작은 데이터셋으로 시작하는 실전 가이드",
     meta: "8 min read",
   },
-];
-
-const knowledgeStories = [
-  { title: "좋은 질문이 좋은 데이터셋을 만든다", meta: "4 min read" },
-  { title: "데이터 시대의 바람직한 사고란 무엇인가", meta: "6 min read" },
 ];
 
 const practiceStories = [
@@ -90,8 +84,35 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
+function KnowledgeImage({
+  post,
+  priority = false,
+  sizes,
+}: {
+  post: KnowledgeSummary;
+  priority?: boolean;
+  sizes: string;
+}) {
+  return (
+    <Image
+      src={knowledgeImageUrl(post.thumbnail, 1600, 900)}
+      alt={post.thumbnail.alt}
+      fill
+      loading={priority ? "eager" : "lazy"}
+      fetchPriority={priority ? "high" : "auto"}
+      sizes={sizes}
+      className="object-cover"
+    />
+  );
+}
+
 export default async function Home() {
-  const aiUpdates = (await getAiUpdates()).slice(0, 4);
+  const [knowledgePosts, allAiUpdates] = await Promise.all([
+    getKnowledgePosts(),
+    getAiUpdates(),
+  ]);
+  const aiUpdates = allAiUpdates.slice(0, 4);
+  const [featuredKnowledge, ...moreKnowledge] = knowledgePosts;
 
   return (
     <main className="mx-auto w-full max-w-[1440px] px-5 pt-4 pb-8 text-[var(--navy)] sm:px-7 lg:px-10 xl:px-12">
@@ -99,48 +120,112 @@ export default async function Home() {
         <div className="flex flex-col justify-center py-4 lg:pr-3">
           <div className="mb-4 flex items-center gap-4 text-xs tracking-[0.08em]">
             <span className="font-bold text-[var(--terracotta)]">
-              KNOWLEDGE
+              {featuredKnowledge?.category?.toUpperCase() ?? "KNOWLEDGE"}
             </span>
             <span className="h-px w-5 bg-[var(--terracotta)]" />
-            <time className="opacity-55" dateTime="2026-09-06">
-              2026.09.06
+            <time
+              className="opacity-55"
+              dateTime={featuredKnowledge?.publishedAt ?? "2026-09-06"}
+            >
+              {featuredKnowledge
+                ? formatPublishedDate(featuredKnowledge.publishedAt)
+                : "2026.09.06"}
             </time>
           </div>
 
-          <h1 className="font-editorial text-[clamp(2.35rem,3.2vw,3.25rem)] leading-[1.14] font-semibold tracking-[-0.045em] lg:whitespace-nowrap">
-            Dataset이란 무엇인가
+          <h1 className="font-editorial text-[clamp(2rem,2.8vw,2.85rem)] leading-[1.16] font-semibold tracking-[-0.04em] text-balance break-keep">
+            {featuredKnowledge?.title ?? "Dataset이란 무엇인가"}
           </h1>
           <p className="mt-4 max-w-[35rem] text-[15px] leading-7 opacity-72 sm:text-base">
-            데이터셋은 단순한 데이터의 모음이 아니라, 세상을 이해하고 문제를
-            해결하기 위한 출발점입니다. 무엇을 담고, 어떻게 만들며, 어떤 가치를
-            가질 수 있는지 데이터셋의 본질을 살펴봅니다.
+            {featuredKnowledge?.summary ??
+              "데이터셋은 단순한 데이터의 모음이 아니라, 세상을 이해하고 문제를 해결하기 위한 출발점입니다. 무엇을 담고, 어떻게 만들며, 어떤 가치를 가질 수 있는지 데이터셋의 본질을 살펴봅니다."}
           </p>
-          <button
-            type="button"
+          <Link
+            href={
+              featuredKnowledge
+                ? `/knowledge/${featuredKnowledge.slug}`
+                : "/knowledge"
+            }
             className="mt-5 w-fit bg-[var(--terracotta)] px-6 py-3 text-sm font-semibold text-[#fffaf2]"
           >
             읽어보기 <span aria-hidden="true">→</span>
-          </button>
+          </Link>
         </div>
 
-        <MockImage
-          label="FEATURED MOCK IMAGE"
-          className="min-h-64 lg:min-h-[320px]"
-        />
+        {featuredKnowledge ? (
+          <Link
+            href={`/knowledge/${featuredKnowledge.slug}`}
+            className="relative block min-h-64 overflow-hidden border border-[color:rgb(9_41_68_/_14%)] lg:min-h-[320px]"
+            aria-label={`${featuredKnowledge.title} 읽기`}
+          >
+            <KnowledgeImage
+              post={featuredKnowledge}
+              priority
+              sizes="(min-width: 1024px) 61vw, 100vw"
+            />
+          </Link>
+        ) : (
+          <MockImage
+            label="FEATURED MOCK IMAGE"
+            className="min-h-64 lg:min-h-[320px]"
+          />
+        )}
       </section>
 
       <section className="border-b border-[color:rgb(9_41_68_/_18%)] py-4">
         <SectionHeading>LATEST</SectionHeading>
         <div className="mt-3 grid divide-y divide-[color:rgb(9_41_68_/_14%)] lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+          {featuredKnowledge ? (
+            <article className="grid grid-cols-[42%_1fr] gap-4 py-3 lg:py-0 lg:pr-6">
+              <Link
+                href={`/knowledge/${featuredKnowledge.slug}`}
+                className="relative block aspect-[16/10] overflow-hidden"
+                aria-label={`${featuredKnowledge.title} 읽기`}
+              >
+                <KnowledgeImage
+                  post={featuredKnowledge}
+                  sizes="(min-width: 1024px) 14vw, 42vw"
+                />
+              </Link>
+              <div className="flex min-w-0 flex-col justify-center">
+                <p className="text-[10px] font-bold tracking-[0.14em] text-[var(--terracotta)]">
+                  KNOWLEDGE
+                </p>
+                <h3 className="font-editorial mt-1.5 text-lg leading-snug font-semibold">
+                  <Link
+                    href={`/knowledge/${featuredKnowledge.slug}`}
+                    className="transition-opacity hover:opacity-60"
+                  >
+                    {featuredKnowledge.title}
+                  </Link>
+                </h3>
+                <p className="mt-1 text-xs leading-5 opacity-68">
+                  {featuredKnowledge.summary}
+                </p>
+                <p className="mt-1 text-xs opacity-48">
+                  {readingTime(featuredKnowledge.bodyText)} min read
+                </p>
+              </div>
+            </article>
+          ) : (
+            <article className="grid grid-cols-[42%_1fr] gap-4 py-3 lg:py-0 lg:pr-6">
+              <MockImage label="MOCK IMAGE" className="aspect-[16/10]" />
+              <div className="flex min-w-0 flex-col justify-center">
+                <p className="text-[10px] font-bold tracking-[0.14em] text-[var(--terracotta)]">
+                  KNOWLEDGE
+                </p>
+                <h3 className="font-editorial mt-1.5 text-lg leading-snug font-semibold">
+                  첫 Knowledge를 준비하고 있습니다
+                </h3>
+              </div>
+            </article>
+          )}
+
           {latestStories.map((story, index) => (
             <article
               key={story.title}
               className={`grid grid-cols-[42%_1fr] gap-4 py-3 lg:py-0 ${
-                index === 0
-                  ? "lg:pr-6"
-                  : index === latestStories.length - 1
-                    ? "lg:pl-6"
-                    : "lg:px-6"
+                index === latestStories.length - 1 ? "lg:pl-6" : "lg:px-6"
               }`}
             >
               <MockImage label="MOCK IMAGE" className="aspect-[16/10]" />
@@ -165,35 +250,82 @@ export default async function Home() {
         <div className="py-5 lg:pr-6">
           <div className="flex items-center justify-between">
             <SectionHeading>KNOWLEDGE</SectionHeading>
-            <span className="text-xs text-[var(--terracotta)]">더보기 →</span>
+            <Link
+              href="/knowledge"
+              className="text-xs text-[var(--terracotta)] transition-opacity hover:opacity-60"
+            >
+              더보기 →
+            </Link>
           </div>
 
-          <MockImage label="MOCK IMAGE" className="mt-3 aspect-[16/8]" />
-          <h3 className="font-editorial mt-3 text-lg font-semibold">
-            지식은 어떻게 쌓이고 검증되는가
-          </h3>
-          <p className="mt-1 text-xs leading-5 opacity-62">
-            좋은 지식은 단순히 많이 아는 것이 아니라, 끊임없이 묻고 확인하고
-            다시 설명하는 과정에서 만들어집니다.
-          </p>
-          <p className="mt-1.5 text-xs opacity-48">5 min read</p>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-            {knowledgeStories.map((story) => (
-              <article
-                key={story.title}
-                className="grid grid-cols-[72px_1fr] gap-3 border-t border-[color:rgb(9_41_68_/_12%)] pt-3"
+          {featuredKnowledge ? (
+            <>
+              <Link
+                href={`/knowledge/${featuredKnowledge.slug}`}
+                className="relative mt-3 block aspect-[16/8] overflow-hidden border border-[color:rgb(9_41_68_/_14%)]"
+                aria-label={`${featuredKnowledge.title} 읽기`}
               >
-                <MockImage label="MOCK" className="aspect-[4/3]" />
-                <div>
-                  <h4 className="font-editorial text-sm leading-snug font-semibold">
-                    {story.title}
-                  </h4>
-                  <p className="mt-1 text-[11px] opacity-48">{story.meta}</p>
+                <KnowledgeImage
+                  post={featuredKnowledge}
+                  sizes="(min-width: 1024px) 31vw, 100vw"
+                />
+              </Link>
+              <h3 className="font-editorial mt-3 text-lg font-semibold">
+                <Link
+                  href={`/knowledge/${featuredKnowledge.slug}`}
+                  className="transition-opacity hover:opacity-60"
+                >
+                  {featuredKnowledge.title}
+                </Link>
+              </h3>
+              <p className="mt-1 text-xs leading-5 opacity-62">
+                {featuredKnowledge.summary}
+              </p>
+              <p className="mt-1.5 text-xs opacity-48">
+                {readingTime(featuredKnowledge.bodyText)} min read
+              </p>
+
+              {moreKnowledge.length > 0 ? (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                  {moreKnowledge.slice(0, 2).map((post) => (
+                    <article
+                      key={post._id}
+                      className="grid grid-cols-[72px_1fr] gap-3 border-t border-[color:rgb(9_41_68_/_12%)] pt-3"
+                    >
+                      <Link
+                        href={`/knowledge/${post.slug}`}
+                        className="relative block aspect-[4/3] overflow-hidden"
+                        aria-label={`${post.title} 읽기`}
+                      >
+                        <KnowledgeImage post={post} sizes="72px" />
+                      </Link>
+                      <div>
+                        <h4 className="font-editorial text-sm leading-snug font-semibold">
+                          <Link
+                            href={`/knowledge/${post.slug}`}
+                            className="transition-opacity hover:opacity-60"
+                          >
+                            {post.title}
+                          </Link>
+                        </h4>
+                        <p className="mt-1 text-[11px] opacity-48">
+                          {readingTime(post.bodyText)} min read
+                        </p>
+                      </div>
+                    </article>
+                  ))}
                 </div>
-              </article>
-            ))}
-          </div>
+              ) : (
+                <p className="mt-4 border-t border-[color:rgb(9_41_68_/_12%)] pt-3 text-[11px] opacity-48">
+                  다음 Knowledge 글을 준비하고 있습니다.
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="mt-3 border-y border-[color:rgb(9_41_68_/_12%)] py-8 text-xs leading-5 opacity-50">
+              첫 번째 Knowledge를 준비하고 있습니다.
+            </p>
+          )}
         </div>
 
         <div className="border-t border-[color:rgb(9_41_68_/_14%)] py-5 lg:border-t-0 lg:px-6">

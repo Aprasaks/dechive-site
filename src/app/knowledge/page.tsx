@@ -24,7 +24,8 @@ function KnowledgeImage({
       src={knowledgeImageUrl(post.thumbnail, 1600, 900)}
       alt={post.thumbnail.alt}
       fill
-      priority={priority}
+      loading={priority ? "eager" : "lazy"}
+      fetchPriority={priority ? "high" : "auto"}
       sizes="(min-width: 1024px) 58vw, 100vw"
       className="object-cover"
     />
@@ -67,7 +68,7 @@ export default async function KnowledgePage() {
             </time>
           </div>
 
-          <h1 className="font-editorial mt-5 text-[2.25rem] leading-[1.16] font-semibold tracking-[-0.045em] sm:text-5xl lg:text-[3.25rem]">
+          <h1 className="font-editorial mt-5 text-[2.1rem] leading-[1.18] font-semibold tracking-[-0.04em] text-balance break-keep sm:text-[2.6rem] lg:text-[2.75rem]">
             {featured.title}
           </h1>
           <p className="mt-5 max-w-xl text-sm leading-7 opacity-68 sm:text-[15px]">
