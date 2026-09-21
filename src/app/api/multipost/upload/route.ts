@@ -9,7 +9,7 @@ export async function POST(request: Request) {
       onBeforeGenerateToken: async (pathname) => {
         return {
           allowedContentTypes: ["video/mp4", "video/quicktime", "video/webm"],
-          maximumSizeInBytes: 300 * 1024 * 1024,
+          maximumSizeInBytes: 64 * 1024 * 1024,
           addRandomSuffix: true,
           tokenPayload: JSON.stringify({ pathname }),
         };
