@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
-import { formatPublishedDate, readingTime } from "@/lib/knowledge";
+import {
+  formatPublishedDate,
+  readingTime,
+  splitKnowledgeTitle,
+} from "@/lib/knowledge";
 import { getKnowledgePosts } from "@/sanity/lib/knowledge";
 import { knowledgeImageUrl } from "@/sanity/lib/knowledge-image";
 import type { KnowledgeSummary } from "@/sanity/lib/types";
@@ -32,20 +36,6 @@ function KnowledgeImage({
   );
 }
 
-function splitTitle(title: string) {
-  const separator = " — ";
-  const separatorIndex = title.indexOf(separator);
-
-  if (separatorIndex === -1) {
-    return { headline: title, subheading: null };
-  }
-
-  return {
-    headline: title.slice(0, separatorIndex),
-    subheading: title.slice(separatorIndex + separator.length),
-  };
-}
-
 export default async function KnowledgePage() {
   const posts = await getKnowledgePosts();
   const [featured, ...latest] = posts;
@@ -68,7 +58,7 @@ export default async function KnowledgePage() {
     );
   }
 
-  const { headline, subheading } = splitTitle(featured.title);
+  const { headline, subheading } = splitKnowledgeTitle(featured.title);
 
   return (
     <main className="mx-auto w-full max-w-[1440px] px-5 pt-4 pb-8 text-[var(--navy)] sm:px-7 lg:px-10 xl:px-12">

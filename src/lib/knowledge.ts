@@ -15,3 +15,17 @@ export function readingTime(text: string) {
 
   return Math.max(1, Math.ceil(compactLength / 500));
 }
+
+export function splitKnowledgeTitle(title: string) {
+  const separator = " — ";
+  const separatorIndex = title.indexOf(separator);
+
+  if (separatorIndex === -1) {
+    return { headline: title, subheading: null };
+  }
+
+  return {
+    headline: title.slice(0, separatorIndex),
+    subheading: title.slice(separatorIndex + separator.length),
+  };
+}

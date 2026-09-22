@@ -4,7 +4,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { KnowledgeBody } from "@/components/knowledge-body";
-import { formatPublishedDate, readingTime } from "@/lib/knowledge";
+import {
+  formatPublishedDate,
+  readingTime,
+  splitKnowledgeTitle,
+} from "@/lib/knowledge";
 import { getKnowledgePost, getKnowledgePosts } from "@/sanity/lib/knowledge";
 import { knowledgeImageUrl } from "@/sanity/lib/knowledge-image";
 
@@ -53,10 +57,12 @@ export default async function KnowledgeDetailPage({
     notFound();
   }
 
+  const { headline, subheading } = splitKnowledgeTitle(post.title);
+
   return (
     <main className="mx-auto w-full max-w-[1240px] px-5 pt-7 pb-16 text-[var(--navy)] sm:px-7 lg:px-10 xl:px-12">
       <article>
-        <header className="grid gap-7 border-b border-[color:rgb(9_41_68_/_18%)] pb-8 lg:grid-cols-[minmax(0,0.44fr)_minmax(0,0.56fr)] lg:items-center lg:gap-12">
+        <header className="grid gap-7 border-b border-[color:rgb(9_41_68_/_18%)] pb-8 lg:grid-cols-[minmax(0,0.46fr)_minmax(0,0.54fr)] lg:items-center lg:gap-12">
           <div>
             <div className="flex flex-wrap items-center gap-3 text-xs tracking-[0.07em]">
               <span className="font-bold text-[var(--terracotta)]">
@@ -72,8 +78,15 @@ export default async function KnowledgeDetailPage({
               </span>
             </div>
 
-            <h1 className="font-editorial mt-5 text-[2.45rem] leading-[1.14] font-semibold tracking-[-0.045em] sm:text-5xl lg:text-[3.5rem]">
-              {post.title}
+            <h1 className="font-editorial mt-5 break-keep">
+              <span className="block text-[2.15rem] leading-[1.18] font-semibold tracking-[-0.04em] text-balance sm:text-[2.5rem] lg:text-[2.75rem]">
+                {headline}
+              </span>
+              {subheading ? (
+                <span className="mt-3 block text-xl leading-snug font-medium tracking-[-0.025em] opacity-68 sm:text-2xl lg:text-[1.625rem]">
+                  {subheading}
+                </span>
+              ) : null}
             </h1>
             <p className="mt-5 text-sm leading-7 opacity-68 sm:text-[15px]">
               {post.summary}
@@ -86,8 +99,9 @@ export default async function KnowledgeDetailPage({
                 src={knowledgeImageUrl(post.thumbnail, 1600, 900)}
                 alt={post.thumbnail.alt}
                 fill
-                priority
-                sizes="(min-width: 1024px) 52vw, 100vw"
+                loading="eager"
+                fetchPriority="high"
+                sizes="(min-width: 1024px) 50vw, 100vw"
                 className="object-cover"
               />
             </div>
