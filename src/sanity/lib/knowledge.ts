@@ -1,6 +1,7 @@
 import { defineQuery } from "next-sanity";
 import { cache } from "react";
 
+import { client } from "./client";
 import { sanityFetch } from "./live";
 import type { KnowledgePost, KnowledgeSummary } from "./types";
 
@@ -56,9 +57,15 @@ const knowledgePostQuery = defineQuery(`
 `);
 
 export const getKnowledgePosts = cache(async () => {
-  const { data } = await sanityFetch({ query: knowledgePostsQuery });
-
-  return data as KnowledgeSummary[];
+  return client.fetch<KnowledgeSummary[]>(
+    knowledgePostsQuery,
+    {},
+    {
+      perspective: "published",
+      useCdn: false,
+      next: { revalidate: 60, tags: ["knowledge"] },
+    },
+  );
 });
 
 export const getKnowledgePost = cache(async (slug: string) => {

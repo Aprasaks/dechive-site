@@ -6,5 +6,7 @@ export const client = createClient({
   projectId,
   dataset,
   apiVersion,
-  useCdn: true, // Set to false if statically generating pages, using ISR or tag-based revalidation
+  // Next.js handles caching through Sanity Live and ISR. Reading from the
+  // origin prevents a stale Sanity CDN response from hiding new publications.
+  useCdn: false,
 });

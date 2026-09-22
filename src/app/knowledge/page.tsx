@@ -16,6 +16,10 @@ export const metadata: Metadata = {
   description: "질문하고 확인하며 쌓아가는 DECHIVE의 지식 아카이브",
 };
 
+// Sanity Live keeps active sessions fresh. This timed fallback also catches
+// publications that happen while no browser is connected to the live stream.
+export const revalidate = 60;
+
 function KnowledgeImage({
   post,
   priority = false,

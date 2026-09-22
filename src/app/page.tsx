@@ -12,6 +12,10 @@ import { getKnowledgePosts } from "@/sanity/lib/knowledge";
 import { knowledgeImageUrl } from "@/sanity/lib/knowledge-image";
 import type { KnowledgeSummary } from "@/sanity/lib/types";
 
+// Sanity Live keeps active sessions fresh. This timed fallback also catches
+// publications that happen while no browser is connected to the live stream.
+export const revalidate = 60;
+
 type MockImageProps = {
   label: string;
   className?: string;
