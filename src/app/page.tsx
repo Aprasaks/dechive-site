@@ -2,7 +2,11 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { formatUpdateDate } from "@/lib/ai-update";
-import { formatPublishedDate, readingTime } from "@/lib/knowledge";
+import {
+  formatPublishedDate,
+  readingTime,
+  splitKnowledgeTitle,
+} from "@/lib/knowledge";
 import { getAiUpdates } from "@/sanity/lib/ai-update";
 import { getKnowledgePosts } from "@/sanity/lib/knowledge";
 import { knowledgeImageUrl } from "@/sanity/lib/knowledge-image";
@@ -113,10 +117,13 @@ export default async function Home() {
   ]);
   const aiUpdates = allAiUpdates.slice(0, 4);
   const [featuredKnowledge, ...moreKnowledge] = knowledgePosts;
+  const { headline, subheading } = splitKnowledgeTitle(
+    featuredKnowledge?.title ?? "Dataset이란 무엇인가",
+  );
 
   return (
     <main className="mx-auto w-full max-w-[1440px] px-5 pt-4 pb-8 text-[var(--navy)] sm:px-7 lg:px-10 xl:px-12">
-      <section className="grid gap-6 border-b border-[color:rgb(9_41_68_/_18%)] pb-5 lg:grid-cols-[minmax(0,0.39fr)_minmax(0,0.61fr)] lg:items-stretch lg:gap-9">
+      <section className="grid gap-6 border-b border-[color:rgb(9_41_68_/_18%)] pb-5 lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] lg:items-stretch lg:gap-9">
         <div className="flex flex-col justify-center py-4 lg:pr-3">
           <div className="mb-4 flex items-center gap-4 text-xs tracking-[0.08em]">
             <span className="font-bold text-[var(--terracotta)]">
@@ -133,8 +140,15 @@ export default async function Home() {
             </time>
           </div>
 
-          <h1 className="font-editorial text-[clamp(2rem,2.8vw,2.85rem)] leading-[1.16] font-semibold tracking-[-0.04em] text-balance break-keep">
-            {featuredKnowledge?.title ?? "Dataset이란 무엇인가"}
+          <h1 className="font-editorial break-keep">
+            <span className="block text-[2rem] leading-[1.18] font-semibold tracking-[-0.035em] text-balance sm:text-[2.2rem] lg:text-[2.45rem]">
+              {headline}
+            </span>
+            {subheading ? (
+              <span className="mt-2.5 block text-xl leading-snug font-medium tracking-[-0.025em] opacity-68 sm:text-[1.3rem] lg:text-[1.45rem]">
+                {subheading}
+              </span>
+            ) : null}
           </h1>
           <p className="mt-4 max-w-[35rem] text-[15px] leading-7 opacity-72 sm:text-base">
             {featuredKnowledge?.summary ??
@@ -161,7 +175,7 @@ export default async function Home() {
             <KnowledgeImage
               post={featuredKnowledge}
               priority
-              sizes="(min-width: 1024px) 61vw, 100vw"
+              sizes="(min-width: 1024px) 58vw, 100vw"
             />
           </Link>
         ) : (
