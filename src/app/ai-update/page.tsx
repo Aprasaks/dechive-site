@@ -17,6 +17,9 @@ export const metadata: Metadata = {
     "중요한 AI 업데이트와 그 변화가 만드는 실제 가능성을 설명하는 DECHIVE",
 };
 
+// Keep the published list fresh even when no Sanity Live session is open.
+export const revalidate = 60;
+
 function UpdateImage({
   update,
   priority = false,

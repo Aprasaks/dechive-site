@@ -1,6 +1,7 @@
 import { defineQuery } from "next-sanity";
 import { cache } from "react";
 
+import { client } from "./client";
 import { sanityFetch } from "./live";
 import type { AiUpdatePost, AiUpdateSummary } from "./types";
 
@@ -55,9 +56,15 @@ const aiUpdateQuery = defineQuery(`
 `);
 
 export const getAiUpdates = cache(async () => {
-  const { data } = await sanityFetch({ query: aiUpdatesQuery });
-
-  return data as AiUpdateSummary[];
+  return client.fetch<AiUpdateSummary[]>(
+    aiUpdatesQuery,
+    {},
+    {
+      perspective: "published",
+      useCdn: false,
+      next: { revalidate: 60, tags: ["ai-update"] },
+    },
+  );
 });
 
 export const getAiUpdate = cache(async (slug: string) => {

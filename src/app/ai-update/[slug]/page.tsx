@@ -92,7 +92,7 @@ export default async function AiUpdateDetailPage({
               </span>
             </div>
 
-            <h1 className="font-editorial mt-5 text-[2.45rem] leading-[1.14] font-semibold tracking-[-0.045em] sm:text-5xl lg:text-[3rem] lg:whitespace-nowrap">
+            <h1 className="font-editorial mt-5 text-[2.45rem] leading-[1.14] font-semibold tracking-[-0.045em] sm:text-5xl lg:text-[2.25rem] xl:text-[2.5rem] xl:whitespace-nowrap">
               {update.title}
             </h1>
             <p className="mt-5 text-sm leading-7 opacity-68 sm:text-[15px]">
