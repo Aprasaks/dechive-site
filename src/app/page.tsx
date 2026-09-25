@@ -49,26 +49,14 @@ const practiceStories = [
   },
 ];
 
+const bookCover =
+  "https://contents.kyobobook.co.kr/sih/fit-in/150x0/pdt/480D260993540.jpg";
+
 const books = [
   {
-    title: "만들기 전에 검증하라",
-    description: "데이터, AI, 서비스의 올바른 시작",
-    meta: "이호준 지음 · 2025.05.26",
-  },
-  {
-    title: "AI 시대의 생각법",
-    description: "더 나은 판단을 위한 12가지 원칙",
-    meta: "김서영 지음 · 2025.03.14",
-  },
-  {
-    title: "데이터가 묻는 질문들",
-    description: "숫자 너머의 인간과 사회",
-    meta: "박민정 지음 · 2024.11.02",
-  },
-  {
-    title: "기계와 인간의 공존",
-    description: "AI와 함께 살아가는 법",
-    meta: "정우현 지음 · 2024.08.20",
+    title: "만들기전에 검증하라",
+    description: "바이브코딩, 1인기업, AI SaaS의 착각들",
+    meta: "윤강혁 · e퍼플 · 2026.09.04",
   },
 ];
 
@@ -424,30 +412,45 @@ export default async function Home() {
       <section className="py-5">
         <div className="flex items-center justify-between">
           <SectionHeading>BOOKS</SectionHeading>
-          <span className="text-xs text-[var(--terracotta)]">더보기 →</span>
+          <Link
+            href="/books"
+            className="text-xs text-[var(--terracotta)] transition-opacity hover:opacity-60"
+          >
+            자세히 보기 →
+          </Link>
         </div>
 
-        <div className="mt-3 grid gap-5 md:grid-cols-[170px_1fr] xl:grid-cols-[170px_repeat(4,minmax(0,1fr))] xl:gap-0 xl:divide-x xl:divide-[color:rgb(9_41_68_/_14%)]">
-          <p className="text-sm leading-6 opacity-60 xl:pr-6">
+        <div className="mt-3 grid gap-5 md:grid-cols-[170px_minmax(0,1fr)]">
+          <p className="text-sm leading-6 opacity-60 md:pr-6">
             좋은 책은 좋은 질문을 남깁니다.
           </p>
 
           {books.map((book) => (
-            <article
+            <Link
               key={book.title}
-              className="grid grid-cols-[58px_1fr] items-center gap-3 md:pl-5"
+              href="/books"
+              className="grid max-w-xl grid-cols-[72px_1fr] items-center gap-4 transition-opacity hover:opacity-70 md:border-l md:border-[color:rgb(9_41_68_/_14%)] md:pl-6"
+              aria-label={`${book.title} 자세히 보기`}
             >
-              <MockImage label="BOOK" className="aspect-[3/4]" />
+              <div className="relative aspect-[3/4] overflow-hidden border border-[color:rgb(9_41_68_/_14%)] bg-[#e8ddc9]">
+                <Image
+                  src={bookCover}
+                  alt="만들기전에 검증하라 표지"
+                  fill
+                  sizes="72px"
+                  className="object-cover"
+                />
+              </div>
               <div className="min-w-0">
-                <h3 className="font-editorial text-sm leading-snug font-semibold">
+                <h3 className="font-editorial text-base leading-snug font-semibold">
                   {book.title}
                 </h3>
-                <p className="mt-1 text-[11px] leading-4 opacity-58">
+                <p className="mt-1 text-xs leading-5 opacity-58">
                   {book.description}
                 </p>
-                <p className="mt-1 text-[10px] opacity-42">{book.meta}</p>
+                <p className="mt-1.5 text-[11px] opacity-42">{book.meta}</p>
               </div>
-            </article>
+            </Link>
           ))}
         </div>
       </section>
