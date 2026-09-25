@@ -2,7 +2,6 @@ import { defineQuery } from "next-sanity";
 import { cache } from "react";
 
 import { client } from "./client";
-import { sanityFetch } from "./live";
 import type { KnowledgePost, KnowledgeSummary } from "./types";
 
 const publishedFilter = `
@@ -69,10 +68,13 @@ export const getKnowledgePosts = cache(async () => {
 });
 
 export const getKnowledgePost = cache(async (slug: string) => {
-  const { data } = await sanityFetch({
-    query: knowledgePostQuery,
-    params: { slug },
-  });
-
-  return data as KnowledgePost | null;
+  return client.fetch<KnowledgePost | null>(
+    knowledgePostQuery,
+    { slug },
+    {
+      perspective: "published",
+      useCdn: false,
+      next: { revalidate: 60, tags: [`knowledge:${slug}`] },
+    },
+  );
 });
