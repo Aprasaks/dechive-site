@@ -2,7 +2,6 @@ import { defineQuery } from "next-sanity";
 import { cache } from "react";
 
 import { client } from "./client";
-import { sanityFetch } from "./live";
 import type { AiUpdatePost, AiUpdateSummary } from "./types";
 
 const publishedFilter = `
@@ -68,10 +67,13 @@ export const getAiUpdates = cache(async () => {
 });
 
 export const getAiUpdate = cache(async (slug: string) => {
-  const { data } = await sanityFetch({
-    query: aiUpdateQuery,
-    params: { slug },
-  });
-
-  return data as AiUpdatePost | null;
+  return client.fetch<AiUpdatePost | null>(
+    aiUpdateQuery,
+    { slug },
+    {
+      perspective: "published",
+      useCdn: false,
+      next: { revalidate: 60, tags: [`ai-update:${slug}`] },
+    },
+  );
 });
