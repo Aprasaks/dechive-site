@@ -35,7 +35,7 @@ function KnowledgeImage({
       loading={priority ? "eager" : "lazy"}
       fetchPriority={priority ? "high" : "auto"}
       sizes="(min-width: 1024px) 58vw, 100vw"
-      className="object-cover"
+      className="object-contain"
     />
   );
 }
@@ -101,7 +101,7 @@ export default async function KnowledgePage() {
 
         <Link
           href={`/knowledge/${featured.slug}`}
-          className="relative block aspect-[16/9] overflow-hidden border border-[color:rgb(9_41_68_/_14%)] lg:aspect-auto lg:min-h-[290px]"
+          className="relative block aspect-[16/9] overflow-hidden border border-[color:rgb(9_41_68_/_14%)] bg-[var(--background)]"
           aria-label={`${featured.title} 읽기`}
         >
           <KnowledgeImage post={featured} priority />
@@ -122,7 +122,7 @@ export default async function KnowledgePage() {
               >
                 <Link
                   href={`/knowledge/${post.slug}`}
-                  className="relative block aspect-[16/7] overflow-hidden border border-[color:rgb(9_41_68_/_14%)] sm:aspect-[16/6]"
+                  className="relative block aspect-[16/9] overflow-hidden border border-[color:rgb(9_41_68_/_14%)] bg-[var(--background)]"
                   aria-label={`${post.title} 읽기`}
                 >
                   <KnowledgeImage post={post} />

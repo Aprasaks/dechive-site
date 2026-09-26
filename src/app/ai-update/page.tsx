@@ -35,7 +35,7 @@ function UpdateImage({
       loading={priority ? "eager" : "lazy"}
       fetchPriority={priority ? "high" : "auto"}
       sizes="(min-width: 1024px) 57vw, 100vw"
-      className="object-cover"
+      className="object-contain"
     />
   );
 }
@@ -94,7 +94,7 @@ export default async function AiUpdatePage() {
 
         <Link
           href={`/ai-update/${featured.slug}`}
-          className="relative block aspect-[16/8] overflow-hidden border border-[color:rgb(9_41_68_/_14%)] lg:aspect-auto lg:min-h-[272px]"
+          className="relative block aspect-[16/9] overflow-hidden border border-[color:rgb(9_41_68_/_14%)] bg-[var(--background)]"
           aria-label={`${featured.title} 자세히 보기`}
         >
           <UpdateImage update={featured} priority />
@@ -123,7 +123,7 @@ export default async function AiUpdatePage() {
                   >
                     <Link
                       href={`/ai-update/${update.slug}`}
-                      className="relative block aspect-[16/7] overflow-hidden border border-[color:rgb(9_41_68_/_14%)]"
+                      className="relative block aspect-[16/9] overflow-hidden border border-[color:rgb(9_41_68_/_14%)] bg-[var(--background)]"
                       aria-label={`${update.title} 자세히 보기`}
                     >
                       <UpdateImage update={update} />

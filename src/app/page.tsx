@@ -97,7 +97,7 @@ function KnowledgeImage({
       loading={priority ? "eager" : "lazy"}
       fetchPriority={priority ? "high" : "auto"}
       sizes={sizes}
-      className="object-cover"
+      className="object-contain"
     />
   );
 }
@@ -161,7 +161,7 @@ export default async function Home() {
         {featuredKnowledge ? (
           <Link
             href={`/knowledge/${featuredKnowledge.slug}`}
-            className="relative block min-h-64 overflow-hidden border border-[color:rgb(9_41_68_/_14%)] lg:min-h-[320px]"
+            className="relative block aspect-[16/9] overflow-hidden border border-[color:rgb(9_41_68_/_14%)] bg-[var(--background)]"
             aria-label={`${featuredKnowledge.title} 읽기`}
           >
             <KnowledgeImage
@@ -171,10 +171,7 @@ export default async function Home() {
             />
           </Link>
         ) : (
-          <MockImage
-            label="FEATURED MOCK IMAGE"
-            className="min-h-64 lg:min-h-[320px]"
-          />
+          <MockImage label="FEATURED MOCK IMAGE" className="aspect-[16/9]" />
         )}
       </section>
 
@@ -185,7 +182,7 @@ export default async function Home() {
             <article className="grid grid-cols-[42%_1fr] gap-4 py-3 lg:py-0 lg:pr-6">
               <Link
                 href={`/knowledge/${featuredKnowledge.slug}`}
-                className="relative block aspect-[16/10] overflow-hidden"
+                className="relative block aspect-[16/9] overflow-hidden bg-[var(--background)]"
                 aria-label={`${featuredKnowledge.title} 읽기`}
               >
                 <KnowledgeImage
@@ -215,7 +212,7 @@ export default async function Home() {
             </article>
           ) : (
             <article className="grid grid-cols-[42%_1fr] gap-4 py-3 lg:py-0 lg:pr-6">
-              <MockImage label="MOCK IMAGE" className="aspect-[16/10]" />
+              <MockImage label="MOCK IMAGE" className="aspect-[16/9]" />
               <div className="flex min-w-0 flex-col justify-center">
                 <p className="text-[10px] font-bold tracking-[0.14em] text-[var(--terracotta)]">
                   KNOWLEDGE
@@ -234,7 +231,7 @@ export default async function Home() {
                 index === latestStories.length - 1 ? "lg:pl-6" : "lg:px-6"
               }`}
             >
-              <MockImage label="MOCK IMAGE" className="aspect-[16/10]" />
+              <MockImage label="MOCK IMAGE" className="aspect-[16/9]" />
               <div className="flex min-w-0 flex-col justify-center">
                 <p className="text-[10px] font-bold tracking-[0.14em] text-[var(--terracotta)]">
                   {story.category}
@@ -268,7 +265,7 @@ export default async function Home() {
             <>
               <Link
                 href={`/knowledge/${featuredKnowledge.slug}`}
-                className="relative mt-3 block aspect-[16/8] overflow-hidden border border-[color:rgb(9_41_68_/_14%)]"
+                className="relative mt-3 block aspect-[16/9] overflow-hidden border border-[color:rgb(9_41_68_/_14%)] bg-[var(--background)]"
                 aria-label={`${featuredKnowledge.title} 읽기`}
               >
                 <KnowledgeImage
@@ -300,7 +297,7 @@ export default async function Home() {
                     >
                       <Link
                         href={`/knowledge/${post.slug}`}
-                        className="relative block aspect-[4/3] overflow-hidden"
+                        className="relative block aspect-[16/9] overflow-hidden bg-[var(--background)]"
                         aria-label={`${post.title} 읽기`}
                       >
                         <KnowledgeImage post={post} sizes="72px" />
