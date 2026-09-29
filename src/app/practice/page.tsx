@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 
 type MockImageProps = {
   label: string;
@@ -9,25 +10,23 @@ const goals = [
   {
     number: "01",
     symbol: "◉",
-    title: "실제 데이터를 불러오고 탐색할 수 있습니다.",
+    title: "원하는 판매 자동화의 흐름과 규칙을 설명할 수 있습니다.",
   },
   {
     number: "02",
     symbol: "▥",
-    title: "데이터를 처리하고 시각화할 수 있습니다.",
+    title: "Meta 앱을 이용해 Instagram 판매 자동화를 제작할 수 있습니다.",
   },
   {
     number: "03",
     symbol: "▤",
-    title: "결과를 해석하고 나만의 인사이트를 정리할 수 있습니다.",
+    title: "추후 기능을 수정할 때 영향을 받는 범위를 정확히 짚을 수 있습니다.",
   },
 ];
 
 const materials = [
-  "노트북 (Jupyter Notebook 권장)",
-  "실습용 데이터 파일 (CSV)",
-  "Python 3.8 이상",
-  "필요한 패키지 설치 (pandas, matplotlib)",
+  "Meta 계정 (Facebook, Instagram)",
+  "판매할 상품 이미지와 영상",
 ];
 
 const steps = [
@@ -83,7 +82,7 @@ const nextPractices = [
 export const metadata: Metadata = {
   title: "Practice | DECHIVE",
   description:
-    "실제 데이터를 직접 다루고 결과를 검증하며 배우는 DECHIVE 실습 페이지",
+    "하나뿐인 상품의 구매 순번과 제한시간을 자동으로 관리하는 SNS 선착순 판매 자동화 실습",
 };
 
 function MockImage({ label, className = "" }: MockImageProps) {
@@ -131,44 +130,44 @@ export default function PracticePage() {
             <span className="opacity-52">HANDS-ON PROJECT</span>
           </div>
 
-          <h1 className="font-editorial mt-4 text-[2.15rem] leading-[1.18] font-semibold tracking-[-0.04em] sm:text-[2.7rem] lg:text-[2.9rem]">
-            직접 만들어보는
+          <h1 className="font-editorial mt-4 text-[1.75rem] leading-[1.22] font-semibold tracking-[-0.04em] sm:text-[2.05rem] lg:text-[2.15rem] xl:text-[2.3rem]">
+            하나뿐인 상품을 파는
             <br />
-            데이터 실습
+            SNS 선착순 판매 자동화
           </h1>
-          <p className="font-editorial mt-2 text-base opacity-80 sm:text-lg">
-            직접 만들고, 결과를 검증하고, 기록하며 더 깊이 배웁니다.
+          <p className="font-editorial mt-2 text-base leading-7 opacity-80 sm:text-lg">
+            댓글 순서대로 구매권을 부여하고, 시간이 지나면 다음 순번으로
+            자동으로 넘깁니다.
           </p>
           <p className="mt-4 max-w-xl text-[13px] leading-6 opacity-66 sm:text-sm">
-            이론만으로는 부족합니다. 실제 데이터를 다루며 코드를 실행하고,
-            결과를 해석하고, 나만의 인사이트를 정리하는 전 과정을 경험해보세요.
-            작은 실습 하나가 큰 변화를 만듭니다.
+            모든 구매 희망자에게 동시에 결제 링크를 보내는 방식이 아닙니다.
+            하나뿐인 상품이기에 댓글 순서대로 구매권을 부여하고, 제한시간이
+            지나면 다음 순번으로 자동 승계되는 판매 자동화 시스템을 만듭니다.
           </p>
           <p className="mt-3 text-[11px] opacity-52 sm:text-xs">
-            난이도 중급 · 12 min read · 준비물: 노트북 / CSV / Python
+            난이도 중급 · 준비물: Meta 계정 / 상품 이미지·영상
           </p>
 
-          <div className="mt-5 flex flex-wrap gap-3">
+          <div className="mt-5">
             <a
               href="#practice-steps"
               className="inline-flex h-9 items-center bg-[var(--terracotta)] px-6 text-xs font-semibold text-[#fffaf2] transition-opacity hover:opacity-85"
             >
               실습 시작하기 →
             </a>
-            <a
-              href="/downloads/practice-example.zip"
-              download
-              className="inline-flex h-9 items-center border border-[var(--terracotta)] px-5 text-xs font-semibold text-[var(--terracotta)] transition-colors hover:bg-[var(--terracotta)] hover:text-[#fffaf2]"
-            >
-              예제 파일 받기 ↓
-            </a>
           </div>
         </div>
 
-        <MockImage
-          label="PRACTICE FEATURED IMAGE"
-          className="aspect-[16/8] lg:aspect-auto lg:min-h-[292px]"
-        />
+        <div className="relative aspect-[16/8] overflow-hidden border border-[color:rgb(9_41_68_/_12%)] bg-[#f7f1e7] lg:aspect-auto lg:min-h-[292px]">
+          <Image
+            src="/images/practice-sns-queue.png"
+            alt="하나뿐인 상품의 댓글 순번과 제한시간 구매권 자동 승계 흐름"
+            fill
+            priority
+            sizes="(max-width: 1024px) 100vw, 60vw"
+            className="object-contain"
+          />
+        </div>
       </section>
 
       <div className="grid lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_350px]">
@@ -210,7 +209,7 @@ export default function PracticePage() {
             >
               준비물
             </NumberedHeading>
-            <ul className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <ul className="mt-3 grid gap-2 sm:grid-cols-2">
               {materials.map((material) => (
                 <li
                   key={material}
