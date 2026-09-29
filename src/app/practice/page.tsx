@@ -148,12 +148,20 @@ export default function PracticePage() {
             난이도 중급 · 준비물: Meta 계정 / 상품 이미지·영상
           </p>
 
-          <div className="mt-5">
+          <div className="mt-5 flex flex-wrap gap-3">
             <a
               href="#practice-steps"
               className="inline-flex h-9 items-center bg-[var(--terracotta)] px-6 text-xs font-semibold text-[#fffaf2] transition-opacity hover:opacity-85"
             >
               실습 시작하기 →
+            </a>
+            <a
+              href="https://studio.dechive.dev/heymi/"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-9 items-center border border-[var(--terracotta)] px-5 text-xs font-semibold text-[var(--terracotta)] transition-colors hover:bg-[var(--terracotta)] hover:text-[#fffaf2]"
+            >
+              프로그램 사용하기 ↗
             </a>
           </div>
         </div>
