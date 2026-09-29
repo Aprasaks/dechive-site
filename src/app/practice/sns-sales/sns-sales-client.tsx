@@ -93,12 +93,12 @@ export function SnsSalesClient() {
         <aside className="space-y-4">
           <section className="border border-[color:rgb(9_41_68_/_13%)] bg-[color:rgb(255_255_255_/_20%)] p-4">
             <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-bold tracking-[0.1em] opacity-45">
-                  INSTAGRAM ACCOUNT
-                </p>
-                <h2 className="mt-1 text-[15px] font-semibold">Instagram 계정</h2>
-              </div>
+              <h2 className="flex items-baseline gap-1.5 text-[15px] font-semibold">
+                <span className="font-handwriting text-[22px] leading-none font-normal tracking-[-0.03em]">
+                  Instagram
+                </span>
+                <span>계정</span>
+              </h2>
               <span
                 className={
                   connected
@@ -118,18 +118,22 @@ export function SnsSalesClient() {
             </div>
 
             {connected ? (
-              <div className="mt-4 border-t border-[color:rgb(9_41_68_/_10%)] pt-3">
+              <div className="mt-3 border-t border-[color:rgb(9_41_68_/_10%)] pt-3">
                 <strong className="block text-[13px]">@instagram</strong>
                 <p className="mt-1 text-[10px] opacity-48">Professional account</p>
               </div>
             ) : (
-              <p className="mt-4 text-[11px] leading-5 opacity-58">
-                Business 또는 Creator 계정을 연결하면 콘텐츠 등록과 판매 자동화를
-                시작할 수 있습니다.
-              </p>
+              <div className="mt-3 space-y-1">
+                <p className="text-[11px] font-semibold leading-5 text-[#b44343]">
+                  Business 또는 Creator 계정만 연결 가능합니다.
+                </p>
+                <p className="text-[10px] leading-5 opacity-52">
+                  계정 연결이 완료되면 콘텐츠 등록과 판매 자동화를 시작할 수 있습니다.
+                </p>
+              </div>
             )}
 
-            <div className="mt-4 flex gap-2">
+            <div className="mt-3 flex gap-2">
               <button
                 type="button"
                 onClick={handleInstagramConnect}
