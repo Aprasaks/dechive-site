@@ -221,20 +221,20 @@ export function SnsSalesClient() {
 
   return (
     <main className="mx-auto w-full max-w-[1440px] px-5 py-5 text-[var(--navy)] sm:px-7 lg:px-10 xl:px-12">
-      <section className="flex flex-wrap items-end justify-between gap-4 border-b border-[color:rgb(9_41_68_/_14%)] pb-4">
+      <section className="flex flex-wrap items-end justify-between gap-4 border-b border-[color:rgb(9_41_68_/_22%)] pb-4">
         <div>
-          <p className="text-[10px] font-bold tracking-[0.14em] text-[var(--terracotta)]">
+          <p className="text-[11px] font-bold tracking-[0.13em] text-[var(--terracotta)]">
             PRACTICE TOOL
           </p>
-          <h1 className="mt-1 text-[22px] font-semibold tracking-[-0.035em] sm:text-[25px]">
+          <h1 className="mt-1 text-[24px] font-semibold tracking-[-0.035em] sm:text-[28px]">
             SNS 판매 자동화
           </h1>
-          <p className="mt-1 max-w-2xl text-[12px] leading-5 opacity-58">
+          <p className="mt-1 max-w-2xl text-[13px] leading-5 text-[color:rgb(9_41_68_/_72%)]">
             Instagram 계정을 연결하고 판매 콘텐츠를 준비합니다. 실제 연결 상태와
             게시 상태만 화면에 표시합니다.
           </p>
         </div>
-        <span className="border border-[color:rgb(9_41_68_/_14%)] px-3 py-1.5 text-[10px] font-semibold tracking-[0.08em] opacity-60">
+        <span className="border border-[color:rgb(9_41_68_/_22%)] px-3 py-1.5 text-[11px] font-semibold tracking-[0.07em] text-[color:rgb(9_41_68_/_72%)]">
           INSTAGRAM SALES AUTOMATION
         </span>
       </section>
@@ -255,17 +255,17 @@ export function SnsSalesClient() {
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
         <aside className="space-y-4">
-          <section className="border border-[color:rgb(9_41_68_/_13%)] bg-[color:rgb(255_255_255_/_20%)] p-3.5">
+          <section className="border border-[color:rgb(9_41_68_/_22%)] bg-[color:rgb(255_255_255_/_34%)] p-3.5">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="flex items-baseline gap-1.5 text-[15px] font-semibold">
-                  <span className="font-handwriting text-[21px] leading-none font-normal tracking-[-0.03em]">
+                <h2 className="flex items-baseline gap-1.5 text-[16px] font-semibold">
+                  <span className="font-handwriting text-[23px] leading-none font-normal tracking-[-0.03em]">
                     Instagram
                   </span>
                   <span>계정</span>
                 </h2>
                 {connected ? (
-                  <p className="mt-1 truncate text-[10px] opacity-58">
+                  <p className="mt-1 truncate text-[11px] text-[color:rgb(9_41_68_/_66%)]">
                     @{connection?.instagram_username}
                     <span className="mx-1.5 opacity-35">·</span>
                     {connection?.account_type || "Professional"}
@@ -277,8 +277,8 @@ export function SnsSalesClient() {
                 <span
                   className={
                     connected
-                      ? "inline-flex items-center gap-1.5 text-[10px] font-semibold text-[#2f7b49]"
-                      : "inline-flex items-center gap-1.5 text-[10px] font-semibold opacity-48"
+                      ? "inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#256b3d]"
+                      : "inline-flex items-center gap-1.5 text-[11px] font-semibold text-[color:rgb(9_41_68_/_58%)]"
                   }
                 >
                   <i
@@ -295,7 +295,7 @@ export function SnsSalesClient() {
                   <button
                     type="button"
                     onClick={() => setAccountExpanded((value) => !value)}
-                    className="border border-[color:rgb(9_41_68_/_14%)] px-2 py-1 text-[9px] font-semibold opacity-60 transition-opacity hover:opacity-100"
+                    className="border border-[color:rgb(9_41_68_/_22%)] px-2.5 py-1 text-[10px] font-semibold text-[color:rgb(9_41_68_/_68%)] transition-opacity hover:opacity-100"
                   >
                     {accountExpanded ? "접기" : "관리"}
                   </button>
@@ -306,10 +306,10 @@ export function SnsSalesClient() {
             {!connected ? (
               <>
                 <div className="mt-3 space-y-1">
-                  <p className="text-[11px] font-semibold leading-5 text-[#b44343]">
+                  <p className="text-[12px] font-semibold leading-5 text-[#a63434]">
                     Business 또는 Creator 계정만 연결 가능합니다.
                   </p>
-                  <p className="text-[10px] leading-5 opacity-52">
+                  <p className="text-[11px] leading-5 text-[color:rgb(9_41_68_/_62%)]">
                     계정 연결이 완료되면 콘텐츠 등록과 판매 자동화를 시작할 수 있습니다.
                   </p>
                 </div>
@@ -318,14 +318,14 @@ export function SnsSalesClient() {
                   type="button"
                   onClick={handleInstagramConnect}
                   disabled={connecting || connectionLoading}
-                  className="mt-3 h-9 w-full bg-[var(--navy)] px-3 text-[11px] font-semibold text-[#fffaf2] transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="mt-3 h-9 w-full bg-[var(--navy)] px-3 text-[12px] font-semibold text-[#fffaf2] transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {connecting ? "연결 준비 중..." : "Instagram 계정 연결하기"}
                 </button>
               </>
             ) : accountExpanded ? (
               <div className="mt-3 border-t border-[color:rgb(9_41_68_/_9%)] pt-3">
-                <div className="flex items-center justify-between gap-3 text-[9px]">
+                <div className="flex items-center justify-between gap-3 text-[11px]">
                   <span className="max-w-[220px] truncate opacity-45">
                     {session?.user.email ? `DECHIVE · ${session.user.email}` : "DECHIVE 로그인"}
                   </span>
@@ -343,7 +343,7 @@ export function SnsSalesClient() {
                   type="button"
                   onClick={handleDisconnect}
                   disabled={disconnecting}
-                  className="mt-3 h-8 w-full border border-[color:rgb(9_41_68_/_18%)] px-3 text-[10px] font-semibold disabled:cursor-not-allowed disabled:opacity-30"
+                  className="mt-3 h-8 w-full border border-[color:rgb(9_41_68_/_22%)] px-3 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   {disconnecting ? "연결 해제 중..." : "Instagram 연결 해제"}
                 </button>
@@ -351,33 +351,33 @@ export function SnsSalesClient() {
             ) : null}
           </section>
 
-          <section className="border border-[color:rgb(9_41_68_/_12%)] px-3.5 py-3">
-            <div className="grid grid-cols-3 gap-2 text-center text-[9px]">
+          <section className="border border-[color:rgb(9_41_68_/_17%)] px-3.5 py-3">
+            <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
               <div>
                 <span className="block opacity-42">계정</span>
-                <b className="mt-1 block text-[10px]">{connected ? "확인" : "대기"}</b>
+                <b className="mt-1 block text-[11px]">{connected ? "확인" : "대기"}</b>
               </div>
               <div className="border-x border-[color:rgb(9_41_68_/_10%)]">
                 <span className="block opacity-42">콘텐츠</span>
-                <b className="mt-1 block text-[10px]">{selectedMedia.length ? "선택" : "대기"}</b>
+                <b className="mt-1 block text-[11px]">{selectedMedia.length ? "선택" : "대기"}</b>
               </div>
               <div>
                 <span className="block opacity-42">게시</span>
-                <b className="mt-1 block text-[10px]">게시 전</b>
+                <b className="mt-1 block text-[11px]">게시 전</b>
               </div>
             </div>
           </section>
         </aside>
 
-        <section className="relative border border-[color:rgb(9_41_68_/_13%)] bg-[color:rgb(255_255_255_/_16%)]">
+        <section className="relative border border-[color:rgb(9_41_68_/_22%)] bg-[color:rgb(255_255_255_/_28%)]">
           {!connected ? (
             <div className="absolute inset-0 z-20 flex items-center justify-center bg-[color:rgb(244_239_230_/_82%)] backdrop-blur-[1px]">
               <div className="max-w-sm px-6 text-center">
-                <div className="mx-auto flex size-9 items-center justify-center border border-[color:rgb(9_41_68_/_18%)] text-sm">
+                <div className="mx-auto flex size-9 items-center justify-center border border-[color:rgb(9_41_68_/_22%)] text-sm">
                   ↗
                 </div>
-                <b className="mt-3 block text-[13px]">Instagram 연결이 필요합니다.</b>
-                <p className="mt-1 text-[11px] leading-5 opacity-52">
+                <b className="mt-3 block text-[14px]">Instagram 연결이 필요합니다.</b>
+                <p className="mt-1 text-[12px] leading-5 text-[color:rgb(9_41_68_/_60%)]">
                   계정 연결이 확인되면 콘텐츠 등록 영역이 활성화됩니다.
                 </p>
               </div>
@@ -385,45 +385,15 @@ export function SnsSalesClient() {
           ) : null}
 
           <div className={connected ? "" : "pointer-events-none select-none opacity-28"}>
-            <div className="flex items-center justify-between border-b border-[color:rgb(9_41_68_/_12%)] px-4 py-2.5">
-              <div className="flex border border-[color:rgb(9_41_68_/_14%)] p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setWorkspaceView("content")}
-                  className={
-                    workspaceView === "content"
-                      ? "bg-[var(--navy)] px-3 py-1.5 text-[10px] font-semibold text-white"
-                      : "px-3 py-1.5 text-[10px] font-semibold opacity-48"
-                  }
-                >
-                  콘텐츠 등록
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWorkspaceView("preview")}
-                  className={
-                    workspaceView === "preview"
-                      ? "bg-[var(--navy)] px-3 py-1.5 text-[10px] font-semibold text-white"
-                      : "px-3 py-1.5 text-[10px] font-semibold opacity-48"
-                  }
-                >
-                  미리보기
-                </button>
-              </div>
-              <span className="text-[9px] opacity-38">
-                {workspaceView === "content" ? "판매 콘텐츠를 준비합니다." : "Instagram 게시 형태를 확인합니다."}
-              </span>
-            </div>
-
             {workspaceView === "content" ? (
               <div className="grid lg:grid-cols-[minmax(0,1fr)_320px]">
                 <div className="p-4 sm:p-5">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-[10px] font-bold tracking-[0.1em] opacity-45">
+                      <p className="text-[11px] font-bold tracking-[0.09em] text-[color:rgb(9_41_68_/_58%)]">
                         NEW SALE CONTENT
                       </p>
-                      <h2 className="mt-1 text-[15px] font-semibold">새 판매 콘텐츠</h2>
+                      <h2 className="mt-1 text-[16px] font-semibold">새 판매 콘텐츠</h2>
                     </div>
                     <div className="flex border border-[color:rgb(9_41_68_/_15%)] p-0.5">
                       <button
@@ -431,8 +401,8 @@ export function SnsSalesClient() {
                         onClick={() => chooseKind("video")}
                         className={
                           mediaKind === "video"
-                            ? "bg-[var(--navy)] px-3 py-1.5 text-[10px] font-semibold text-white"
-                            : "px-3 py-1.5 text-[10px] font-semibold opacity-48"
+                            ? "bg-[var(--navy)] px-3 py-1.5 text-[11px] font-semibold text-white"
+                            : "px-3 py-1.5 text-[11px] font-semibold text-[color:rgb(9_41_68_/_58%)]"
                         }
                       >
                         동영상
@@ -442,8 +412,8 @@ export function SnsSalesClient() {
                         onClick={() => chooseKind("image")}
                         className={
                           mediaKind === "image"
-                            ? "bg-[var(--navy)] px-3 py-1.5 text-[10px] font-semibold text-white"
-                            : "px-3 py-1.5 text-[10px] font-semibold opacity-48"
+                            ? "bg-[var(--navy)] px-3 py-1.5 text-[11px] font-semibold text-white"
+                            : "px-3 py-1.5 text-[11px] font-semibold text-[color:rgb(9_41_68_/_58%)]"
                         }
                       >
                         이미지
@@ -466,10 +436,10 @@ export function SnsSalesClient() {
                     className="mt-4 flex min-h-36 w-full flex-col items-center justify-center border border-dashed border-[color:rgb(9_41_68_/_22%)] px-6 py-6 text-center transition-colors hover:bg-[color:rgb(9_41_68_/_2%)]"
                   >
                     <span className="text-lg opacity-45">＋</span>
-                    <b className="mt-2 text-[12px]">
+                    <b className="mt-2 text-[13px]">
                       {mediaKind === "video" ? "동영상 추가" : "이미지 추가"}
                     </b>
-                    <span className="mt-1 text-[10px] opacity-45">
+                    <span className="mt-1 text-[11px] text-[color:rgb(9_41_68_/_55%)]">
                       {mediaKind === "video"
                         ? "동영상 1개를 선택합니다."
                         : "이미지는 최대 10장까지 선택할 수 있습니다."}
@@ -481,7 +451,7 @@ export function SnsSalesClient() {
                       {selectedMedia.map((item, index) => (
                         <div
                           key={item.id}
-                          className="relative aspect-square overflow-hidden border border-[color:rgb(9_41_68_/_12%)] bg-black/5"
+                          className="relative aspect-square overflow-hidden border border-[color:rgb(9_41_68_/_17%)] bg-black/5"
                         >
                           {mediaKind === "video" ? (
                             <video src={item.url} className="size-full object-cover" muted />
@@ -497,46 +467,46 @@ export function SnsSalesClient() {
                     </div>
                   ) : null}
 
-                  <p className="mt-2 text-[10px] opacity-42">{previewLabel}</p>
+                  <p className="mt-2 text-[11px] text-[color:rgb(9_41_68_/_55%)]">{previewLabel}</p>
                 </div>
 
-                <div className="border-t border-[color:rgb(9_41_68_/_12%)] p-4 lg:border-t-0 lg:border-l">
-                  <p className="text-[10px] font-bold tracking-[0.1em] opacity-45">
+                <div className="border-t border-[color:rgb(9_41_68_/_17%)] p-4 lg:border-t-0 lg:border-l">
+                  <p className="text-[11px] font-bold tracking-[0.09em] text-[color:rgb(9_41_68_/_58%)]">
                     SALES SETTINGS
                   </p>
                   <div className="mt-3 space-y-3">
-                    <label className="block text-[10px] font-semibold">
+                    <label className="block text-[11px] font-semibold">
                       상품명
                       <input
-                        className="mt-1 h-9 w-full border border-[color:rgb(9_41_68_/_16%)] bg-transparent px-3 text-[11px] outline-none focus:border-[var(--navy)]"
+                        className="mt-1 h-9 w-full border border-[color:rgb(9_41_68_/_22%)] bg-transparent px-3 text-[12px] outline-none focus:border-[var(--navy)]"
                         placeholder="예: 빈티지 데님 재킷"
                       />
                     </label>
-                    <label className="block text-[10px] font-semibold">
+                    <label className="block text-[11px] font-semibold">
                       가격
                       <div className="relative mt-1">
                         <input
                           type="number"
-                          className="h-9 w-full border border-[color:rgb(9_41_68_/_16%)] bg-transparent px-3 pr-8 text-[11px] outline-none focus:border-[var(--navy)]"
+                          className="h-9 w-full border border-[color:rgb(9_41_68_/_22%)] bg-transparent px-3 pr-8 text-[12px] outline-none focus:border-[var(--navy)]"
                           placeholder="59000"
                         />
-                        <span className="absolute top-1/2 right-3 -translate-y-1/2 text-[10px] opacity-38">
+                        <span className="absolute top-1/2 right-3 -translate-y-1/2 text-[11px] text-[color:rgb(9_41_68_/_50%)]">
                           원
                         </span>
                       </div>
                     </label>
-                    <label className="block text-[10px] font-semibold">
+                    <label className="block text-[11px] font-semibold">
                       설명
                       <textarea
                         rows={4}
-                        className="mt-1 w-full resize-none border border-[color:rgb(9_41_68_/_16%)] bg-transparent px-3 py-2 text-[11px] leading-5 outline-none focus:border-[var(--navy)]"
+                        className="mt-1 w-full resize-none border border-[color:rgb(9_41_68_/_22%)] bg-transparent px-3 py-2 text-[12px] leading-5 outline-none focus:border-[var(--navy)]"
                         placeholder={'예: 사이즈 M / 상태 양호\n구매를 원하시면 댓글에 "구매"라고 입력해주세요.'}
                       />
                     </label>
-                    <label className="block text-[10px] font-semibold">
+                    <label className="block text-[11px] font-semibold">
                       댓글 트리거
                       <input
-                        className="mt-1 h-9 w-full border border-[color:rgb(9_41_68_/_16%)] bg-transparent px-3 text-[11px] outline-none focus:border-[var(--navy)]"
+                        className="mt-1 h-9 w-full border border-[color:rgb(9_41_68_/_22%)] bg-transparent px-3 text-[12px] outline-none focus:border-[var(--navy)]"
                         placeholder="예: 구매"
                       />
                     </label>
@@ -545,9 +515,9 @@ export function SnsSalesClient() {
                   <button
                     type="button"
                     onClick={() => setWorkspaceView("preview")}
-                    className="mt-4 h-9 w-full border border-[color:rgb(9_41_68_/_18%)] px-3 text-[10px] font-semibold transition-colors hover:bg-[color:rgb(9_41_68_/_3%)]"
+                    className="mt-4 h-9 w-full border border-[color:rgb(9_41_68_/_22%)] px-3 text-[11px] font-semibold transition-colors hover:bg-[color:rgb(9_41_68_/_3%)]"
                   >
-                    미리보기 확인 →
+                    게시 전 미리보기 확인 →
                   </button>
                 </div>
               </div>
@@ -556,24 +526,24 @@ export function SnsSalesClient() {
                 <div className="p-4 sm:p-5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-[10px] font-bold tracking-[0.1em] opacity-45">
+                      <p className="text-[11px] font-bold tracking-[0.09em] text-[color:rgb(9_41_68_/_58%)]">
                         INSTAGRAM PREVIEW
                       </p>
-                      <h2 className="mt-1 text-[15px] font-semibold">게시물 미리보기</h2>
+                      <h2 className="mt-1 text-[16px] font-semibold">게시물 미리보기</h2>
                     </div>
                     <button
                       type="button"
                       onClick={() => setWorkspaceView("content")}
-                      className="border border-[color:rgb(9_41_68_/_16%)] px-3 py-1.5 text-[10px] font-semibold"
+                      className="border border-[color:rgb(9_41_68_/_22%)] px-3 py-1.5 text-[11px] font-semibold"
                     >
-                      ← 내용 수정
+                      ← 판매 내용 수정
                     </button>
                   </div>
 
-                  <div className="mx-auto mt-4 max-w-[360px] border border-[color:rgb(9_41_68_/_16%)] bg-[#faf7f1]">
+                  <div className="mx-auto mt-4 max-w-[360px] border border-[color:rgb(9_41_68_/_22%)] bg-[#faf7f1]">
                     <div className="flex h-10 items-center gap-2 border-b border-[color:rgb(9_41_68_/_10%)] px-3">
-                      <span className="size-6 rounded-full border border-[color:rgb(9_41_68_/_14%)]" />
-                      <b className="text-[10px]">@{connection?.instagram_username || "instagram"}</b>
+                      <span className="size-6 rounded-full border border-[color:rgb(9_41_68_/_22%)]" />
+                      <b className="text-[11px]">@{connection?.instagram_username || "instagram"}</b>
                       <span className="ml-auto text-sm opacity-45">•••</span>
                     </div>
                     <div className="flex aspect-square max-h-[360px] items-center justify-center bg-[color:rgb(9_41_68_/_4%)]">
@@ -593,12 +563,12 @@ export function SnsSalesClient() {
                           />
                         )
                       ) : (
-                        <span className="text-[10px] opacity-38">미디어 미리보기</span>
+                        <span className="text-[11px] text-[color:rgb(9_41_68_/_50%)]">미디어 미리보기</span>
                       )}
                     </div>
                     <div className="px-3 py-2.5">
                       <div className="text-[15px] tracking-[0.24em]">♡ ◯ ✈</div>
-                      <p className="mt-2 text-[10px] leading-4">
+                      <p className="mt-2 text-[11px] leading-5">
                         <b>@{connection?.instagram_username || "instagram"}</b>{" "}
                         <span className="opacity-50">입력한 설명이 여기에 표시됩니다.</span>
                       </p>
@@ -606,12 +576,12 @@ export function SnsSalesClient() {
                   </div>
                 </div>
 
-                <div className="flex flex-col justify-between border-t border-[color:rgb(9_41_68_/_12%)] p-4 lg:border-t-0 lg:border-l">
+                <div className="flex flex-col justify-between border-t border-[color:rgb(9_41_68_/_17%)] p-4 lg:border-t-0 lg:border-l">
                   <div>
-                    <p className="text-[10px] font-bold tracking-[0.1em] opacity-45">
+                    <p className="text-[11px] font-bold tracking-[0.09em] text-[color:rgb(9_41_68_/_58%)]">
                       FINAL CHECK
                     </p>
-                    <div className="mt-3 space-y-2 text-[10px]">
+                    <div className="mt-3 space-y-2 text-[11px]">
                       <div className="flex justify-between gap-3 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
                         <span className="opacity-45">계정</span>
                         <b>@{connection?.instagram_username || "instagram"}</b>
@@ -628,12 +598,12 @@ export function SnsSalesClient() {
                   </div>
 
                   <div className="mt-6">
-                    <p className="text-[10px] leading-5 opacity-48">
+                    <p className="text-[11px] leading-5 text-[color:rgb(9_41_68_/_60%)]">
                       실제 Instagram 계정과 미디어를 확인한 뒤 게시하세요.
                     </p>
                     <button
                       type="button"
-                      className="mt-3 h-10 w-full bg-[var(--terracotta)] px-4 text-[11px] font-semibold text-[#fffaf2]"
+                      className="mt-3 h-10 w-full bg-[var(--terracotta)] px-4 text-[12px] font-semibold text-[#fffaf2]"
                     >
                       Instagram에 게시
                     </button>
@@ -652,7 +622,7 @@ export function SnsSalesClient() {
           aria-modal="true"
           aria-label="DECHIVE 로그인"
         >
-          <div className="w-full max-w-[380px] border border-[color:rgb(9_41_68_/_16%)] bg-[#f4efe6] p-5 shadow-xl">
+          <div className="w-full max-w-[380px] border border-[color:rgb(9_41_68_/_22%)] bg-[#f4efe6] p-5 shadow-xl">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[10px] font-bold tracking-[0.12em] text-[var(--terracotta)]">
@@ -674,7 +644,7 @@ export function SnsSalesClient() {
               Instagram 연결과 판매 데이터는 로그인한 사용자 계정에 귀속됩니다.
             </p>
 
-            <label className="mt-4 block text-[10px] font-semibold">
+            <label className="mt-4 block text-[11px] font-semibold">
               이메일
               <input
                 type="email"
@@ -685,7 +655,7 @@ export function SnsSalesClient() {
                 }}
                 autoComplete="email"
                 placeholder="name@example.com"
-                className="mt-1 h-10 w-full border border-[color:rgb(9_41_68_/_18%)] bg-transparent px-3 text-[12px] outline-none focus:border-[var(--navy)]"
+                className="mt-1 h-10 w-full border border-[color:rgb(9_41_68_/_22%)] bg-transparent px-3 text-[12px] outline-none focus:border-[var(--navy)]"
               />
             </label>
 
@@ -693,7 +663,7 @@ export function SnsSalesClient() {
               type="button"
               onClick={sendLoginLink}
               disabled={authSending}
-              className="mt-3 h-10 w-full bg-[var(--navy)] px-4 text-[11px] font-semibold text-[#fffaf2] disabled:opacity-40"
+              className="mt-3 h-10 w-full bg-[var(--navy)] px-4 text-[12px] font-semibold text-[#fffaf2] disabled:opacity-40"
             >
               {authSending ? "보내는 중..." : "로그인 링크 받기"}
             </button>
