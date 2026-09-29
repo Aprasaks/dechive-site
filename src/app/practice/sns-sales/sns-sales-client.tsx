@@ -25,6 +25,44 @@ type InstagramConnection = {
   status: string;
 };
 
+type SalesCampaign = {
+  id: string;
+  price: number | null;
+  description: string;
+  trigger_keyword: string;
+  status: string;
+  instagram_media_id: string | null;
+  instagram_permalink: string | null;
+  published_at: string | null;
+  created_at: string;
+};
+
+type SalesComment = {
+  id: string;
+  campaign_id: string;
+  instagram_comment_id: string;
+  instagram_commenter_id: string | null;
+  instagram_username: string;
+  comment_text: string;
+  matched_trigger: boolean;
+  commented_at: string | null;
+  received_at: string;
+};
+
+type QueueItem = {
+  id: string;
+  campaign_id: string;
+  comment_id: string;
+  instagram_commenter_id: string | null;
+  instagram_username: string;
+  queue_position: number;
+  status: string;
+  reserved_at: string | null;
+  due_at: string | null;
+  paid_at: string | null;
+  created_at: string;
+};
+
 export function SnsSalesClient() {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -48,9 +86,21 @@ export function SnsSalesClient() {
   const [publishMessage, setPublishMessage] = useState<string | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
+  const [appView, setAppView] = useState<"create" | "manage">("create");
+  const [campaigns, setCampaigns] = useState<SalesCampaign[]>([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(false);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
+  const [comments, setComments] = useState<SalesComment[]>([]);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [syncingComments, setSyncingComments] = useState(false);
+  const [controlError, setControlError] = useState<string | null>(null);
+  const [clock, setClock] = useState(Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
 
   const connected = Boolean(connection);
+  const selectedCampaign =
+    campaigns.find((campaign) => campaign.id === selectedCampaignId) ?? null;
 
   const accept = mediaKind === "video" ? "video/*" : "image/*";
 
@@ -120,6 +170,137 @@ export function SnsSalesClient() {
 
   function sleep(ms: number) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+
+  function formatDateTime(value: string | null) {
+    if (!value) return "-";
+    return new Intl.DateTimeFormat("ko-KR", {
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(value));
+  }
+
+  function formatRemaining(value: string | null) {
+    if (!value) return "-";
+    const seconds = Math.max(0, Math.floor((new Date(value).getTime() - clock) / 1000));
+    const minutes = Math.floor(seconds / 60);
+    const rest = seconds % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
+  }
+
+  function queueStatusLabel(status: string) {
+    if (status === "reserved") return "결제 진행";
+    if (status === "waiting") return "대기";
+    if (status === "paid") return "결제 완료";
+    if (status === "expired") return "만료";
+    if (status === "cancelled") return "취소";
+    return status;
+  }
+
+  async function loadCampaigns(preferredId?: string) {
+    if (!session) {
+      setCampaigns([]);
+      setSelectedCampaignId(null);
+      return;
+    }
+
+    setCampaignsLoading(true);
+    try {
+      const { data, error } = await snsSalesSupabase
+        .from("sns_sales_campaigns")
+        .select(
+          "id,price,description,trigger_keyword,status,instagram_media_id,instagram_permalink,published_at,created_at",
+        )
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      const next = (data ?? []) as SalesCampaign[];
+      setCampaigns(next);
+      setSelectedCampaignId((current) => {
+        if (preferredId && next.some((item) => item.id === preferredId)) return preferredId;
+        if (current && next.some((item) => item.id === current)) return current;
+        return next[0]?.id ?? null;
+      });
+    } catch {
+      setControlError("판매 캠페인 목록을 불러오지 못했습니다.");
+    } finally {
+      setCampaignsLoading(false);
+    }
+  }
+
+  async function loadCampaignControl(campaignId: string) {
+    if (!session) return;
+
+    setCommentsLoading(true);
+    setControlError(null);
+    try {
+      const [commentsResult, queueResult] = await Promise.all([
+        snsSalesSupabase
+          .from("sns_sales_comments")
+          .select(
+            "id,campaign_id,instagram_comment_id,instagram_commenter_id,instagram_username,comment_text,matched_trigger,commented_at,received_at",
+          )
+          .eq("campaign_id", campaignId)
+          .order("commented_at", { ascending: true, nullsFirst: false })
+          .order("received_at", { ascending: true }),
+        snsSalesSupabase
+          .from("sns_sales_purchase_queue")
+          .select(
+            "id,campaign_id,comment_id,instagram_commenter_id,instagram_username,queue_position,status,reserved_at,due_at,paid_at,created_at",
+          )
+          .eq("campaign_id", campaignId)
+          .order("queue_position", { ascending: true }),
+      ]);
+
+      if (commentsResult.error) throw commentsResult.error;
+      if (queueResult.error) throw queueResult.error;
+
+      setComments((commentsResult.data ?? []) as SalesComment[]);
+      setQueue((queueResult.data ?? []) as QueueItem[]);
+    } catch {
+      setControlError("댓글 또는 구매 대기열을 불러오지 못했습니다.");
+    } finally {
+      setCommentsLoading(false);
+    }
+  }
+
+  async function syncCampaignComments() {
+    if (!selectedCampaignId) return;
+
+    setSyncingComments(true);
+    setControlError(null);
+    try {
+      const { data, error } = await snsSalesSupabase.functions.invoke(
+        "sns-sales-comments-sync",
+        { body: { campaignId: selectedCampaignId } },
+      );
+      if (error) {
+        let message = error.message;
+        const context = (error as { context?: Response }).context;
+        if (context) {
+          try {
+            const payload = await context.clone().json();
+            if (payload?.message) message = String(payload.message);
+          } catch {}
+        }
+        throw new Error(message);
+      }
+
+      await loadCampaignControl(selectedCampaignId);
+      setNotice(
+        `댓글 동기화 완료 · 확인 ${Number(data?.seen || 0)}개 · 트리거 ${Number(data?.matched || 0)}개`,
+      );
+    } catch (error) {
+      setControlError(
+        error instanceof Error ? error.message : "댓글 동기화에 실패했습니다.",
+      );
+    } finally {
+      setSyncingComments(false);
+    }
   }
 
   function validatePublishInput() {
@@ -256,6 +437,9 @@ export function SnsSalesClient() {
           setPublishMessage("Instagram 게시가 완료되었습니다.");
           setPublishing(false);
           setNotice("Instagram 게시가 완료되었습니다.");
+          await loadCampaigns(campaignId);
+          setSelectedCampaignId(campaignId);
+          setAppView("manage");
           return;
         }
 
@@ -338,9 +522,88 @@ export function SnsSalesClient() {
   useEffect(() => {
     if (!authReady) return;
     void loadConnection();
-    // loadConnection intentionally follows session changes only.
+    void loadCampaigns();
+    // Connection and campaigns intentionally follow session changes only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user.id, authReady]);
+
+  useEffect(() => {
+    if (!selectedCampaignId || appView !== "manage") {
+      setComments([]);
+      setQueue([]);
+      return;
+    }
+    void loadCampaignControl(selectedCampaignId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCampaignId, appView]);
+
+  useEffect(() => {
+    if (!session) return;
+
+    const campaignChannel = snsSalesSupabase
+      .channel(`sns-sales-campaigns-${session.user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "sns_sales_campaigns",
+          filter: `user_id=eq.${session.user.id}`,
+        },
+        () => {
+          void loadCampaigns();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void snsSalesSupabase.removeChannel(campaignChannel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user.id]);
+
+  useEffect(() => {
+    if (!session || !selectedCampaignId || appView !== "manage") return;
+
+    const liveChannel = snsSalesSupabase
+      .channel(`sns-sales-live-${selectedCampaignId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "sns_sales_comments",
+          filter: `campaign_id=eq.${selectedCampaignId}`,
+        },
+        () => {
+          void loadCampaignControl(selectedCampaignId);
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "sns_sales_purchase_queue",
+          filter: `campaign_id=eq.${selectedCampaignId}`,
+        },
+        () => {
+          void loadCampaignControl(selectedCampaignId);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void snsSalesSupabase.removeChannel(liveChannel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user.id, selectedCampaignId, appView]);
+
+  useEffect(() => {
+    if (appView !== "manage") return;
+    const timer = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [appView]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -455,6 +718,38 @@ export function SnsSalesClient() {
         </span>
       </section>
 
+      {connected ? (
+        <div className="mt-4 flex items-center justify-between gap-4 border-b border-[color:rgb(9_41_68_/_16%)] pb-3">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setAppView("create")}
+              className={
+                appView === "create"
+                  ? "bg-[var(--navy)] px-4 py-2 text-[11px] font-semibold text-white"
+                  : "border border-[color:rgb(9_41_68_/_20%)] px-4 py-2 text-[11px] font-semibold"
+              }
+            >
+              + 새 판매 등록
+            </button>
+            <button
+              type="button"
+              onClick={() => setAppView("manage")}
+              className={
+                appView === "manage"
+                  ? "bg-[var(--navy)] px-4 py-2 text-[11px] font-semibold text-white"
+                  : "border border-[color:rgb(9_41_68_/_20%)] px-4 py-2 text-[11px] font-semibold"
+              }
+            >
+              판매 관리 {campaigns.length ? `(${campaigns.length})` : ""}
+            </button>
+          </div>
+          <span className="text-[10px] text-[color:rgb(9_41_68_/_55%)]">
+            게시물마다 댓글·구매 순번을 독립적으로 관리합니다.
+          </span>
+        </div>
+      ) : null}
+
       {notice ? (
         <div className="mt-4 flex items-start justify-between gap-4 border border-[color:rgb(185_79_44_/_28%)] bg-[color:rgb(185_79_44_/_5%)] px-4 py-3 text-[11px] leading-5">
           <p>{notice}</p>
@@ -469,7 +764,8 @@ export function SnsSalesClient() {
         </div>
       ) : null}
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+      {appView === "create" ? (
+        <div className="mt-5 grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
         <aside className="space-y-4">
           <section className="border border-[color:rgb(9_41_68_/_22%)] bg-[color:rgb(255_255_255_/_34%)] p-3.5">
             <div className="flex items-center justify-between gap-3">
@@ -858,6 +1154,242 @@ export function SnsSalesClient() {
           </div>
         </section>
       </div>
+      ) : null}
+
+      {appView === "manage" && connected ? (
+        <section className="mt-5 border border-[color:rgb(9_41_68_/_20%)] bg-[color:rgb(255_255_255_/_26%)]">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:rgb(9_41_68_/_16%)] px-4 py-3">
+            <div>
+              <p className="text-[10px] font-bold tracking-[0.1em] text-[var(--terracotta)]">
+                SALES CONTROL CENTER
+              </p>
+              <h2 className="mt-1 text-[18px] font-semibold">판매 캠페인 관리</h2>
+            </div>
+            <div className="flex items-center gap-3 text-[10px]">
+              <span className="inline-flex items-center gap-1.5 text-[#256b3d]">
+                <i className="size-2 rounded-full bg-[#39a660]" />
+                Realtime
+              </span>
+              <span className="text-[color:rgb(9_41_68_/_52%)]">
+                Webhook 수신 시 자동 갱신
+              </span>
+            </div>
+          </div>
+
+          {controlError ? (
+            <div className="border-b border-[#b44343]/20 bg-[#b44343]/5 px-4 py-2.5 text-[11px] text-[#9b3434]">
+              {controlError}
+            </div>
+          ) : null}
+
+          <div className="grid min-h-[520px] xl:grid-cols-[310px_minmax(0,1fr)_330px]">
+            <div className="border-b border-[color:rgb(9_41_68_/_15%)] xl:border-r xl:border-b-0">
+              <div className="flex items-center justify-between px-4 py-3">
+                <b className="text-[12px]">판매 게시물</b>
+                <span className="text-[10px] text-[color:rgb(9_41_68_/_50%)]">
+                  {campaigns.length}개
+                </span>
+              </div>
+
+              <div className="max-h-[560px] overflow-y-auto border-t border-[color:rgb(9_41_68_/_10%)]">
+                {campaignsLoading ? (
+                  <p className="px-4 py-5 text-[11px] opacity-55">불러오는 중...</p>
+                ) : campaigns.length ? (
+                  campaigns.map((campaign, index) => {
+                    const active = campaign.id === selectedCampaignId;
+                    return (
+                      <button
+                        key={campaign.id}
+                        type="button"
+                        onClick={() => setSelectedCampaignId(campaign.id)}
+                        className={
+                          active
+                            ? "block w-full border-b border-[color:rgb(9_41_68_/_12%)] bg-[color:rgb(9_41_68_/_7%)] px-4 py-3 text-left"
+                            : "block w-full border-b border-[color:rgb(9_41_68_/_10%)] px-4 py-3 text-left hover:bg-[color:rgb(9_41_68_/_3%)]"
+                        }
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <b className="text-[11px]">판매 #{campaigns.length - index}</b>
+                          <span className={
+                            campaign.status === "active"
+                              ? "text-[9px] font-semibold text-[#256b3d]"
+                              : "text-[9px] font-semibold opacity-50"
+                          }>
+                            {campaign.status === "active" ? "판매 중" : campaign.status}
+                          </span>
+                        </div>
+                        <p className="mt-2 line-clamp-2 text-[11px] leading-4 text-[color:rgb(9_41_68_/_68%)]">
+                          {campaign.description}
+                        </p>
+                        <div className="mt-2 flex items-center justify-between text-[9px] text-[color:rgb(9_41_68_/_48%)]">
+                          <span>{campaign.price ? `${campaign.price.toLocaleString("ko-KR")}원` : "-"}</span>
+                          <span>트리거 · {campaign.trigger_keyword}</span>
+                        </div>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="px-4 py-8 text-center">
+                    <p className="text-[11px] opacity-55">아직 게시된 판매가 없습니다.</p>
+                    <button
+                      type="button"
+                      onClick={() => setAppView("create")}
+                      className="mt-3 text-[10px] font-semibold text-[var(--terracotta)]"
+                    >
+                      새 판매 등록하기 →
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="border-b border-[color:rgb(9_41_68_/_15%)] xl:border-r xl:border-b-0">
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <div>
+                  <b className="text-[12px]">실시간 댓글</b>
+                  {selectedCampaign ? (
+                    <p className="mt-0.5 text-[9px] text-[color:rgb(9_41_68_/_50%)]">
+                      {formatDateTime(selectedCampaign.published_at)} · 트리거 "{selectedCampaign.trigger_keyword}"
+                    </p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={syncCampaignComments}
+                  disabled={!selectedCampaignId || syncingComments}
+                  className="border border-[color:rgb(9_41_68_/_20%)] px-3 py-1.5 text-[10px] font-semibold disabled:opacity-35"
+                >
+                  {syncingComments ? "동기화 중..." : "댓글 동기화"}
+                </button>
+              </div>
+
+              <div className="max-h-[560px] overflow-y-auto border-t border-[color:rgb(9_41_68_/_10%)]">
+                {!selectedCampaign ? (
+                  <p className="px-4 py-8 text-center text-[11px] opacity-50">
+                    관리할 게시물을 선택해주세요.
+                  </p>
+                ) : commentsLoading ? (
+                  <p className="px-4 py-5 text-[11px] opacity-55">댓글 불러오는 중...</p>
+                ) : comments.length ? (
+                  comments.map((comment) => (
+                    <div
+                      key={comment.id}
+                      className={
+                        comment.matched_trigger
+                          ? "border-b border-[color:rgb(185_79_44_/_18%)] bg-[color:rgb(185_79_44_/_6%)] px-4 py-3"
+                          : "border-b border-[color:rgb(9_41_68_/_9%)] px-4 py-3"
+                      }
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <b className="text-[11px]">@{comment.instagram_username || "unknown"}</b>
+                        <div className="flex items-center gap-2">
+                          {comment.matched_trigger ? (
+                            <span className="border border-[var(--terracotta)]/35 px-1.5 py-0.5 text-[9px] font-semibold text-[var(--terracotta)]">
+                              트리거
+                            </span>
+                          ) : null}
+                          <span className="text-[9px] text-[color:rgb(9_41_68_/_42%)]">
+                            {formatDateTime(comment.commented_at || comment.received_at)}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="mt-1.5 whitespace-pre-wrap text-[12px] leading-5">
+                        {comment.comment_text}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-5 py-10 text-center">
+                    <p className="text-[12px] font-semibold">아직 수신된 댓글이 없습니다.</p>
+                    <p className="mt-1 text-[10px] leading-5 text-[color:rgb(9_41_68_/_52%)]">
+                      Webhook이 연결되면 새 댓글이 자동으로 나타납니다.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between px-4 py-3">
+                <div>
+                  <b className="text-[12px]">구매 대기열</b>
+                  <p className="mt-0.5 text-[9px] text-[color:rgb(9_41_68_/_50%)]">
+                    트리거 댓글만 순번에 등록
+                  </p>
+                </div>
+                <span className="text-[10px] font-semibold">{queue.length}명</span>
+              </div>
+
+              <div className="max-h-[560px] overflow-y-auto border-t border-[color:rgb(9_41_68_/_10%)]">
+                {queue.length ? (
+                  queue.map((item) => (
+                    <div
+                      key={item.id}
+                      className={
+                        item.status === "reserved"
+                          ? "border-b border-[#39a660]/20 bg-[#39a660]/5 px-4 py-3"
+                          : "border-b border-[color:rgb(9_41_68_/_9%)] px-4 py-3"
+                      }
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className={
+                          item.status === "reserved"
+                            ? "flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--navy)] text-[10px] font-bold text-white"
+                            : "flex size-7 shrink-0 items-center justify-center rounded-full border border-[color:rgb(9_41_68_/_22%)] text-[10px] font-bold"
+                        }>
+                          {item.queue_position}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <b className="truncate text-[11px]">@{item.instagram_username || "unknown"}</b>
+                            <span className={
+                              item.status === "reserved"
+                                ? "text-[9px] font-semibold text-[#256b3d]"
+                                : "text-[9px] font-semibold text-[color:rgb(9_41_68_/_52%)]"
+                            }>
+                              {queueStatusLabel(item.status)}
+                            </span>
+                          </div>
+                          {item.status === "reserved" ? (
+                            <div className="mt-1.5 flex items-center justify-between text-[10px]">
+                              <span className="text-[color:rgb(9_41_68_/_52%)]">남은 시간</span>
+                              <b className="font-mono text-[12px]">{formatRemaining(item.due_at)}</b>
+                            </div>
+                          ) : (
+                            <p className="mt-1 text-[9px] text-[color:rgb(9_41_68_/_45%)]">
+                              {formatDateTime(item.created_at)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-5 py-10 text-center">
+                    <p className="text-[12px] font-semibold">구매 대기자가 없습니다.</p>
+                    <p className="mt-1 text-[10px] leading-5 text-[color:rgb(9_41_68_/_52%)]">
+                      "{selectedCampaign?.trigger_keyword || "구매"}" 댓글이 들어오면 자동으로 순번을 부여합니다.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {selectedCampaign?.instagram_permalink ? (
+                <div className="border-t border-[color:rgb(9_41_68_/_10%)] p-4">
+                  <a
+                    href={selectedCampaign.instagram_permalink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex h-9 items-center justify-center border border-[color:rgb(9_41_68_/_20%)] text-[10px] font-semibold"
+                  >
+                    Instagram 게시물 열기 ↗
+                  </a>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {publishMessage || publishError ? (
         <div
