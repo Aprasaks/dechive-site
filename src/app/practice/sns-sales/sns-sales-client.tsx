@@ -150,6 +150,7 @@ export function SnsSalesClient() {
 
     const campaignId = crypto.randomUUID();
     const uploadedPaths: string[] = [];
+    let publishStarted = false;
 
     setPublishing(true);
     setPublishError(null);
@@ -212,10 +213,21 @@ export function SnsSalesClient() {
           },
         });
 
-      if (startError) throw startError;
+      if (startError) {
+        let message = startError.message;
+        const context = (startError as { context?: Response }).context;
+        if (context) {
+          try {
+            const payload = await context.clone().json();
+            if (payload?.message) message = String(payload.message);
+          } catch {}
+        }
+        throw new Error(message);
+      }
       if (!startData?.ok) {
         throw new Error(startData?.message || "Instagram 게시 준비에 실패했습니다.");
       }
+      publishStarted = true;
 
       setPublishMessage(
         mediaKind === "video"
@@ -264,6 +276,13 @@ export function SnsSalesClient() {
         "Instagram 미디어 처리 시간이 길어지고 있습니다. 잠시 후 다시 시도해주세요.",
       );
     } catch (error) {
+      if (!publishStarted && uploadedPaths.length) {
+        await snsSalesSupabase.storage
+          .from("sns-sales-media")
+          .remove(uploadedPaths)
+          .catch(() => undefined);
+      }
+
       const message =
         error instanceof Error ? error.message : "Instagram 게시 중 오류가 발생했습니다.";
       setPublishError(message);
