@@ -156,12 +156,10 @@ export default function PracticePage() {
               실습 시작하기 →
             </a>
             <a
-              href="https://studio.dechive.dev/heymi/"
-              target="_blank"
-              rel="noreferrer"
+              href="/practice/sns-sales"
               className="inline-flex h-9 items-center border border-[var(--terracotta)] px-5 text-xs font-semibold text-[var(--terracotta)] transition-colors hover:bg-[var(--terracotta)] hover:text-[#fffaf2]"
             >
-              프로그램 사용하기 ↗
+              프로그램 사용하기 →
             </a>
           </div>
         </div>
