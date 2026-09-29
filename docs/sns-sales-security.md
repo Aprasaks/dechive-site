@@ -32,7 +32,7 @@ The browser may hold a normal Supabase user session. It must never receive:
 
 - Supabase service-role key
 - Instagram App Secret
-- Instagram access token
+- Instagram access token (stored in Supabase Vault, referenced by private credential rows)
 - Toss secret key
 - Toss webhook secret values
 
@@ -51,7 +51,7 @@ Production OAuth flow:
 2. Server creates a one-time OAuth state tied to the authenticated user.
 3. State expires quickly and is single-use.
 4. Instagram callback exchanges the code server-side.
-5. Access token is stored server-side only.
+5. Access token is stored server-side only in Supabase Vault; browser-readable tables store no token.
 6. Callback stores the connection with `user_id = authenticated owner`.
 7. Browser receives only a safe connection status, not the access token.
 
@@ -212,7 +212,7 @@ Do not call SNS Sales production-ready until all are verified:
 - Supabase Auth enabled
 - RLS policies tested with two separate users
 - no service-role key in browser bundle
-- Meta token never returned to browser
+- Meta token never returned to browser and is persisted through Supabase Vault
 - private Storage policies tested
 - private Edge Functions reject anonymous requests
 - cross-user IDOR tests fail
