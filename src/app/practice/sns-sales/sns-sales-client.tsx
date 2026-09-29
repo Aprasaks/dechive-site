@@ -12,6 +12,7 @@ type SelectedMedia = {
   name: string;
   url: string;
   type: string;
+  file: File;
 };
 
 type InstagramConnection = {
@@ -43,6 +44,10 @@ export function SnsSalesClient() {
   const [notice, setNotice] = useState<string | null>(null);
   const [accountExpanded, setAccountExpanded] = useState(false);
   const [workspaceView, setWorkspaceView] = useState<"content" | "preview">("content");
+  const [publishing, setPublishing] = useState(false);
+  const [publishMessage, setPublishMessage] = useState<string | null>(null);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const connected = Boolean(connection);
@@ -79,6 +84,7 @@ export function SnsSalesClient() {
           name: file.name,
           url: URL.createObjectURL(file),
           type: file.type,
+          file,
         }];
       });
       return;
@@ -94,6 +100,7 @@ export function SnsSalesClient() {
           name: file.name,
           url: URL.createObjectURL(file),
           type: file.type,
+          file,
         })),
       ];
     });
@@ -109,6 +116,160 @@ export function SnsSalesClient() {
       return items.filter((item) => item.id !== id);
     });
     if (inputRef.current) inputRef.current.value = "";
+  }
+
+  function sleep(ms: number) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+
+  function validatePublishInput() {
+    if (!session || !connection) return "Instagram 계정 연결이 필요합니다.";
+    if (!selectedMedia.length) return "게시할 영상 또는 이미지를 선택해주세요.";
+    if (mediaKind === "video" && selectedMedia.length !== 1) {
+      return "영상은 한 번에 1개만 게시할 수 있습니다.";
+    }
+    if (mediaKind === "image" && selectedMedia.length > 10) {
+      return "이미지는 최대 10장까지 게시할 수 있습니다.";
+    }
+    if (!description.trim()) return "상세설명을 입력해주세요.";
+    const numericPrice = Number(price);
+    if (!Number.isInteger(numericPrice) || numericPrice <= 0) {
+      return "결제 금액을 정확히 입력해주세요.";
+    }
+    if (!triggerKeyword.trim()) return "댓글 트리거를 입력해주세요.";
+    return null;
+  }
+
+  async function handlePublish() {
+    const validationError = validatePublishInput();
+    if (validationError) {
+      setNotice(validationError);
+      return;
+    }
+    if (!session || !connection) return;
+
+    const campaignId = crypto.randomUUID();
+    const uploadedPaths: string[] = [];
+
+    setPublishing(true);
+    setPublishError(null);
+    setPublishedUrl(null);
+    setPublishMessage("미디어를 안전하게 업로드하는 중입니다...");
+
+    try {
+      const uploadedMedia: Array<{
+        path: string;
+        name: string;
+        type: string;
+        byteSize: number;
+        sortOrder: number;
+      }> = [];
+
+      for (let index = 0; index < selectedMedia.length; index += 1) {
+        const item = selectedMedia[index];
+        const extension = item.name.includes(".")
+          ? item.name.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "").slice(0, 10) || "bin"
+          : "bin";
+        const path = `users/${session.user.id}/campaigns/${campaignId}/${String(index + 1).padStart(2, "0")}-${item.id}.${extension}`;
+
+        setPublishMessage(
+          selectedMedia.length > 1
+            ? `미디어 업로드 중... ${index + 1}/${selectedMedia.length}`
+            : "미디어를 안전하게 업로드하는 중입니다...",
+        );
+
+        const { error: uploadError } = await snsSalesSupabase.storage
+          .from("sns-sales-media")
+          .upload(path, item.file, {
+            contentType: item.type,
+            cacheControl: "3600",
+            upsert: false,
+          });
+
+        if (uploadError) throw uploadError;
+        uploadedPaths.push(path);
+        uploadedMedia.push({
+          path,
+          name: item.name,
+          type: item.type,
+          byteSize: item.file.size,
+          sortOrder: index,
+        });
+      }
+
+      setPublishMessage("Instagram 게시 준비 중입니다...");
+
+      const { data: startData, error: startError } =
+        await snsSalesSupabase.functions.invoke("sns-sales-instagram-publish-start", {
+          body: {
+            campaignId,
+            connectionId: connection.id,
+            mediaKind,
+            price: Number(price),
+            description: description.trim(),
+            triggerKeyword: triggerKeyword.trim(),
+            media: uploadedMedia,
+          },
+        });
+
+      if (startError) throw startError;
+      if (!startData?.ok) {
+        throw new Error(startData?.message || "Instagram 게시 준비에 실패했습니다.");
+      }
+
+      setPublishMessage(
+        mediaKind === "video"
+          ? "Instagram에서 영상을 처리하는 중입니다..."
+          : "Instagram에서 게시물을 처리하는 중입니다...",
+      );
+
+      let transientFailures = 0;
+      for (let attempt = 0; attempt < 80; attempt += 1) {
+        await sleep(attempt === 0 ? 1800 : 3000);
+
+        const { data: statusData, error: statusError } =
+          await snsSalesSupabase.functions.invoke("sns-sales-instagram-publish-status", {
+            body: { campaignId },
+          });
+
+        if (statusError) {
+          transientFailures += 1;
+          if (transientFailures >= 4) throw statusError;
+          continue;
+        }
+        transientFailures = 0;
+
+        if (statusData?.status === "published") {
+          setPublishedUrl(statusData.permalink || null);
+          setPublishMessage("Instagram 게시가 완료되었습니다.");
+          setPublishing(false);
+          setNotice("Instagram 게시가 완료되었습니다.");
+          return;
+        }
+
+        if (statusData?.status === "failed") {
+          throw new Error(statusData?.message || "Instagram 게시에 실패했습니다.");
+        }
+
+        if (statusData?.instagramStatus) {
+          setPublishMessage(
+            mediaKind === "video"
+              ? `Instagram에서 영상을 처리하는 중입니다... (${statusData.instagramStatus})`
+              : "Instagram에서 게시물을 처리하는 중입니다...",
+          );
+        }
+      }
+
+      throw new Error(
+        "Instagram 미디어 처리 시간이 길어지고 있습니다. 잠시 후 다시 시도해주세요.",
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Instagram 게시 중 오류가 발생했습니다.";
+      setPublishError(message);
+      setPublishMessage(null);
+      setPublishing(false);
+    }
   }
 
   async function loadConnection() {
@@ -661,9 +822,15 @@ export function SnsSalesClient() {
                     </p>
                     <button
                       type="button"
-                      className="mt-3 h-10 w-full bg-[var(--terracotta)] px-4 text-[12px] font-semibold text-[#fffaf2]"
+                      onClick={handlePublish}
+                      disabled={publishing || Boolean(publishedUrl)}
+                      className="mt-3 h-10 w-full bg-[var(--terracotta)] px-4 text-[12px] font-semibold text-[#fffaf2] transition-opacity disabled:cursor-not-allowed disabled:opacity-45"
                     >
-                      Instagram에 게시
+                      {publishing
+                        ? "게시 처리 중..."
+                        : publishedUrl
+                          ? "Instagram 게시 완료"
+                          : "Instagram에 게시"}
                     </button>
                   </div>
                 </div>
@@ -672,6 +839,70 @@ export function SnsSalesClient() {
           </div>
         </section>
       </div>
+
+      {publishMessage || publishError ? (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-[color:rgb(9_41_68_/_32%)] px-5 backdrop-blur-[2px]"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Instagram 게시 상태"
+        >
+          <div className="w-full max-w-[420px] border border-[color:rgb(9_41_68_/_22%)] bg-[#f4efe6] p-5 shadow-xl">
+            <p className="text-[10px] font-bold tracking-[0.12em] text-[var(--terracotta)]">
+              INSTAGRAM PUBLISH
+            </p>
+
+            {publishError ? (
+              <>
+                <h2 className="mt-2 text-[17px] font-semibold">게시를 완료하지 못했습니다.</h2>
+                <p className="mt-3 text-[12px] leading-5 text-[#9b3434]">
+                  {publishError}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPublishError(null)}
+                  className="mt-4 h-9 w-full border border-[color:rgb(9_41_68_/_22%)] text-[11px] font-semibold"
+                >
+                  확인
+                </button>
+              </>
+            ) : (
+              <>
+                <h2 className="mt-2 text-[17px] font-semibold">
+                  {publishedUrl ? "게시가 완료되었습니다." : "Instagram에 게시 중입니다."}
+                </h2>
+                <p className="mt-3 text-[12px] leading-5 text-[color:rgb(9_41_68_/_68%)]">
+                  {publishMessage}
+                </p>
+
+                {!publishedUrl ? (
+                  <div className="mt-4 h-1.5 overflow-hidden bg-[color:rgb(9_41_68_/_10%)]">
+                    <div className="h-full w-1/2 animate-pulse bg-[var(--terracotta)]" />
+                  </div>
+                ) : (
+                  <div className="mt-4 flex gap-2">
+                    <a
+                      href={publishedUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex h-9 flex-1 items-center justify-center bg-[var(--navy)] px-3 text-[11px] font-semibold text-white"
+                    >
+                      Instagram에서 확인
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => setPublishMessage(null)}
+                      className="h-9 border border-[color:rgb(9_41_68_/_22%)] px-4 text-[11px] font-semibold"
+                    >
+                      닫기
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       {loginOpen ? (
         <div
