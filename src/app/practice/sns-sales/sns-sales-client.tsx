@@ -642,7 +642,6 @@ export function SnsSalesClient() {
               </div>
             )}
           </div>
-          </div>
         </section>
       </div>
 
