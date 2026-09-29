@@ -37,7 +37,6 @@ export function SnsSalesClient() {
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [mediaKind, setMediaKind] = useState<MediaKind>("video");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
-  const [productName, setProductName] = useState("");
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
   const [triggerKeyword, setTriggerKeyword] = useState("");
@@ -522,16 +521,7 @@ export function SnsSalesClient() {
                   </p>
                   <div className="mt-3 space-y-3">
                     <label className="block text-[11px] font-semibold">
-                      상품명
-                      <input
-                        value={productName}
-                        onChange={(event) => setProductName(event.target.value)}
-                        className="mt-1 h-9 w-full border border-[color:rgb(9_41_68_/_22%)] bg-transparent px-3 text-[12px] outline-none focus:border-[var(--navy)]"
-                        placeholder="예: 빈티지 데님 재킷"
-                      />
-                    </label>
-                    <label className="block text-[11px] font-semibold">
-                      가격
+                      결제 금액
                       <div className="relative mt-1">
                         <input
                           type="number"
@@ -547,13 +537,16 @@ export function SnsSalesClient() {
                       </div>
                     </label>
                     <label className="block text-[11px] font-semibold">
-                      설명
+                      상세설명
+                      <span className="mt-1 block text-[10px] font-normal leading-4 text-[color:rgb(9_41_68_/_58%)]">
+                        상품명과 가격을 포함해서 상세설명을 적어주세요.
+                      </span>
                       <textarea
-                        rows={4}
+                        rows={6}
                         value={description}
                         onChange={(event) => setDescription(event.target.value)}
-                        className="mt-1 w-full resize-none border border-[color:rgb(9_41_68_/_22%)] bg-transparent px-3 py-2 text-[12px] leading-5 outline-none focus:border-[var(--navy)]"
-                        placeholder={'예: 사이즈 M / 상태 양호\n구매를 원하시면 댓글에 "구매"라고 입력해주세요.'}
+                        className="mt-2 w-full resize-none border border-[color:rgb(9_41_68_/_22%)] bg-transparent px-3 py-2 text-[12px] leading-5 outline-none focus:border-[var(--navy)]"
+                        placeholder={'예: 빈티지 데님 재킷입니다.\n판매가는 59,000원이며 상태는 양호합니다.\n구매를 원하시면 댓글에 "구매"라고 남겨주세요.'}
                       />
                     </label>
                     <label className="block text-[11px] font-semibold">
@@ -626,7 +619,7 @@ export function SnsSalesClient() {
                       <div className="mt-2 text-[11px] leading-5">
                         <b>@{connection?.instagram_username || "instagram"}</b>
                         <p className="mt-1 whitespace-pre-wrap text-[color:rgb(9_41_68_/_78%)]">
-                          {description.trim() || "설명을 입력하면 이곳에 실제 게시글 설명이 표시됩니다."}
+                          {description.trim() || "상품명과 가격을 포함한 상세설명을 입력해주세요."}
                         </p>
                       </div>
                     </div>
@@ -648,11 +641,7 @@ export function SnsSalesClient() {
                         <b>{selectedMedia.length ? `${selectedMedia.length}개` : "미선택"}</b>
                       </div>
                       <div className="flex justify-between gap-3 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
-                        <span className="opacity-55">상품명</span>
-                        <b className="max-w-[180px] truncate text-right">{productName.trim() || "미입력"}</b>
-                      </div>
-                      <div className="flex justify-between gap-3 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
-                        <span className="opacity-55">가격</span>
+                        <span className="opacity-55">결제 금액</span>
                         <b>{price ? `${Number(price).toLocaleString("ko-KR")}원` : "미입력"}</b>
                       </div>
                       <div className="flex justify-between gap-3 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
