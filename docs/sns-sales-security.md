@@ -10,14 +10,19 @@ The legacy HEYMI prototype is reference-only. Its public, connectionId-based end
 
 ## Core isolation decision
 
-Use a dedicated Supabase project for SNS Sales even though it is owned by the same Supabase account/organization.
+SNS Sales uses the existing DECHIVE Supabase project to control cost, but is isolated as a separate security domain.
 
-Reason:
+Isolation rules:
 
-- Instagram access tokens are sensitive credentials.
-- Buyer comments and payment metadata are user/customer data.
-- A security incident in SNS Sales must not expose or affect the primary DECHIVE database.
-- Auth, Storage, database policies, Edge Functions, and secrets need an independent blast radius.
+- Safe owner-readable SNS Sales data lives in dedicated `sns_sales_*` tables with RLS.
+- Sensitive credentials, OAuth state, payment internals, jobs, and webhook state live in the non-client `sns_sales_private` schema.
+- Browsers get no direct write access to SNS Sales database tables.
+- User mutations go through JWT-protected Edge Functions.
+- External callbacks are the only unauthenticated functions and must verify provider-specific proof.
+- SNS Sales media uses a dedicated private bucket.
+- Legacy HEYMI endpoints and tables are retired and must never be reused.
+
+This does not provide the same blast-radius isolation as a separate Supabase project. Therefore service-role credentials must remain server-only and all production functions must be reviewed carefully.
 
 ## Authentication boundary
 
@@ -203,7 +208,7 @@ Before public launch, legacy debug endpoints and unused prototype endpoints shou
 
 Do not call SNS Sales production-ready until all are verified:
 
-- dedicated Supabase project
+- SNS Sales database surface isolated from DECHIVE content tables
 - Supabase Auth enabled
 - RLS policies tested with two separate users
 - no service-role key in browser bundle
