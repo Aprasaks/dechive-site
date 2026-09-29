@@ -38,6 +38,8 @@ export function SnsSalesClient() {
   const [mediaKind, setMediaKind] = useState<MediaKind>("video");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  const [accountExpanded, setAccountExpanded] = useState(false);
+  const [workspaceView, setWorkspaceView] = useState<"content" | "preview">("content");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const connected = Boolean(connection);
@@ -172,6 +174,7 @@ export function SnsSalesClient() {
       );
       if (error || !data?.ok) throw error ?? new Error("disconnect failed");
       setConnection(null);
+      setAccountExpanded(false);
       setSelectedMedia((items) => {
         items.forEach((item) => URL.revokeObjectURL(item.url));
         return [];
@@ -252,99 +255,115 @@ export function SnsSalesClient() {
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
         <aside className="space-y-4">
-          <section className="border border-[color:rgb(9_41_68_/_13%)] bg-[color:rgb(255_255_255_/_20%)] p-4">
+          <section className="border border-[color:rgb(9_41_68_/_13%)] bg-[color:rgb(255_255_255_/_20%)] p-3.5">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="flex items-baseline gap-1.5 text-[15px] font-semibold">
-                <span className="font-handwriting text-[22px] leading-none font-normal tracking-[-0.03em]">
-                  Instagram
-                </span>
-                <span>계정</span>
-              </h2>
-              <span
-                className={
-                  connected
-                    ? "inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#2f7b49]"
-                    : "inline-flex items-center gap-1.5 text-[11px] font-semibold opacity-48"
-                }
-              >
-                <i
+              <div className="min-w-0">
+                <h2 className="flex items-baseline gap-1.5 text-[15px] font-semibold">
+                  <span className="font-handwriting text-[21px] leading-none font-normal tracking-[-0.03em]">
+                    Instagram
+                  </span>
+                  <span>계정</span>
+                </h2>
+                {connected ? (
+                  <p className="mt-1 truncate text-[10px] opacity-58">
+                    @{connection?.instagram_username}
+                    <span className="mx-1.5 opacity-35">·</span>
+                    {connection?.account_type || "Professional"}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2">
+                <span
                   className={
                     connected
-                      ? "size-2 rounded-full bg-[#39a660] shadow-[0_0_0_3px_rgb(57_166_96_/_12%)]"
-                      : "size-2 rounded-full bg-[color:rgb(9_41_68_/_22%)]"
+                      ? "inline-flex items-center gap-1.5 text-[10px] font-semibold text-[#2f7b49]"
+                      : "inline-flex items-center gap-1.5 text-[10px] font-semibold opacity-48"
                   }
-                />
-                {connected ? "연결됨" : "연결 필요"}
-              </span>
+                >
+                  <i
+                    className={
+                      connected
+                        ? "size-2 rounded-full bg-[#39a660] shadow-[0_0_0_3px_rgb(57_166_96_/_12%)]"
+                        : "size-2 rounded-full bg-[color:rgb(9_41_68_/_22%)]"
+                    }
+                  />
+                  {connected ? "연결됨" : "연결 필요"}
+                </span>
+
+                {connected ? (
+                  <button
+                    type="button"
+                    onClick={() => setAccountExpanded((value) => !value)}
+                    className="border border-[color:rgb(9_41_68_/_14%)] px-2 py-1 text-[9px] font-semibold opacity-60 transition-opacity hover:opacity-100"
+                  >
+                    {accountExpanded ? "접기" : "관리"}
+                  </button>
+                ) : null}
+              </div>
             </div>
 
-            {connected ? (
-              <div className="mt-3 border-t border-[color:rgb(9_41_68_/_10%)] pt-3">
-                <strong className="block text-[13px]">@{connection?.instagram_username}</strong>
-                <p className="mt-1 text-[10px] opacity-48">
-                  {connection?.account_type || "Professional"} account
-                </p>
-              </div>
-            ) : (
-              <div className="mt-3 space-y-1">
-                <p className="text-[11px] font-semibold leading-5 text-[#b44343]">
-                  Business 또는 Creator 계정만 연결 가능합니다.
-                </p>
-                <p className="text-[10px] leading-5 opacity-52">
-                  계정 연결이 완료되면 콘텐츠 등록과 판매 자동화를 시작할 수 있습니다.
-                </p>
-              </div>
-            )}
+            {!connected ? (
+              <>
+                <div className="mt-3 space-y-1">
+                  <p className="text-[11px] font-semibold leading-5 text-[#b44343]">
+                    Business 또는 Creator 계정만 연결 가능합니다.
+                  </p>
+                  <p className="text-[10px] leading-5 opacity-52">
+                    계정 연결이 완료되면 콘텐츠 등록과 판매 자동화를 시작할 수 있습니다.
+                  </p>
+                </div>
 
-            <div className="mt-3 flex gap-2">
-              <button
-                type="button"
-                onClick={handleInstagramConnect}
-                disabled={connecting || connectionLoading || connected}
-                className="h-9 flex-1 bg-[var(--navy)] px-3 text-[11px] font-semibold text-[#fffaf2] transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {connecting ? "연결 준비 중..." : connected ? "Instagram 연결됨" : "Instagram 계정 연결하기"}
-              </button>
-              <button
-                type="button"
-                onClick={handleDisconnect}
-                disabled={!connected || disconnecting}
-                className="h-9 border border-[color:rgb(9_41_68_/_18%)] px-3 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-30"
-              >
-                {disconnecting ? "해제 중..." : "연결 해제"}
-              </button>
-            </div>
-
-            <div className="mt-3 flex items-center justify-between border-t border-[color:rgb(9_41_68_/_8%)] pt-2 text-[9px]">
-              <span className="max-w-[245px] truncate opacity-42">
-                {session?.user.email ? `DECHIVE · ${session.user.email}` : "DECHIVE 로그인 필요"}
-              </span>
-              {session ? (
                 <button
                   type="button"
-                  onClick={signOut}
-                  className="font-semibold opacity-48 transition-opacity hover:opacity-100"
+                  onClick={handleInstagramConnect}
+                  disabled={connecting || connectionLoading}
+                  className="mt-3 h-9 w-full bg-[var(--navy)] px-3 text-[11px] font-semibold text-[#fffaf2] transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  로그아웃
+                  {connecting ? "연결 준비 중..." : "Instagram 계정 연결하기"}
                 </button>
-              ) : null}
-            </div>
+              </>
+            ) : accountExpanded ? (
+              <div className="mt-3 border-t border-[color:rgb(9_41_68_/_9%)] pt-3">
+                <div className="flex items-center justify-between gap-3 text-[9px]">
+                  <span className="max-w-[220px] truncate opacity-45">
+                    {session?.user.email ? `DECHIVE · ${session.user.email}` : "DECHIVE 로그인"}
+                  </span>
+                  {session ? (
+                    <button
+                      type="button"
+                      onClick={signOut}
+                      className="font-semibold opacity-48 transition-opacity hover:opacity-100"
+                    >
+                      로그아웃
+                    </button>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDisconnect}
+                  disabled={disconnecting}
+                  className="mt-3 h-8 w-full border border-[color:rgb(9_41_68_/_18%)] px-3 text-[10px] font-semibold disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  {disconnecting ? "연결 해제 중..." : "Instagram 연결 해제"}
+                </button>
+              </div>
+            ) : null}
           </section>
 
-          <section className="border border-[color:rgb(9_41_68_/_12%)] p-4">
-            <p className="text-[10px] font-bold tracking-[0.1em] opacity-45">STATUS</p>
-            <div className="mt-3 space-y-2 text-[11px]">
-              <div className="flex justify-between gap-4">
-                <span className="opacity-48">계정 연결</span>
-                <b>{connected ? "확인됨" : "대기"}</b>
+          <section className="border border-[color:rgb(9_41_68_/_12%)] px-3.5 py-3">
+            <div className="grid grid-cols-3 gap-2 text-center text-[9px]">
+              <div>
+                <span className="block opacity-42">계정</span>
+                <b className="mt-1 block text-[10px]">{connected ? "확인" : "대기"}</b>
               </div>
-              <div className="flex justify-between gap-4">
-                <span className="opacity-48">콘텐츠 등록</span>
-                <b>{selectedMedia.length ? "선택됨" : "대기"}</b>
+              <div className="border-x border-[color:rgb(9_41_68_/_10%)]">
+                <span className="block opacity-42">콘텐츠</span>
+                <b className="mt-1 block text-[10px]">{selectedMedia.length ? "선택" : "대기"}</b>
               </div>
-              <div className="flex justify-between gap-4">
-                <span className="opacity-48">Instagram 게시</span>
-                <b>게시 전</b>
+              <div>
+                <span className="block opacity-42">게시</span>
+                <b className="mt-1 block text-[10px]">게시 전</b>
               </div>
             </div>
           </section>
@@ -366,200 +385,263 @@ export function SnsSalesClient() {
           ) : null}
 
           <div className={connected ? "" : "pointer-events-none select-none opacity-28"}>
-            <div className="grid border-b border-[color:rgb(9_41_68_/_12%)] lg:grid-cols-[minmax(0,1fr)_320px]">
-              <div className="p-4 sm:p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] font-bold tracking-[0.1em] opacity-45">
-                      NEW SALE CONTENT
-                    </p>
-                    <h2 className="mt-1 text-[15px] font-semibold">새 판매 콘텐츠</h2>
-                  </div>
-                  <div className="flex border border-[color:rgb(9_41_68_/_15%)] p-0.5">
-                    <button
-                      type="button"
-                      onClick={() => chooseKind("video")}
-                      className={
-                        mediaKind === "video"
-                          ? "bg-[var(--navy)] px-3 py-1.5 text-[10px] font-semibold text-white"
-                          : "px-3 py-1.5 text-[10px] font-semibold opacity-48"
-                      }
-                    >
-                      동영상
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => chooseKind("image")}
-                      className={
-                        mediaKind === "image"
-                          ? "bg-[var(--navy)] px-3 py-1.5 text-[10px] font-semibold text-white"
-                          : "px-3 py-1.5 text-[10px] font-semibold opacity-48"
-                      }
-                    >
-                      이미지
-                    </button>
-                  </div>
-                </div>
-
-                <input
-                  ref={inputRef}
-                  type="file"
-                  accept={accept}
-                  multiple={mediaKind === "image"}
-                  onChange={handleFiles}
-                  className="hidden"
-                />
-
+            <div className="flex items-center justify-between border-b border-[color:rgb(9_41_68_/_12%)] px-4 py-2.5">
+              <div className="flex border border-[color:rgb(9_41_68_/_14%)] p-0.5">
                 <button
                   type="button"
-                  onClick={() => inputRef.current?.click()}
-                  className="mt-4 flex min-h-40 w-full flex-col items-center justify-center border border-dashed border-[color:rgb(9_41_68_/_22%)] px-6 py-8 text-center transition-colors hover:bg-[color:rgb(9_41_68_/_2%)]"
+                  onClick={() => setWorkspaceView("content")}
+                  className={
+                    workspaceView === "content"
+                      ? "bg-[var(--navy)] px-3 py-1.5 text-[10px] font-semibold text-white"
+                      : "px-3 py-1.5 text-[10px] font-semibold opacity-48"
+                  }
                 >
-                  <span className="text-lg opacity-45">＋</span>
-                  <b className="mt-2 text-[12px]">
-                    {mediaKind === "video" ? "동영상 추가" : "이미지 추가"}
-                  </b>
-                  <span className="mt-1 text-[10px] opacity-45">
-                    {mediaKind === "video"
-                      ? "동영상 1개를 선택합니다."
-                      : "이미지는 최대 10장까지 선택할 수 있습니다."}
-                  </span>
+                  콘텐츠 등록
                 </button>
-
-                {selectedMedia.length ? (
-                  <div className="mt-3 grid grid-cols-5 gap-2">
-                    {selectedMedia.map((item, index) => (
-                      <div
-                        key={item.id}
-                        className="relative aspect-square overflow-hidden border border-[color:rgb(9_41_68_/_12%)] bg-black/5"
-                      >
-                        {mediaKind === "video" ? (
-                          <video src={item.url} className="size-full object-cover" muted />
-                        ) : (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={item.url} alt="" className="size-full object-cover" />
-                        )}
-                        <span className="absolute top-1 left-1 bg-[#fffaf2]/90 px-1.5 py-0.5 text-[9px] font-bold">
-                          {String(index + 1).padStart(2, "0")}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-
-                <p className="mt-2 text-[10px] opacity-42">{previewLabel}</p>
+                <button
+                  type="button"
+                  onClick={() => setWorkspaceView("preview")}
+                  className={
+                    workspaceView === "preview"
+                      ? "bg-[var(--navy)] px-3 py-1.5 text-[10px] font-semibold text-white"
+                      : "px-3 py-1.5 text-[10px] font-semibold opacity-48"
+                  }
+                >
+                  미리보기
+                </button>
               </div>
-
-              <div className="border-t border-[color:rgb(9_41_68_/_12%)] p-4 lg:border-t-0 lg:border-l">
-                <p className="text-[10px] font-bold tracking-[0.1em] opacity-45">
-                  SALES SETTINGS
-                </p>
-                <div className="mt-3 space-y-3">
-                  <label className="block text-[10px] font-semibold">
-                    상품명
-                    <input
-                      className="mt-1 h-9 w-full border border-[color:rgb(9_41_68_/_16%)] bg-transparent px-3 text-[11px] outline-none focus:border-[var(--navy)]"
-                      placeholder="예: 빈티지 데님 재킷"
-                    />
-                  </label>
-                  <label className="block text-[10px] font-semibold">
-                    가격
-                    <div className="relative mt-1">
-                      <input
-                        type="number"
-                        className="h-9 w-full border border-[color:rgb(9_41_68_/_16%)] bg-transparent px-3 pr-8 text-[11px] outline-none focus:border-[var(--navy)]"
-                        placeholder="59000"
-                      />
-                      <span className="absolute top-1/2 right-3 -translate-y-1/2 text-[10px] opacity-38">
-                        원
-                      </span>
-                    </div>
-                  </label>
-                  <label className="block text-[10px] font-semibold">
-                    설명
-                    <textarea
-                      rows={5}
-                      className="mt-1 w-full resize-none border border-[color:rgb(9_41_68_/_16%)] bg-transparent px-3 py-2 text-[11px] leading-5 outline-none focus:border-[var(--navy)]"
-                      placeholder={'예: 사이즈 M / 상태 양호\n구매를 원하시면 댓글에 "구매"라고 입력해주세요.'}
-                    />
-                  </label>
-                  <label className="block text-[10px] font-semibold">
-                    댓글 트리거
-                    <input
-                      className="mt-1 h-9 w-full border border-[color:rgb(9_41_68_/_16%)] bg-transparent px-3 text-[11px] outline-none focus:border-[var(--navy)]"
-                      placeholder="예: 구매"
-                    />
-                  </label>
-                </div>
-              </div>
+              <span className="text-[9px] opacity-38">
+                {workspaceView === "content" ? "판매 콘텐츠를 준비합니다." : "Instagram 게시 형태를 확인합니다."}
+              </span>
             </div>
 
-            <div className="grid lg:grid-cols-[minmax(0,1fr)_320px]">
-              <div className="p-4 sm:p-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] font-bold tracking-[0.1em] opacity-45">
-                      INSTAGRAM PREVIEW
-                    </p>
-                    <h2 className="mt-1 text-[15px] font-semibold">게시물 미리보기</h2>
+            {workspaceView === "content" ? (
+              <div className="grid lg:grid-cols-[minmax(0,1fr)_320px]">
+                <div className="p-4 sm:p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-bold tracking-[0.1em] opacity-45">
+                        NEW SALE CONTENT
+                      </p>
+                      <h2 className="mt-1 text-[15px] font-semibold">새 판매 콘텐츠</h2>
+                    </div>
+                    <div className="flex border border-[color:rgb(9_41_68_/_15%)] p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => chooseKind("video")}
+                        className={
+                          mediaKind === "video"
+                            ? "bg-[var(--navy)] px-3 py-1.5 text-[10px] font-semibold text-white"
+                            : "px-3 py-1.5 text-[10px] font-semibold opacity-48"
+                        }
+                      >
+                        동영상
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => chooseKind("image")}
+                        className={
+                          mediaKind === "image"
+                            ? "bg-[var(--navy)] px-3 py-1.5 text-[10px] font-semibold text-white"
+                            : "px-3 py-1.5 text-[10px] font-semibold opacity-48"
+                        }
+                      >
+                        이미지
+                      </button>
+                    </div>
                   </div>
+
+                  <input
+                    ref={inputRef}
+                    type="file"
+                    accept={accept}
+                    multiple={mediaKind === "image"}
+                    onChange={handleFiles}
+                    className="hidden"
+                  />
+
                   <button
                     type="button"
-                    className="border border-[color:rgb(9_41_68_/_16%)] px-3 py-1.5 text-[10px] font-semibold"
+                    onClick={() => inputRef.current?.click()}
+                    className="mt-4 flex min-h-36 w-full flex-col items-center justify-center border border-dashed border-[color:rgb(9_41_68_/_22%)] px-6 py-6 text-center transition-colors hover:bg-[color:rgb(9_41_68_/_2%)]"
                   >
-                    미리보기 새로고침
+                    <span className="text-lg opacity-45">＋</span>
+                    <b className="mt-2 text-[12px]">
+                      {mediaKind === "video" ? "동영상 추가" : "이미지 추가"}
+                    </b>
+                    <span className="mt-1 text-[10px] opacity-45">
+                      {mediaKind === "video"
+                        ? "동영상 1개를 선택합니다."
+                        : "이미지는 최대 10장까지 선택할 수 있습니다."}
+                    </span>
+                  </button>
+
+                  {selectedMedia.length ? (
+                    <div className="mt-3 grid grid-cols-5 gap-2">
+                      {selectedMedia.map((item, index) => (
+                        <div
+                          key={item.id}
+                          className="relative aspect-square overflow-hidden border border-[color:rgb(9_41_68_/_12%)] bg-black/5"
+                        >
+                          {mediaKind === "video" ? (
+                            <video src={item.url} className="size-full object-cover" muted />
+                          ) : (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={item.url} alt="" className="size-full object-cover" />
+                          )}
+                          <span className="absolute top-1 left-1 bg-[#fffaf2]/90 px-1.5 py-0.5 text-[9px] font-bold">
+                            {String(index + 1).padStart(2, "0")}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <p className="mt-2 text-[10px] opacity-42">{previewLabel}</p>
+                </div>
+
+                <div className="border-t border-[color:rgb(9_41_68_/_12%)] p-4 lg:border-t-0 lg:border-l">
+                  <p className="text-[10px] font-bold tracking-[0.1em] opacity-45">
+                    SALES SETTINGS
+                  </p>
+                  <div className="mt-3 space-y-3">
+                    <label className="block text-[10px] font-semibold">
+                      상품명
+                      <input
+                        className="mt-1 h-9 w-full border border-[color:rgb(9_41_68_/_16%)] bg-transparent px-3 text-[11px] outline-none focus:border-[var(--navy)]"
+                        placeholder="예: 빈티지 데님 재킷"
+                      />
+                    </label>
+                    <label className="block text-[10px] font-semibold">
+                      가격
+                      <div className="relative mt-1">
+                        <input
+                          type="number"
+                          className="h-9 w-full border border-[color:rgb(9_41_68_/_16%)] bg-transparent px-3 pr-8 text-[11px] outline-none focus:border-[var(--navy)]"
+                          placeholder="59000"
+                        />
+                        <span className="absolute top-1/2 right-3 -translate-y-1/2 text-[10px] opacity-38">
+                          원
+                        </span>
+                      </div>
+                    </label>
+                    <label className="block text-[10px] font-semibold">
+                      설명
+                      <textarea
+                        rows={4}
+                        className="mt-1 w-full resize-none border border-[color:rgb(9_41_68_/_16%)] bg-transparent px-3 py-2 text-[11px] leading-5 outline-none focus:border-[var(--navy)]"
+                        placeholder={'예: 사이즈 M / 상태 양호\n구매를 원하시면 댓글에 "구매"라고 입력해주세요.'}
+                      />
+                    </label>
+                    <label className="block text-[10px] font-semibold">
+                      댓글 트리거
+                      <input
+                        className="mt-1 h-9 w-full border border-[color:rgb(9_41_68_/_16%)] bg-transparent px-3 text-[11px] outline-none focus:border-[var(--navy)]"
+                        placeholder="예: 구매"
+                      />
+                    </label>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setWorkspaceView("preview")}
+                    className="mt-4 h-9 w-full border border-[color:rgb(9_41_68_/_18%)] px-3 text-[10px] font-semibold transition-colors hover:bg-[color:rgb(9_41_68_/_3%)]"
+                  >
+                    미리보기 확인 →
                   </button>
                 </div>
+              </div>
+            ) : (
+              <div className="grid lg:grid-cols-[minmax(0,1fr)_320px]">
+                <div className="p-4 sm:p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold tracking-[0.1em] opacity-45">
+                        INSTAGRAM PREVIEW
+                      </p>
+                      <h2 className="mt-1 text-[15px] font-semibold">게시물 미리보기</h2>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setWorkspaceView("content")}
+                      className="border border-[color:rgb(9_41_68_/_16%)] px-3 py-1.5 text-[10px] font-semibold"
+                    >
+                      ← 내용 수정
+                    </button>
+                  </div>
 
-                <div className="mt-4 mx-auto max-w-[390px] border border-[color:rgb(9_41_68_/_16%)] bg-[#faf7f1]">
-                  <div className="flex h-11 items-center gap-2 border-b border-[color:rgb(9_41_68_/_10%)] px-3">
-                    <span className="size-6 rounded-full border border-[color:rgb(9_41_68_/_14%)]" />
-                    <b className="text-[10px]">@{connection?.instagram_username || "instagram"}</b>
-                    <span className="ml-auto text-sm opacity-45">•••</span>
-                  </div>
-                  <div className="flex aspect-square items-center justify-center bg-[color:rgb(9_41_68_/_4%)]">
-                    {selectedMedia[0] ? (
-                      mediaKind === "video" ? (
-                        <video
-                          src={selectedMedia[0].url}
-                          controls
-                          className="size-full object-contain"
-                        />
+                  <div className="mx-auto mt-4 max-w-[360px] border border-[color:rgb(9_41_68_/_16%)] bg-[#faf7f1]">
+                    <div className="flex h-10 items-center gap-2 border-b border-[color:rgb(9_41_68_/_10%)] px-3">
+                      <span className="size-6 rounded-full border border-[color:rgb(9_41_68_/_14%)]" />
+                      <b className="text-[10px]">@{connection?.instagram_username || "instagram"}</b>
+                      <span className="ml-auto text-sm opacity-45">•••</span>
+                    </div>
+                    <div className="flex aspect-square max-h-[360px] items-center justify-center bg-[color:rgb(9_41_68_/_4%)]">
+                      {selectedMedia[0] ? (
+                        mediaKind === "video" ? (
+                          <video
+                            src={selectedMedia[0].url}
+                            controls
+                            className="size-full object-contain"
+                          />
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={selectedMedia[0].url}
+                            alt=""
+                            className="size-full object-contain"
+                          />
+                        )
                       ) : (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={selectedMedia[0].url}
-                          alt=""
-                          className="size-full object-contain"
-                        />
-                      )
-                    ) : (
-                      <span className="text-[10px] opacity-38">미디어 미리보기</span>
-                    )}
+                        <span className="text-[10px] opacity-38">미디어 미리보기</span>
+                      )}
+                    </div>
+                    <div className="px-3 py-2.5">
+                      <div className="text-[15px] tracking-[0.24em]">♡ ◯ ✈</div>
+                      <p className="mt-2 text-[10px] leading-4">
+                        <b>@{connection?.instagram_username || "instagram"}</b>{" "}
+                        <span className="opacity-50">입력한 설명이 여기에 표시됩니다.</span>
+                      </p>
+                    </div>
                   </div>
-                  <div className="px-3 py-2.5">
-                    <div className="text-[15px] tracking-[0.24em]">♡ ◯ ✈</div>
-                    <p className="mt-2 text-[10px] leading-4">
-                      <b>@{connection?.instagram_username || "instagram"}</b>{" "}
-                      <span className="opacity-50">입력한 설명이 여기에 표시됩니다.</span>
+                </div>
+
+                <div className="flex flex-col justify-between border-t border-[color:rgb(9_41_68_/_12%)] p-4 lg:border-t-0 lg:border-l">
+                  <div>
+                    <p className="text-[10px] font-bold tracking-[0.1em] opacity-45">
+                      FINAL CHECK
                     </p>
+                    <div className="mt-3 space-y-2 text-[10px]">
+                      <div className="flex justify-between gap-3 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
+                        <span className="opacity-45">계정</span>
+                        <b>@{connection?.instagram_username || "instagram"}</b>
+                      </div>
+                      <div className="flex justify-between gap-3 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
+                        <span className="opacity-45">미디어</span>
+                        <b>{selectedMedia.length ? `${selectedMedia.length}개` : "미선택"}</b>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <span className="opacity-45">게시 상태</span>
+                        <b>게시 전</b>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <p className="text-[10px] leading-5 opacity-48">
+                      실제 Instagram 계정과 미디어를 확인한 뒤 게시하세요.
+                    </p>
+                    <button
+                      type="button"
+                      className="mt-3 h-10 w-full bg-[var(--terracotta)] px-4 text-[11px] font-semibold text-[#fffaf2]"
+                    >
+                      Instagram에 게시
+                    </button>
                   </div>
                 </div>
               </div>
-
-              <div className="flex flex-col justify-end border-t border-[color:rgb(9_41_68_/_12%)] p-4 lg:border-t-0 lg:border-l">
-                <p className="text-[10px] leading-5 opacity-48">
-                  게시 전 실제 Instagram 계정, 미디어 순서, 설명과 트리거 설정을
-                  확인하세요.
-                </p>
-                <button
-                  type="button"
-                  className="mt-3 h-10 bg-[var(--terracotta)] px-4 text-[11px] font-semibold text-[#fffaf2]"
-                >
-                  Instagram에 게시
-                </button>
-              </div>
-            </div>
+            )}
+          </div>
           </div>
         </section>
       </div>
