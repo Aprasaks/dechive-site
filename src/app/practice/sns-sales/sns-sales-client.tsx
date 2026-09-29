@@ -37,6 +37,10 @@ export function SnsSalesClient() {
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [mediaKind, setMediaKind] = useState<MediaKind>("video");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
+  const [productName, setProductName] = useState("");
+  const [price, setPrice] = useState("");
+  const [description, setDescription] = useState("");
+  const [triggerKeyword, setTriggerKeyword] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [accountExpanded, setAccountExpanded] = useState(false);
   const [workspaceView, setWorkspaceView] = useState<"content" | "preview">("content");
@@ -53,26 +57,59 @@ export function SnsSalesClient() {
   }, [mediaKind, selectedMedia]);
 
   function chooseKind(kind: MediaKind) {
+    if (kind === mediaKind) return;
+
     setMediaKind(kind);
     setSelectedMedia((items) => {
       items.forEach((item) => URL.revokeObjectURL(item.url));
       return [];
     });
+    if (inputRef.current) inputRef.current.value = "";
   }
 
   function handleFiles(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
-    const allowed = mediaKind === "video" ? files.slice(0, 1) : files.slice(0, 10);
+
+    if (mediaKind === "video") {
+      const file = files[0];
+      setSelectedMedia((items) => {
+        items.forEach((item) => URL.revokeObjectURL(item.url));
+        if (!file) return [];
+        return [{
+          id: crypto.randomUUID(),
+          name: file.name,
+          url: URL.createObjectURL(file),
+          type: file.type,
+        }];
+      });
+      return;
+    }
 
     setSelectedMedia((items) => {
-      items.forEach((item) => URL.revokeObjectURL(item.url));
-      return allowed.map((file) => ({
-        id: crypto.randomUUID(),
-        name: file.name,
-        url: URL.createObjectURL(file),
-        type: file.type,
-      }));
+      const remainingSlots = Math.max(0, 10 - items.length);
+      const nextFiles = files.slice(0, remainingSlots);
+      return [
+        ...items,
+        ...nextFiles.map((file) => ({
+          id: crypto.randomUUID(),
+          name: file.name,
+          url: URL.createObjectURL(file),
+          type: file.type,
+        })),
+      ];
     });
+
+    // Allow the same file to be selected again after it is removed.
+    event.target.value = "";
+  }
+
+  function removeMedia(id: string) {
+    setSelectedMedia((items) => {
+      const target = items.find((item) => item.id === id);
+      if (target) URL.revokeObjectURL(target.url);
+      return items.filter((item) => item.id !== id);
+    });
+    if (inputRef.current) inputRef.current.value = "";
   }
 
   async function loadConnection() {
@@ -441,7 +478,7 @@ export function SnsSalesClient() {
                     </b>
                     <span className="mt-1 text-[11px] text-[color:rgb(9_41_68_/_55%)]">
                       {mediaKind === "video"
-                        ? "동영상 1개를 선택합니다."
+                        ? "동영상은 한 번에 1개만 선택할 수 있습니다."
                         : "이미지는 최대 10장까지 선택할 수 있습니다."}
                     </span>
                   </button>
@@ -462,6 +499,15 @@ export function SnsSalesClient() {
                           <span className="absolute top-1 left-1 bg-[#fffaf2]/90 px-1.5 py-0.5 text-[9px] font-bold">
                             {String(index + 1).padStart(2, "0")}
                           </span>
+                          <button
+                            type="button"
+                            onClick={() => removeMedia(item.id)}
+                            className="absolute top-1 right-1 flex size-5 items-center justify-center bg-[color:rgb(9_41_68_/_82%)] text-[12px] font-bold leading-none text-white transition-opacity hover:opacity-75"
+                            aria-label={`${item.name} 삭제`}
+                            title="선택 취소"
+                          >
+                            ×
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -478,6 +524,8 @@ export function SnsSalesClient() {
                     <label className="block text-[11px] font-semibold">
                       상품명
                       <input
+                        value={productName}
+                        onChange={(event) => setProductName(event.target.value)}
                         className="mt-1 h-9 w-full border border-[color:rgb(9_41_68_/_22%)] bg-transparent px-3 text-[12px] outline-none focus:border-[var(--navy)]"
                         placeholder="예: 빈티지 데님 재킷"
                       />
@@ -487,6 +535,9 @@ export function SnsSalesClient() {
                       <div className="relative mt-1">
                         <input
                           type="number"
+                          min="0"
+                          value={price}
+                          onChange={(event) => setPrice(event.target.value)}
                           className="h-9 w-full border border-[color:rgb(9_41_68_/_22%)] bg-transparent px-3 pr-8 text-[12px] outline-none focus:border-[var(--navy)]"
                           placeholder="59000"
                         />
@@ -499,6 +550,8 @@ export function SnsSalesClient() {
                       설명
                       <textarea
                         rows={4}
+                        value={description}
+                        onChange={(event) => setDescription(event.target.value)}
                         className="mt-1 w-full resize-none border border-[color:rgb(9_41_68_/_22%)] bg-transparent px-3 py-2 text-[12px] leading-5 outline-none focus:border-[var(--navy)]"
                         placeholder={'예: 사이즈 M / 상태 양호\n구매를 원하시면 댓글에 "구매"라고 입력해주세요.'}
                       />
@@ -506,6 +559,8 @@ export function SnsSalesClient() {
                     <label className="block text-[11px] font-semibold">
                       댓글 트리거
                       <input
+                        value={triggerKeyword}
+                        onChange={(event) => setTriggerKeyword(event.target.value)}
                         className="mt-1 h-9 w-full border border-[color:rgb(9_41_68_/_22%)] bg-transparent px-3 text-[12px] outline-none focus:border-[var(--navy)]"
                         placeholder="예: 구매"
                       />
@@ -568,10 +623,12 @@ export function SnsSalesClient() {
                     </div>
                     <div className="px-3 py-2.5">
                       <div className="text-[15px] tracking-[0.24em]">♡ ◯ ✈</div>
-                      <p className="mt-2 text-[11px] leading-5">
-                        <b>@{connection?.instagram_username || "instagram"}</b>{" "}
-                        <span className="opacity-50">입력한 설명이 여기에 표시됩니다.</span>
-                      </p>
+                      <div className="mt-2 text-[11px] leading-5">
+                        <b>@{connection?.instagram_username || "instagram"}</b>
+                        <p className="mt-1 whitespace-pre-wrap text-[color:rgb(9_41_68_/_78%)]">
+                          {description.trim() || "설명을 입력하면 이곳에 실제 게시글 설명이 표시됩니다."}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -587,11 +644,23 @@ export function SnsSalesClient() {
                         <b>@{connection?.instagram_username || "instagram"}</b>
                       </div>
                       <div className="flex justify-between gap-3 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
-                        <span className="opacity-45">미디어</span>
+                        <span className="opacity-55">미디어</span>
                         <b>{selectedMedia.length ? `${selectedMedia.length}개` : "미선택"}</b>
                       </div>
+                      <div className="flex justify-between gap-3 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
+                        <span className="opacity-55">상품명</span>
+                        <b className="max-w-[180px] truncate text-right">{productName.trim() || "미입력"}</b>
+                      </div>
+                      <div className="flex justify-between gap-3 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
+                        <span className="opacity-55">가격</span>
+                        <b>{price ? `${Number(price).toLocaleString("ko-KR")}원` : "미입력"}</b>
+                      </div>
+                      <div className="flex justify-between gap-3 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
+                        <span className="opacity-55">댓글 트리거</span>
+                        <b>{triggerKeyword.trim() || "미입력"}</b>
+                      </div>
                       <div className="flex justify-between gap-3">
-                        <span className="opacity-45">게시 상태</span>
+                        <span className="opacity-55">게시 상태</span>
                         <b>게시 전</b>
                       </div>
                     </div>
