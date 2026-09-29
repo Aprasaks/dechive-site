@@ -1,6 +1,9 @@
 "use client";
 
-import { ChangeEvent, useMemo, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
+
+import { snsSalesSupabase } from "@/lib/sns-sales-supabase";
 
 type MediaKind = "video" | "image";
 
@@ -11,12 +14,33 @@ type SelectedMedia = {
   type: string;
 };
 
+type InstagramConnection = {
+  id: string;
+  instagram_user_id: string;
+  instagram_username: string;
+  account_type: string | null;
+  granted_permissions: string[];
+  token_expires_at: string | null;
+  status: string;
+};
+
 export function SnsSalesClient() {
-  const [connected] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [connection, setConnection] = useState<InstagramConnection | null>(null);
+  const [connectionLoading, setConnectionLoading] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [authSending, setAuthSending] = useState(false);
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [mediaKind, setMediaKind] = useState<MediaKind>("video");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const connected = Boolean(connection);
 
   const accept = mediaKind === "video" ? "video/*" : "image/*";
 
@@ -49,10 +73,147 @@ export function SnsSalesClient() {
     });
   }
 
-  function handleInstagramConnect() {
-    setNotice(
-      "새 공개판용 Instagram OAuth를 연결하는 단계가 남아 있습니다. 현재 화면에서는 가짜 연결 상태를 만들지 않습니다.",
+  async function loadConnection() {
+    if (!session) {
+      setConnection(null);
+      return;
+    }
+
+    setConnectionLoading(true);
+    try {
+      const { data, error } = await snsSalesSupabase.functions.invoke(
+        "sns-sales-instagram-status",
+        { method: "POST", body: {} },
+      );
+      if (error) throw error;
+      setConnection(data?.connected ? data.connection : null);
+    } catch {
+      setConnection(null);
+      setNotice("Instagram 연결 상태를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setConnectionLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    let mounted = true;
+
+    snsSalesSupabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      setSession(data.session);
+      setAuthReady(true);
+    });
+
+    const { data: authListener } = snsSalesSupabase.auth.onAuthStateChange(
+      (_event, nextSession) => {
+        setSession(nextSession);
+        setAuthReady(true);
+      },
     );
+
+    return () => {
+      mounted = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!authReady) return;
+    void loadConnection();
+    // loadConnection intentionally follows session changes only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user.id, authReady]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("instagram_connected") === "1") {
+      setNotice("Instagram 계정 연결이 완료되었습니다.");
+      params.delete("instagram_connected");
+      window.history.replaceState({}, "", `${window.location.pathname}${params.size ? `?${params.toString()}` : ""}`);
+    }
+    if (params.get("instagram_error")) {
+      setNotice("Instagram 연결을 완료하지 못했습니다. 다시 시도해주세요.");
+      params.delete("instagram_error");
+      window.history.replaceState({}, "", `${window.location.pathname}${params.size ? `?${params.toString()}` : ""}`);
+    }
+  }, []);
+
+  async function handleInstagramConnect() {
+    if (!session) {
+      setLoginOpen(true);
+      return;
+    }
+
+    setConnecting(true);
+    setNotice(null);
+    try {
+      const { data, error } = await snsSalesSupabase.functions.invoke(
+        "sns-sales-instagram-oauth-start",
+        { body: {} },
+      );
+      if (error) throw error;
+      if (!data?.authorizationUrl) throw new Error("missing authorization url");
+      window.location.assign(data.authorizationUrl);
+    } catch {
+      setNotice("Instagram 연결을 시작하지 못했습니다. 로그인 상태를 다시 확인해주세요.");
+      setConnecting(false);
+    }
+  }
+
+  async function handleDisconnect() {
+    if (!session || !connection) return;
+
+    setDisconnecting(true);
+    setNotice(null);
+    try {
+      const { data, error } = await snsSalesSupabase.functions.invoke(
+        "sns-sales-instagram-disconnect",
+        { body: { connectionId: connection.id } },
+      );
+      if (error || !data?.ok) throw error ?? new Error("disconnect failed");
+      setConnection(null);
+      setSelectedMedia((items) => {
+        items.forEach((item) => URL.revokeObjectURL(item.url));
+        return [];
+      });
+      setNotice("Instagram 연결을 해제했습니다.");
+    } catch {
+      setNotice("Instagram 연결 해제에 실패했습니다.");
+    } finally {
+      setDisconnecting(false);
+    }
+  }
+
+  async function sendLoginLink() {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      setAuthMessage("이메일 주소를 입력해주세요.");
+      return;
+    }
+
+    setAuthSending(true);
+    setAuthMessage(null);
+    try {
+      const { error } = await snsSalesSupabase.auth.signInWithOtp({
+        email: normalizedEmail,
+        options: {
+          emailRedirectTo: `${window.location.origin}/practice/sns-sales`,
+        },
+      });
+      if (error) throw error;
+      setAuthMessage("로그인 링크를 이메일로 보냈습니다. 받은 메일에서 링크를 열어주세요.");
+    } catch {
+      setAuthMessage("로그인 링크를 보내지 못했습니다. 이메일 주소를 확인해주세요.");
+    } finally {
+      setAuthSending(false);
+    }
+  }
+
+  async function signOut() {
+    await snsSalesSupabase.auth.signOut();
+    setConnection(null);
+    setLoginOpen(false);
+    setNotice("로그아웃했습니다.");
   }
 
   return (
@@ -119,8 +280,10 @@ export function SnsSalesClient() {
 
             {connected ? (
               <div className="mt-3 border-t border-[color:rgb(9_41_68_/_10%)] pt-3">
-                <strong className="block text-[13px]">@instagram</strong>
-                <p className="mt-1 text-[10px] opacity-48">Professional account</p>
+                <strong className="block text-[13px]">@{connection?.instagram_username}</strong>
+                <p className="mt-1 text-[10px] opacity-48">
+                  {connection?.account_type || "Professional"} account
+                </p>
               </div>
             ) : (
               <div className="mt-3 space-y-1">
@@ -137,17 +300,34 @@ export function SnsSalesClient() {
               <button
                 type="button"
                 onClick={handleInstagramConnect}
-                className="h-9 flex-1 bg-[var(--navy)] px-3 text-[11px] font-semibold text-[#fffaf2] transition-opacity hover:opacity-85"
+                disabled={connecting || connectionLoading || connected}
+                className="h-9 flex-1 bg-[var(--navy)] px-3 text-[11px] font-semibold text-[#fffaf2] transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Instagram 계정 연결하기
+                {connecting ? "연결 준비 중..." : connected ? "Instagram 연결됨" : "Instagram 계정 연결하기"}
               </button>
               <button
                 type="button"
-                disabled={!connected}
+                onClick={handleDisconnect}
+                disabled={!connected || disconnecting}
                 className="h-9 border border-[color:rgb(9_41_68_/_18%)] px-3 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-30"
               >
-                연결 해제
+                {disconnecting ? "해제 중..." : "연결 해제"}
               </button>
+            </div>
+
+            <div className="mt-3 flex items-center justify-between border-t border-[color:rgb(9_41_68_/_8%)] pt-2 text-[9px]">
+              <span className="max-w-[245px] truncate opacity-42">
+                {session?.user.email ? `DECHIVE · ${session.user.email}` : "DECHIVE 로그인 필요"}
+              </span>
+              {session ? (
+                <button
+                  type="button"
+                  onClick={signOut}
+                  className="font-semibold opacity-48 transition-opacity hover:opacity-100"
+                >
+                  로그아웃
+                </button>
+              ) : null}
             </div>
           </section>
 
@@ -334,7 +514,7 @@ export function SnsSalesClient() {
                 <div className="mt-4 mx-auto max-w-[390px] border border-[color:rgb(9_41_68_/_16%)] bg-[#faf7f1]">
                   <div className="flex h-11 items-center gap-2 border-b border-[color:rgb(9_41_68_/_10%)] px-3">
                     <span className="size-6 rounded-full border border-[color:rgb(9_41_68_/_14%)]" />
-                    <b className="text-[10px]">@instagram</b>
+                    <b className="text-[10px]">@{connection?.instagram_username || "instagram"}</b>
                     <span className="ml-auto text-sm opacity-45">•••</span>
                   </div>
                   <div className="flex aspect-square items-center justify-center bg-[color:rgb(9_41_68_/_4%)]">
@@ -360,7 +540,7 @@ export function SnsSalesClient() {
                   <div className="px-3 py-2.5">
                     <div className="text-[15px] tracking-[0.24em]">♡ ◯ ✈</div>
                     <p className="mt-2 text-[10px] leading-4">
-                      <b>@instagram</b>{" "}
+                      <b>@{connection?.instagram_username || "instagram"}</b>{" "}
                       <span className="opacity-50">입력한 설명이 여기에 표시됩니다.</span>
                     </p>
                   </div>
@@ -383,6 +563,72 @@ export function SnsSalesClient() {
           </div>
         </section>
       </div>
+
+      {loginOpen ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-[color:rgb(9_41_68_/_28%)] px-5 backdrop-blur-[2px]"
+          role="dialog"
+          aria-modal="true"
+          aria-label="DECHIVE 로그인"
+        >
+          <div className="w-full max-w-[380px] border border-[color:rgb(9_41_68_/_16%)] bg-[#f4efe6] p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-bold tracking-[0.12em] text-[var(--terracotta)]">
+                  SECURE SIGN IN
+                </p>
+                <h2 className="mt-1 text-[16px] font-semibold">DECHIVE 로그인</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLoginOpen(false)}
+                className="text-lg leading-none opacity-40 hover:opacity-100"
+                aria-label="로그인 창 닫기"
+              >
+                ×
+              </button>
+            </div>
+
+            <p className="mt-3 text-[11px] leading-5 opacity-55">
+              Instagram 연결과 판매 데이터는 로그인한 사용자 계정에 귀속됩니다.
+            </p>
+
+            <label className="mt-4 block text-[10px] font-semibold">
+              이메일
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") void sendLoginLink();
+                }}
+                autoComplete="email"
+                placeholder="name@example.com"
+                className="mt-1 h-10 w-full border border-[color:rgb(9_41_68_/_18%)] bg-transparent px-3 text-[12px] outline-none focus:border-[var(--navy)]"
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={sendLoginLink}
+              disabled={authSending}
+              className="mt-3 h-10 w-full bg-[var(--navy)] px-4 text-[11px] font-semibold text-[#fffaf2] disabled:opacity-40"
+            >
+              {authSending ? "보내는 중..." : "로그인 링크 받기"}
+            </button>
+
+            {authMessage ? (
+              <p className="mt-3 text-[10px] leading-5 text-[var(--terracotta)]">
+                {authMessage}
+              </p>
+            ) : null}
+
+            <p className="mt-4 border-t border-[color:rgb(9_41_68_/_10%)] pt-3 text-[9px] leading-4 opacity-40">
+              로그인 후에만 Instagram OAuth를 시작할 수 있으며, Instagram access token은 브라우저에 저장하지 않습니다.
+            </p>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
