@@ -1,11 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 
-type MockImageProps = {
-  label: string;
-  className?: string;
-};
-
 const goals = [
   {
     number: "01",
@@ -32,50 +27,53 @@ const materials = [
 const steps = [
   {
     number: "01",
-    title: "데이터 불러오기",
-    description: "CSV 파일을 읽고 기본 구조를 확인합니다.",
+    title: "판매 규칙 설계하기",
+    description: "트리거, 제한시간, 다음 순번으로 넘어가는 조건을 정합니다.",
   },
   {
     number: "02",
-    title: "데이터 탐색하기",
-    description: "기초 통계와 결측값을 확인합니다.",
+    title: "Meta 계정 연결하기",
+    description: "Instagram 계정을 연결하고 게시·댓글·DM 권한을 확인합니다.",
   },
   {
     number: "03",
-    title: "데이터 전처리",
-    description: "불필요한 값을 정리하고 분석 기준을 만듭니다.",
+    title: "게시물과 트리거 만들기",
+    description: "상품 이미지나 영상을 올리고 구매 댓글 키워드를 설정합니다.",
   },
   {
     number: "04",
-    title: "데이터 시각화",
-    description: "의미 있는 그래프로 결과를 표현합니다.",
+    title: "순번 자동화 검증하기",
+    description:
+      "댓글 감지부터 DM 전송, 시간 만료와 다음 순번 승계를 시험합니다.",
   },
 ];
 
 const verificationQuestions = [
-  "결과가 예상과 다른가요? 그 이유는 무엇일까요?",
-  "이 결과를 현재 맥락과 관련해서 해석할 수 있을까요?",
-  "더 좋은 결과를 만들기 위해 무엇을 개선할 수 있을까요?",
-  "이 방법을 다른 데이터에도 적용할 수 있을까요?",
+  "같은 댓글이 두 번 수집되어도 한 번만 대기열에 들어가나요?",
+  "제한시간이 지나면 다음 사람에게 구매권과 DM이 정확히 넘어가나요?",
+  "여러 게시물을 동시에 추적해도 댓글과 순번이 서로 섞이지 않나요?",
+  "이미지·영상 형식이 달라져도 수정해야 할 범위를 설명할 수 있나요?",
 ];
 
 const commonMistakes = [
-  "데이터 경로가 올바른지 확인하세요.",
-  "결측값 처리 방법을 신중히 선택하세요.",
-  "그래프가 제대로 표시되지 않으면 한글 폰트 설정을 확인하세요.",
-  "결과 해석 시 데이터의 한계를 함께 고려하세요.",
-];
-
-const nextPractices = [
   {
-    title: "나만의 RAG 챗봇 만들기",
-    description: "내 문서로 질문하는 AI 챗봇을 만들어봅니다.",
-    meta: "중급 · 15 min read",
+    title: "게시물마다 트리거를 분리하세요.",
+    description:
+      "같은 키워드라도 게시물 ID와 함께 구분해야 댓글과 순번이 섞이지 않습니다.",
   },
   {
-    title: "데이터 시각화 대시보드 만들기",
-    description: "파이썬으로 나만의 데이터 대시보드를 만듭니다.",
-    meta: "초급 · 10 min read",
+    title: "같은 댓글을 두 번 처리하지 마세요.",
+    description:
+      "댓글 ID를 기준으로 중복 처리를 막아야 구매 대기열이 꼬이지 않습니다.",
+  },
+  {
+    title: "제한시간은 서버 시간을 기준으로 판단하세요.",
+    description: "화면을 닫아도 만료와 다음 순번 승계가 계속되어야 합니다.",
+  },
+  {
+    title: "Meta 권한을 단계별로 확인하세요.",
+    description:
+      "게시·댓글 조회·DM 권한 중 하나라도 빠지면 자동화가 중단됩니다.",
   },
 ];
 
@@ -84,18 +82,6 @@ export const metadata: Metadata = {
   description:
     "하나뿐인 상품의 구매 순번과 제한시간을 자동으로 관리하는 SNS 선착순 판매 자동화 실습",
 };
-
-function MockImage({ label, className = "" }: MockImageProps) {
-  return (
-    <div
-      className={`mock-image flex items-center justify-center ${className}`}
-      role="img"
-      aria-label={`${label} 이미지 준비 중`}
-    >
-      <span>{label}</span>
-    </div>
-  );
-}
 
 function NumberedHeading({
   number,
@@ -167,7 +153,7 @@ export default function PracticePage() {
         <div className="relative aspect-[16/8] overflow-hidden border border-[color:rgb(9_41_68_/_12%)] bg-[#f7f1e7] lg:aspect-auto lg:min-h-[292px]">
           <Image
             src="/images/practice-sns-queue.png"
-            alt="하나뿐인 상품의 댓글 순번과 제한시간 구매권 자동 승계 흐름"
+            alt="Instagram 게시물과 댓글 순번, DM 결제 링크, 제한시간 자동 승계 흐름"
             fill
             priority
             sizes="(max-width: 1024px) 100vw, 60vw"
@@ -297,55 +283,33 @@ export default function PracticePage() {
         </div>
 
         <aside className="border-t border-[color:rgb(9_41_68_/_14%)] py-5 lg:border-t-0 lg:border-l lg:pl-7 xl:pl-8">
-          <section>
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="font-editorial text-lg font-semibold">
-                다음 실습 추천
-              </h2>
-              <span className="text-[11px] text-[var(--terracotta)]">
-                더보기 →
-              </span>
-            </div>
-            <div className="mt-3 divide-y divide-[color:rgb(9_41_68_/_12%)] border-y border-[color:rgb(9_41_68_/_13%)]">
-              {nextPractices.map((practice) => (
-                <article
-                  key={practice.title}
-                  className="grid grid-cols-[96px_minmax(0,1fr)] gap-3 py-3"
-                >
-                  <MockImage label="MOCK" className="aspect-[4/3]" />
-                  <div className="self-center">
-                    <h3 className="font-editorial text-sm leading-snug font-semibold">
-                      {practice.title}
-                    </h3>
-                    <p className="mt-1 text-[10px] leading-4 opacity-56">
-                      {practice.description}
-                    </p>
-                    <p className="mt-1 text-[9px] opacity-44">
-                      {practice.meta}
-                    </p>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="mt-5 border border-[color:rgb(9_41_68_/_12%)] p-4">
-            <h2 className="font-editorial flex items-center gap-2 text-base font-semibold">
+          <section className="border border-[color:rgb(9_41_68_/_12%)] bg-[color:rgb(255_255_255_/_18%)] p-5">
+            <h2 className="font-editorial flex items-center gap-2 text-lg font-semibold">
               <span className="text-[var(--terracotta)]" aria-hidden="true">
                 ◇
               </span>
               실수하기 쉬운 포인트
             </h2>
-            <ol className="mt-3 space-y-2.5">
+            <p className="mt-2 text-[10px] leading-4 opacity-52">
+              실제 자동화에서는 아래 항목이 순번 오류를 가장 자주 만듭니다.
+            </p>
+            <ol className="mt-4 divide-y divide-[color:rgb(9_41_68_/_10%)] border-t border-[color:rgb(9_41_68_/_10%)]">
               {commonMistakes.map((mistake, index) => (
                 <li
-                  key={mistake}
-                  className="grid grid-cols-[22px_minmax(0,1fr)] gap-2 text-[10px] leading-4"
+                  key={mistake.title}
+                  className="grid grid-cols-[25px_minmax(0,1fr)] gap-2.5 py-3"
                 >
-                  <span className="font-editorial text-[var(--terracotta)]">
+                  <span className="font-editorial pt-0.5 text-[11px] text-[var(--terracotta)]">
                     {String(index + 1).padStart(2, "0")}
                   </span>
-                  <span className="opacity-62">{mistake}</span>
+                  <span>
+                    <strong className="block text-[11px] leading-4 font-semibold">
+                      {mistake.title}
+                    </strong>
+                    <span className="mt-1 block text-[10px] leading-4 opacity-58">
+                      {mistake.description}
+                    </span>
+                  </span>
                 </li>
               ))}
             </ol>
