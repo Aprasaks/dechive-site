@@ -33,6 +33,8 @@ type SalesCampaign = {
   status: string;
   instagram_media_id: string | null;
   instagram_permalink: string | null;
+  instagram_checked_at: string | null;
+  instagram_deleted_at: string | null;
   published_at: string | null;
   created_at: string;
 };
@@ -95,8 +97,11 @@ export function SnsSalesClient() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [syncingComments, setSyncingComments] = useState(false);
+  const [syncingCampaigns, setSyncingCampaigns] = useState(false);
+  const [removingCampaignId, setRemovingCampaignId] = useState<string | null>(null);
   const [controlError, setControlError] = useState<string | null>(null);
   const [clock, setClock] = useState(Date.now());
+  const manageSyncRef = useRef<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const connected = Boolean(connection);
@@ -212,8 +217,9 @@ export function SnsSalesClient() {
       const { data, error } = await snsSalesSupabase
         .from("sns_sales_campaigns")
         .select(
-          "id,price,description,trigger_keyword,status,instagram_media_id,instagram_permalink,published_at,created_at",
+          "id,price,description,trigger_keyword,status,instagram_media_id,instagram_permalink,instagram_checked_at,instagram_deleted_at,published_at,created_at",
         )
+        .is("hidden_at", null)
         .order("created_at", { ascending: false })
         .limit(100);
 
@@ -266,6 +272,96 @@ export function SnsSalesClient() {
       setControlError("댓글 또는 구매 대기열을 불러오지 못했습니다.");
     } finally {
       setCommentsLoading(false);
+    }
+  }
+
+  async function syncInstagramCampaigns(silent = false) {
+    if (!session || syncingCampaigns) return;
+
+    setSyncingCampaigns(true);
+    if (!silent) setControlError(null);
+
+    try {
+      const { data, error } = await snsSalesSupabase.functions.invoke(
+        "sns-sales-campaigns-sync",
+        { body: {} },
+      );
+
+      if (error) {
+        let message = error.message;
+        const context = (error as { context?: Response }).context;
+        if (context) {
+          try {
+            const payload = await context.clone().json();
+            if (payload?.message) message = String(payload.message);
+          } catch {}
+        }
+        throw new Error(message);
+      }
+
+      await loadCampaigns();
+
+      const deleted = Number(data?.deleted || 0);
+      const checked = Number(data?.checked || 0);
+      const errors = Number(data?.errors || 0);
+
+      if (!silent || deleted > 0 || errors > 0) {
+        setNotice(
+          deleted > 0
+            ? `Instagram 동기화 완료 · 삭제된 게시물 ${deleted}개를 판매 목록에서 정리했습니다.`
+            : `Instagram 동기화 완료 · 확인 ${checked}개${errors ? ` · 확인 실패 ${errors}개` : ""}`,
+        );
+      }
+    } catch (error) {
+      if (!silent) {
+        setControlError(
+          error instanceof Error ? error.message : "Instagram 게시물 동기화에 실패했습니다.",
+        );
+      }
+    } finally {
+      setSyncingCampaigns(false);
+    }
+  }
+
+  async function removeCampaignFromManagement() {
+    if (!selectedCampaignId || removingCampaignId) return;
+
+    const confirmed = window.confirm(
+      "이 판매를 관리 목록에서 제거할까요? Instagram 원본 게시물은 삭제되지 않지만, DECHIVE의 판매 자동화는 종료됩니다.",
+    );
+    if (!confirmed) return;
+
+    setRemovingCampaignId(selectedCampaignId);
+    setControlError(null);
+
+    try {
+      const { data, error } = await snsSalesSupabase.functions.invoke(
+        "sns-sales-campaign-remove",
+        { body: { campaignId: selectedCampaignId } },
+      );
+
+      if (error || !data?.ok) {
+        let message = error?.message || "판매 목록 제거에 실패했습니다.";
+        const context = (error as { context?: Response } | undefined)?.context;
+        if (context) {
+          try {
+            const payload = await context.clone().json();
+            if (payload?.message) message = String(payload.message);
+          } catch {}
+        }
+        throw new Error(message);
+      }
+
+      setComments([]);
+      setQueue([]);
+      await loadCampaigns();
+      setNotice("판매 관리 목록에서 제거했습니다. Instagram 원본 게시물은 그대로 유지됩니다.");
+    } catch (error) {
+      setControlError(
+        error instanceof Error ? error.message : "판매 목록 제거에 실패했습니다.",
+      );
+    } finally {
+      setRemovingCampaignId(null);
     }
   }
 
@@ -539,6 +635,15 @@ export function SnsSalesClient() {
     void loadCampaignControl(selectedCampaignId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCampaignId, appView]);
+
+  useEffect(() => {
+    if (!session || appView !== "manage") return;
+    const syncKey = `${session.user.id}:manage`;
+    if (manageSyncRef.current === syncKey) return;
+    manageSyncRef.current = syncKey;
+    void syncInstagramCampaigns(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user.id, appView]);
 
   useEffect(() => {
     if (!session) return;
@@ -1169,7 +1274,15 @@ export function SnsSalesClient() {
               </p>
               <h2 className="mt-1 text-[18px] font-semibold">판매 캠페인 관리</h2>
             </div>
-            <div className="flex items-center gap-3 text-[10px]">
+            <div className="flex flex-wrap items-center gap-3 text-[10px]">
+              <button
+                type="button"
+                onClick={() => void syncInstagramCampaigns(false)}
+                disabled={syncingCampaigns}
+                className="border border-[color:rgb(9_41_68_/_20%)] px-3 py-1.5 font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {syncingCampaigns ? "게시물 확인 중..." : "게시물 동기화"}
+              </button>
               <span
                 className={
                   webhookSubscribed
@@ -1392,16 +1505,32 @@ export function SnsSalesClient() {
                 )}
               </div>
 
-              {selectedCampaign?.instagram_permalink ? (
+              {selectedCampaign ? (
                 <div className="border-t border-[color:rgb(9_41_68_/_10%)] p-4">
-                  <a
-                    href={selectedCampaign.instagram_permalink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex h-9 items-center justify-center border border-[color:rgb(9_41_68_/_20%)] text-[10px] font-semibold"
+                  {selectedCampaign.instagram_permalink ? (
+                    <a
+                      href={selectedCampaign.instagram_permalink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex h-9 items-center justify-center border border-[color:rgb(9_41_68_/_20%)] text-[10px] font-semibold"
+                    >
+                      Instagram 게시물 열기 ↗
+                    </a>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    onClick={removeCampaignFromManagement}
+                    disabled={removingCampaignId === selectedCampaign.id}
+                    className="mt-2 h-9 w-full border border-[#b44343]/35 text-[10px] font-semibold text-[#9b3434] transition-colors hover:bg-[#b44343]/5 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    Instagram 게시물 열기 ↗
-                  </a>
+                    {removingCampaignId === selectedCampaign.id
+                      ? "제거 중..."
+                      : "판매 관리 목록에서 제거"}
+                  </button>
+                  <p className="mt-2 text-center text-[9px] leading-4 text-[color:rgb(9_41_68_/_45%)]">
+                    목록에서 제거해도 Instagram 원본 게시물은 삭제되지 않습니다.
+                  </p>
                 </div>
               ) : null}
             </div>
