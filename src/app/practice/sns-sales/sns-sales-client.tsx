@@ -67,6 +67,7 @@ export function SnsSalesClient() {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [connection, setConnection] = useState<InstagramConnection | null>(null);
+  const [webhookSubscribed, setWebhookSubscribed] = useState(false);
   const [connectionLoading, setConnectionLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
@@ -489,8 +490,10 @@ export function SnsSalesClient() {
       );
       if (error) throw error;
       setConnection(data?.connected ? data.connection : null);
+      setWebhookSubscribed(Boolean(data?.connected && data?.webhookSubscribed));
     } catch {
       setConnection(null);
+      setWebhookSubscribed(false);
       setNotice("Instagram 연결 상태를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.");
     } finally {
       setConnectionLoading(false);
@@ -653,6 +656,7 @@ export function SnsSalesClient() {
       );
       if (error || !data?.ok) throw error ?? new Error("disconnect failed");
       setConnection(null);
+      setWebhookSubscribed(false);
       setAccountExpanded(false);
       setSelectedMedia((items) => {
         items.forEach((item) => URL.revokeObjectURL(item.url));
@@ -1166,12 +1170,26 @@ export function SnsSalesClient() {
               <h2 className="mt-1 text-[18px] font-semibold">판매 캠페인 관리</h2>
             </div>
             <div className="flex items-center gap-3 text-[10px]">
-              <span className="inline-flex items-center gap-1.5 text-[#256b3d]">
-                <i className="size-2 rounded-full bg-[#39a660]" />
-                Realtime
+              <span
+                className={
+                  webhookSubscribed
+                    ? "inline-flex items-center gap-1.5 text-[#256b3d]"
+                    : "inline-flex items-center gap-1.5 text-[#9a6b24]"
+                }
+              >
+                <i
+                  className={
+                    webhookSubscribed
+                      ? "size-2 rounded-full bg-[#39a660]"
+                      : "size-2 rounded-full bg-[#c8943d]"
+                  }
+                />
+                {webhookSubscribed ? "Realtime 연결됨" : "Realtime 연결 확인 중"}
               </span>
               <span className="text-[color:rgb(9_41_68_/_52%)]">
-                Webhook 수신 시 자동 갱신
+                {webhookSubscribed
+                  ? "새 댓글을 Webhook으로 자동 수신"
+                  : "새로고침하면 계정 Webhook 구독을 다시 확인합니다."}
               </span>
             </div>
           </div>
