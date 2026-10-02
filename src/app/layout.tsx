@@ -28,7 +28,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </div>
         <SanityLive />
         <Script
-          src="/mini-lecturer.js?v=20261002-3"
+          src="/mini-lecturer.js?v=20261002-4"
           strategy="afterInteractive"
         />
       </body>

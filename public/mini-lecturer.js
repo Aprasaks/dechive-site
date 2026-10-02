@@ -13,6 +13,15 @@
     phrases: ["음—!", "폴짝!", "여기도 가볼까?", "후웅…"],
   };
 
+  const SPRITE_FRAMES = {
+    run: { row: 0, columns: [0, 1, 2, 3], duration: 108 },
+    jump: { row: 2, columns: [0, 3], duration: 255 },
+    rest: { row: 1, columns: [0, 1], duration: 550 },
+    land: { row: 3, columns: [0, 1, 2, 3], duration: 105 },
+    crouch: { row: 2, columns: [0], duration: 1000 },
+    crawl: { row: 2, columns: [0, 3], duration: 230 },
+  };
+
   let activeMascot = null;
 
   function mountMascot(options = {}) {
@@ -60,10 +69,9 @@
         display: block;
         width: 100%;
         height: 100%;
-        background-image: var(--mascot-sprite);
         background-repeat: no-repeat;
-        background-position: 0 0;
-        background-size: 400% 400%;
+        background-position: center bottom;
+        background-size: contain;
         image-rendering: pixelated;
         image-rendering: crisp-edges;
         opacity: 0;
@@ -76,36 +84,6 @@
 
       .dechive-mascot__figure[data-ready="true"] {
         opacity: 1;
-      }
-
-      .dechive-mascot[data-state="run"] .dechive-mascot__figure {
-        background-position-y: 0%;
-        animation: dechive-mascot-frames-4 430ms linear infinite;
-      }
-
-      .dechive-mascot[data-state="jump"] .dechive-mascot__figure {
-        background-position-y: 66.667%;
-        animation: dechive-mascot-jump-frames 510ms linear infinite;
-      }
-
-      .dechive-mascot[data-state="rest"] .dechive-mascot__figure {
-        background-position-y: 33.333%;
-        animation: dechive-mascot-frames-2 1.1s linear infinite;
-      }
-
-      .dechive-mascot[data-state="land"] .dechive-mascot__figure {
-        background-position-y: 100%;
-        animation: dechive-mascot-frames-4 420ms linear 1 both;
-      }
-
-      .dechive-mascot[data-state="crouch"] .dechive-mascot__figure {
-        background-position: 0% 66.667%;
-        animation: none;
-      }
-
-      .dechive-mascot[data-state="crawl"] .dechive-mascot__figure {
-        background-position-y: 66.667%;
-        animation: dechive-mascot-crawl-frames 460ms linear infinite;
       }
 
       .dechive-mascot__bubble {
@@ -149,28 +127,6 @@
         animation: dechive-mascot-dust 360ms ease-out;
       }
 
-      @keyframes dechive-mascot-frames-4 {
-        0%, 24.99% { background-position-x: 0%; }
-        25%, 49.99% { background-position-x: 33.333%; }
-        50%, 74.99% { background-position-x: 66.667%; }
-        75%, 100% { background-position-x: 100%; }
-      }
-
-      @keyframes dechive-mascot-frames-2 {
-        0%, 49.99% { background-position-x: 0%; }
-        50%, 100% { background-position-x: 33.333%; }
-      }
-
-      @keyframes dechive-mascot-jump-frames {
-        0%, 49.99% { background-position-x: 0%; }
-        50%, 100% { background-position-x: 100%; }
-      }
-
-      @keyframes dechive-mascot-crawl-frames {
-        0%, 49.99% { background-position-x: 0%; }
-        50%, 100% { background-position-x: 100%; }
-      }
-
       @keyframes dechive-mascot-dust {
         0% { opacity: .9; transform: translateX(-50%) scale(.6); }
         100% { opacity: 0; transform: translateX(-50%) scale(5, 2); }
@@ -192,7 +148,6 @@
         }
         .dechive-mascot__figure {
           animation: none !important;
-          background-position: 0 33.333%;
         }
       }
     `;
@@ -238,7 +193,10 @@
     let animationFrame = 0;
     let bubbleTimer = 0;
     let landingUntil = 0;
-    let spriteObjectUrl = "";
+    let spriteFrameUrls = [];
+    let displayedFrameKey = "";
+    let displayedState = "";
+    let stateFrameStartedAt = lastTime;
     let targetPlatform = null;
     let currentSurfaceY = null;
     let surfaceSince = lastTime;
@@ -387,20 +345,73 @@
       }
 
       context.putImageData(pixels, 0, 0);
-      const blob = await new Promise((resolve) =>
-        canvas.toBlob(resolve, "image/png"),
+      const frameBlobs = await Promise.all(
+        Array.from({ length: 16 }, (_, frameIndex) => {
+          const row = Math.floor(frameIndex / 4);
+          const column = frameIndex % 4;
+          const frameCanvas = document.createElement("canvas");
+          frameCanvas.width = cellWidth;
+          frameCanvas.height = cellHeight;
+          const frameContext = frameCanvas.getContext("2d");
+          if (!frameContext) {
+            throw new Error("Unable to prepare mascot frame");
+          }
+          frameContext.drawImage(
+            canvas,
+            column * cellWidth,
+            row * cellHeight,
+            cellWidth,
+            cellHeight,
+            0,
+            0,
+            cellWidth,
+            cellHeight,
+          );
+          return new Promise((resolve, reject) => {
+            frameCanvas.toBlob((blob) => {
+              if (blob) resolve(blob);
+              else reject(new Error("Unable to encode mascot frame"));
+            }, "image/png");
+          });
+        }),
       );
-      if (!blob) throw new Error("Unable to encode mascot sprite");
 
-      spriteObjectUrl = URL.createObjectURL(blob);
-      figure.style.setProperty("--mascot-sprite", `url("${spriteObjectUrl}")`);
+      spriteFrameUrls = frameBlobs.map((blob) => URL.createObjectURL(blob));
       figure.dataset.ready = "true";
+      updateSpriteFrame(performance.now(), true);
     }
 
     void prepareSprite().catch(() => {
-      figure.style.setProperty("--mascot-sprite", `url("${config.spriteSrc}")`);
+      figure.style.backgroundImage = `url("${config.spriteSrc}")`;
+      figure.style.backgroundPosition = "0 33.333%";
+      figure.style.backgroundSize = "400% 400%";
       figure.dataset.ready = "true";
     });
+
+    function updateSpriteFrame(now, force = false) {
+      if (spriteFrameUrls.length !== 16) return;
+
+      const state = mascot.dataset.state || "rest";
+      const sequence = SPRITE_FRAMES[state] || SPRITE_FRAMES.rest;
+      if (state !== displayedState) {
+        displayedState = state;
+        stateFrameStartedAt = now;
+      }
+
+      const elapsed = Math.max(0, now - stateFrameStartedAt);
+      const column =
+        sequence.columns[
+          Math.floor(elapsed / sequence.duration) % sequence.columns.length
+        ];
+      const frameKey = `${sequence.row}:${column}`;
+      if (!force && frameKey === displayedFrameKey) return;
+
+      const frameUrl = spriteFrameUrls[sequence.row * 4 + column];
+      if (!frameUrl) return;
+      displayedFrameKey = frameKey;
+      figure.dataset.frame = frameKey;
+      figure.style.backgroundImage = `url("${frameUrl}")`;
+    }
 
     function refreshPlatforms(now) {
       if (now < platformRefresh) return;
@@ -1040,6 +1051,7 @@
       mascot.style.setProperty("--mascot-direction", String(facingDirection));
       mascot.style.setProperty("--mascot-x", `${x.toFixed(2)}px`);
       mascot.style.setProperty("--mascot-y", `${y.toFixed(2)}px`);
+      updateSpriteFrame(now);
       animationFrame = requestAnimationFrame(tick);
     }
 
@@ -1089,7 +1101,10 @@
         window.removeEventListener("resize", onResize);
         window.removeEventListener("scroll", onScroll);
         document.removeEventListener("visibilitychange", onVisibilityChange);
-        if (spriteObjectUrl) URL.revokeObjectURL(spriteObjectUrl);
+        for (const frameUrl of spriteFrameUrls) {
+          URL.revokeObjectURL(frameUrl);
+        }
+        spriteFrameUrls = [];
         mascot.remove();
         style.remove();
         activeMascot = null;
