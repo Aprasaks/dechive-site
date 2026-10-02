@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 
-type BlockType = "title" | "heading" | "paragraph" | "quote" | "image";
+type BlockType = "title" | "heading" | "paragraph" | "quote" | "divider" | "image";
 
 type DraftBlock = {
   id: string;
@@ -17,6 +17,7 @@ const blockLabels: Record<BlockType, string> = {
   heading: "큰 제목",
   paragraph: "본문",
   quote: "인용구",
+  divider: "구분선",
   image: "이미지",
 };
 
@@ -25,18 +26,6 @@ const editableBlockTypes: readonly BlockType[] = [
   "heading",
   "quote",
 ];
-
-const sampleDraft = `머신러닝을 이해하는 가장 쉬운 방법
-
-메일함을 열어보면 어떤 메일은 받은편지함에, 어떤 메일은 스팸함에 들어갑니다.
-
-사람이 규칙을 전부 적지 않아도 되는 이유
-
-머신러닝은 수많은 예시에서 반복되는 특징을 찾아 새로운 데이터를 구분합니다.
-
-> 중요한 것은 AI의 결과를 그대로 믿는 것이 아니라, 사람이 맥락에 맞는지 확인하는 일입니다.
-
-학습과 추론은 서로 다른 과정입니다. 학습에서는 패턴을 찾고, 추론에서는 그 패턴을 새로운 데이터에 적용합니다.`;
 
 type BridgeState = "checking" | "ready" | "naver-missing" | "missing";
 
@@ -62,9 +51,11 @@ function escapeNaverHtml(value: string) {
     .replace(/>/g, "&gt;");
 }
 
-function buildNaverPayload(blocks: DraftBlock[], bodyTags: string[]) {
-  const title =
-    blocks.find((block) => block.type === "title")?.content.trim() || "";
+function buildNaverPayload(
+  title: string,
+  blocks: DraftBlock[],
+  bodyTags: string[],
+) {
   const html: string[] = [];
   const text: string[] = [];
   const images: Array<{
@@ -78,7 +69,7 @@ function buildNaverPayload(blocks: DraftBlock[], bodyTags: string[]) {
   for (const block of blocks) {
     if (block.type === "title") continue;
 
-    if (html.length > 0) {
+    if (html.length > 0 && block.type !== "divider") {
       html.push('<p data-dechive-blank="1">ㅤ</p>');
     }
 
@@ -103,6 +94,11 @@ function buildNaverPayload(blocks: DraftBlock[], bodyTags: string[]) {
         "<blockquote>" + escapeNaverHtml(block.content) + "</blockquote>",
       );
       text.push(block.content);
+      continue;
+    }
+
+    if (block.type === "divider") {
+      html.push('<p data-dechive-divider="1"></p>');
       continue;
     }
 
@@ -133,7 +129,7 @@ function buildNaverPayload(blocks: DraftBlock[], bodyTags: string[]) {
   }
 
   return {
-    title,
+    title: title.trim(),
     html: html.join(""),
     text: text.join(" ").replace(/\s+/g, " ").trim(),
     images,
@@ -220,8 +216,9 @@ function structureDraft(source: string): DraftBlock[] {
     let type: BlockType = "paragraph";
     let content = line;
 
-    if (index === 0) {
-      type = "title";
+    if (/^(?:-{3,}|_{3,}|\*{3,}|\[구분선\])$/.test(line)) {
+      type = "divider";
+      content = "";
     } else if (line.startsWith(">")) {
       type = "quote";
       content = line.replace(/^>\s*/, "");
@@ -234,6 +231,8 @@ function structureDraft(source: string): DraftBlock[] {
 }
 
 export function NaverPublisherClient() {
+  const [writeMode, setWriteMode] = useState<"paste" | "ai">("paste");
+  const [title, setTitle] = useState("");
   const [draft, setDraft] = useState("");
   const [blocks, setBlocks] = useState<DraftBlock[]>([]);
   const [message, setMessage] = useState<string | null>(null);
@@ -243,7 +242,7 @@ export function NaverPublisherClient() {
     useState<BridgeState>("checking");
   const [isSending, setIsSending] = useState(false);
   const [tagsText, setTagsText] = useState("");
-  const [bridgeBuild, setBridgeBuild] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const checkBridge = async () => {
     setBridgeState("checking");
@@ -255,7 +254,6 @@ export function NaverPublisherClient() {
         return;
       }
 
-      setBridgeBuild(response.result?.build || "");
       setBridgeState(
         response.result?.naverReady ? "ready" : "naver-missing",
       );
@@ -271,8 +269,13 @@ export function NaverPublisherClient() {
   const createPreview = () => {
     const nextBlocks = structureDraft(draft);
 
+    if (!title.trim()) {
+      setMessage("제목을 입력해 주세요.");
+      return;
+    }
+
     if (nextBlocks.length === 0) {
-      setMessage("먼저 원고를 붙여넣어 주세요.");
+      setMessage("본문을 입력해 주세요.");
       return;
     }
 
@@ -322,6 +325,13 @@ export function NaverPublisherClient() {
     setDraggedId(null);
   };
 
+  const addDivider = () => {
+    setBlocks((current) => [
+      ...current,
+      { id: makeId(current.length), type: "divider", content: "" },
+    ]);
+  };
+
   const addImage = async (file: File | undefined) => {
     if (!file) return;
 
@@ -353,15 +363,15 @@ export function NaverPublisherClient() {
     }
 
     if (bridgeState === "missing") {
-      setMessage("DECHIVE Naver Bridge를 설치한 뒤 페이지를 새로고침해 주세요.");
+      setMessage("네이버 연결 프로그램을 설치한 뒤 페이지를 새로고침해 주세요.");
       return;
     }
 
     const bodyTags = Array.from(
       new Set(
         tagsText
-          .split(/[,\\n]+/)
-          .map((tag) => tag.trim().replace(/^#+/, "").replace(/\\s+/g, ""))
+          .split(/[,\n]+/)
+          .map((tag) => tag.trim().replace(/^#+/, "").replace(/\s+/g, ""))
           .filter(Boolean),
       ),
     );
@@ -374,7 +384,7 @@ export function NaverPublisherClient() {
     try {
       const response = await bridgeRequest(
         "DECHIVE_BRIDGE_INSERT",
-        { payload: buildNaverPayload(blocks, bodyTags) },
+        { payload: buildNaverPayload(title, blocks, bodyTags) },
         150000,
       );
 
@@ -415,32 +425,29 @@ export function NaverPublisherClient() {
 
   const bridgeText =
     bridgeState === "ready"
-      ? "Bridge 연결됨 · 네이버 준비됨"
+      ? "● 네이버 연결됨"
       : bridgeState === "naver-missing"
-        ? "Bridge 연결됨 · 보내면 네이버가 자동으로 열립니다"
+        ? "● 네이버 연결됨"
         : bridgeState === "checking"
-          ? "Bridge 연결 확인 중"
-          : "DECHIVE Naver Bridge 설치 필요";
+          ? "네이버 연결 확인 중"
+          : "네이버 연결 필요";
 
   return (
     <div className="border border-[color:rgb(9_41_68_/_14%)] bg-[color:rgb(255_255_255_/_22%)]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:rgb(9_41_68_/_12%)] px-5 py-4 sm:px-6">
         <div>
-          <p className="text-[9px] tracking-[0.15em] text-[var(--terracotta)]">
-            PUBLISHER WORKSPACE
-          </p>
-          <h2 className="font-editorial mt-1 text-lg font-semibold">
-            원고에서 네이버 임시저장까지
+          <h2 className="font-editorial text-xl font-semibold">
+            NAVER PUBLISHER
           </h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="border border-[color:rgb(185_79_44_/_22%)] bg-[color:rgb(185_79_44_/_5%)] px-3 py-1.5 text-[10px] text-[var(--terracotta)]">
+          <span className="border border-[color:rgb(9_41_68_/_18%)] bg-white px-3 py-2 text-[12px] font-semibold text-[var(--navy)]">
             {bridgeText}
           </span>
           <button
             type="button"
             onClick={() => void checkBridge()}
-            className="h-8 border border-[color:rgb(9_41_68_/_14%)] px-3 text-[9px] transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
+            className="h-9 border border-[color:rgb(9_41_68_/_18%)] bg-white px-3 text-[11px] font-medium transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
           >
             다시 확인
           </button>
@@ -449,32 +456,85 @@ export function NaverPublisherClient() {
 
       <div className="grid lg:grid-cols-[minmax(0,0.43fr)_minmax(0,0.57fr)]">
         <section className="border-b border-[color:rgb(9_41_68_/_12%)] p-5 sm:p-6 lg:border-r lg:border-b-0">
-          <div className="flex items-start gap-3">
-            <span className="font-editorial text-sm text-[var(--terracotta)]">
-              01
-            </span>
-            <div>
-              <h3 className="font-editorial text-lg font-semibold">원고</h3>
-              <p className="mt-1 text-[11px] leading-5 opacity-55">
-                ChatGPT 답변, 메모, 기존 글을 그대로 붙여넣으세요.
-              </p>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-editorial text-xl font-semibold">원고 작성</h3>
+            <div className="flex border border-[color:rgb(9_41_68_/_18%)] bg-white">
+              <button
+                type="button"
+                onClick={() => setWriteMode("paste")}
+                className={
+                  "h-9 px-4 text-[12px] font-semibold " +
+                  (writeMode === "paste"
+                    ? "bg-[var(--navy)] text-white"
+                    : "text-[var(--navy)]")
+                }
+              >
+                원고 붙여넣기
+              </button>
+              <button
+                type="button"
+                onClick={() => setWriteMode("ai")}
+                className={
+                  "h-9 border-l border-[color:rgb(9_41_68_/_18%)] px-4 text-[12px] font-semibold " +
+                  (writeMode === "ai"
+                    ? "bg-[var(--navy)] text-white"
+                    : "text-[var(--navy)]")
+                }
+              >
+                AI로 작성
+              </button>
             </div>
           </div>
 
-          <label htmlFor="publisher-draft" className="sr-only">
-            네이버용으로 정리할 원고
+          <label
+            htmlFor="publisher-title"
+            className="mt-6 block text-[12px] font-semibold"
+          >
+            제목
           </label>
-          <textarea
-            id="publisher-draft"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder="이미 작성한 글을 여기에 그대로 붙여넣으세요.\n\n첫 줄은 제목으로, 짧은 문장은 소제목으로 정리됩니다."
-            className="mt-5 min-h-[330px] w-full resize-y border border-[color:rgb(9_41_68_/_14%)] bg-[#fffaf2] p-4 text-xs leading-6 outline-none placeholder:opacity-35 focus:border-[var(--terracotta)]"
+          <input
+            id="publisher-title"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="블로그 제목을 입력하세요."
+            className="mt-2 h-12 w-full border border-[color:rgb(9_41_68_/_18%)] bg-white px-4 text-[15px] font-medium outline-none placeholder:text-[color:rgb(9_41_68_/_45%)] focus:border-[var(--terracotta)]"
           />
+
+          {writeMode === "paste" ? (
+            <>
+              <label
+                htmlFor="publisher-draft"
+                className="mt-5 block text-[12px] font-semibold"
+              >
+                본문
+              </label>
+              <textarea
+                id="publisher-draft"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                placeholder="작성한 원고를 그대로 붙여넣으세요."
+                className="mt-2 min-h-[330px] w-full resize-y border border-[color:rgb(9_41_68_/_18%)] bg-white p-4 text-[14px] leading-7 outline-none placeholder:text-[color:rgb(9_41_68_/_45%)] focus:border-[var(--terracotta)]"
+              />
+            </>
+          ) : (
+            <div className="mt-5 border border-[color:rgb(9_41_68_/_18%)] bg-white p-5">
+              <p className="text-[14px] font-semibold">AI 원고 작성</p>
+              <p className="mt-2 text-[13px] leading-6">
+                AI 작성 기능은 다음 단계에서 연결합니다.
+              </p>
+              <button
+                type="button"
+                disabled
+                className="mt-4 h-10 bg-[color:rgb(9_41_68_/_18%)] px-4 text-[12px] font-semibold text-white"
+              >
+                AI 원고 작성 준비 중
+              </button>
+            </div>
+          )}
 
           {message ? (
             <p
-              className="mt-2 text-[10px] text-[var(--terracotta)]"
+              className="mt-3 text-[12px] font-medium text-[var(--terracotta)]"
               role="status"
             >
               {message}
@@ -482,45 +542,21 @@ export function NaverPublisherClient() {
           ) : null}
 
           <div className="mt-4 flex flex-wrap gap-2">
-            <label className="inline-flex h-10 cursor-pointer items-center border border-[color:rgb(9_41_68_/_20%)] px-4 text-[11px] transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]">
-              원고 파일 올리기
-              <input
-                type="file"
-                accept=".txt,.md,text/plain,text/markdown"
-                className="sr-only"
-                onChange={async (event) => {
-                  const file = event.target.files?.[0];
-                  if (!file) return;
-                  setDraft(await file.text());
-                  setMessage(null);
-                  event.target.value = "";
-                }}
-              />
-            </label>
             <button
               type="button"
               onClick={createPreview}
               disabled={isPending}
-              className="inline-flex h-10 items-center bg-[var(--terracotta)] px-5 text-xs font-semibold text-[#fffaf2] transition-opacity hover:opacity-85 disabled:opacity-50"
+              className="inline-flex h-11 items-center bg-[var(--terracotta)] px-5 text-[13px] font-semibold text-[#fffaf2] transition-opacity hover:opacity-85 disabled:opacity-50"
             >
               {isPending ? "구조를 정리하는 중…" : "미리보기 만들기 →"}
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setDraft(sampleDraft);
-                setMessage(null);
-              }}
-              className="inline-flex h-10 items-center border border-[color:rgb(9_41_68_/_20%)] px-4 text-[11px] transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
-            >
-              예시 원고 넣기
-            </button>
+            
           </div>
 
           <div className="mt-5 border-t border-[color:rgb(9_41_68_/_10%)] pt-4">
             <label
               htmlFor="publisher-tags"
-              className="text-[10px] font-semibold text-[var(--terracotta)]"
+              className="text-[12px] font-semibold text-[var(--navy)]"
             >
               태그
             </label>
@@ -529,47 +565,38 @@ export function NaverPublisherClient() {
               value={tagsText}
               onChange={(event) => setTagsText(event.target.value)}
               placeholder="AI, 머신러닝, 딥러닝"
-              className="mt-2 h-10 w-full border border-[color:rgb(9_41_68_/_14%)] bg-[#fffaf2] px-3 text-[11px] outline-none placeholder:opacity-35 focus:border-[var(--terracotta)]"
+              className="mt-2 h-11 w-full border border-[color:rgb(9_41_68_/_18%)] bg-white px-3 text-[13px] outline-none placeholder:text-[color:rgb(9_41_68_/_45%)] focus:border-[var(--terracotta)]"
             />
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[9px] opacity-48">
-              <span>쉼표로 구분 · #은 입력하지 않아도 됩니다.</span>
-              <span>카테고리: 네이버 기본값</span>
+            <div className="mt-2 flex items-center justify-between gap-2 text-[11px]">
+              <span>쉼표로 구분</span>
+              <span className="font-medium">카테고리 · 네이버 기본값</span>
             </div>
           </div>
-          <p className="mt-4 text-[10px] leading-5 opacity-48">
-            현재 원고 구조화는 브라우저에서 처리합니다. 네이버 전송 시에만
-            검토된 문서가 Bridge를 통해 전달됩니다.
-          </p>
+          
         </section>
 
         <section className="bg-[color:rgb(185_79_44_/_2%)] p-5 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <span className="font-editorial text-sm text-[var(--terracotta)]">
-                02
-              </span>
-              <div>
-                <h3 className="font-editorial text-lg font-semibold">
-                  블록 미리보기
-                </h3>
-                <p className="mt-1 text-[11px] leading-5 opacity-55">
-                  형식과 순서를 바꾼 뒤 사람이 직접 확인합니다.
-                </p>
-              </div>
+            <div>
+              <h3 className="font-editorial text-xl font-semibold">미리보기</h3>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  const target = document.getElementById("naver-blog-preview");
-                  target?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
-                className="inline-flex h-8 items-center border border-[color:rgb(9_41_68_/_16%)] px-3 text-[10px] transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
+                onClick={() => setShowAdvanced((current) => !current)}
+                className="inline-flex h-9 items-center border border-[color:rgb(9_41_68_/_18%)] bg-white px-3 text-[12px] font-semibold transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
               >
-                네이버 미리보기
+                {showAdvanced ? "상세 편집 닫기" : "상세 편집"}
               </button>
-              <label className="inline-flex h-8 cursor-pointer items-center border border-[color:rgb(9_41_68_/_16%)] px-3 text-[10px] transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]">
+              <button
+                type="button"
+                onClick={addDivider}
+                className="inline-flex h-9 items-center border border-[color:rgb(9_41_68_/_18%)] bg-white px-3 text-[12px] font-semibold transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
+              >
+                + 구분선
+              </button>
+              <label className="inline-flex h-9 cursor-pointer items-center border border-[color:rgb(9_41_68_/_18%)] bg-white px-3 text-[12px] font-semibold transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]">
               + 이미지
               <input
                 type="file"
@@ -584,7 +611,8 @@ export function NaverPublisherClient() {
             </div>
           </div>
 
-          <div className="mt-5 min-h-[455px] border border-[color:rgb(9_41_68_/_12%)] bg-[#fffdf8] p-4 sm:p-6">
+          {showAdvanced ? (
+            <div className="mt-5 min-h-[455px] border border-[color:rgb(9_41_68_/_12%)] bg-[#fffdf8] p-4 sm:p-6">
             {blocks.length === 0 ? (
               <div className="flex min-h-[405px] flex-col items-center justify-center text-center">
                 <span className="font-editorial text-4xl text-[color:rgb(185_79_44_/_28%)]">
@@ -612,7 +640,7 @@ export function NaverPublisherClient() {
                   >
                     <div className="flex flex-wrap items-center gap-1.5 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
                       <span className="mr-1 text-[9px] opacity-35">⋮⋮</span>
-                      {block.type === "title" || block.type === "image" ? (
+                      {block.type === "title" || block.type === "image" || block.type === "divider" ? (
                         <span className="text-[9px] font-semibold text-[var(--terracotta)]">
                           {blockLabels[block.type]}
                         </span>
@@ -662,7 +690,9 @@ export function NaverPublisherClient() {
                       </div>
                     </div>
 
-                    {block.type === "image" ? (
+                    {block.type === "divider" ? (
+                      <div className="my-6 h-px bg-[color:rgb(9_41_68_/_28%)]" />
+                    ) : block.type === "image" ? (
                       <div className="mt-3 border border-dashed border-[color:rgb(9_41_68_/_18%)] bg-[color:rgb(9_41_68_/_3%)] p-5 text-center">
                         <p className="text-[10px] font-semibold">
                           {block.fileName}
@@ -693,36 +723,33 @@ export function NaverPublisherClient() {
                 ))}
               </div>
             )}
-          </div>
+            </div>
+          ) : null}
 
           {blocks.length > 0 ? (
             <section
               id="naver-blog-preview"
               className="mt-5 scroll-mt-24 border border-[color:rgb(9_41_68_/_12%)] bg-white"
             >
-              <div className="flex items-center justify-between border-b border-[color:rgb(9_41_68_/_9%)] px-4 py-3">
-                <div>
-                  <p className="text-[9px] tracking-[0.12em] text-[#03c75a]">
-                    NAVER BLOG PREVIEW
-                  </p>
-                  <p className="mt-1 text-[10px] opacity-45">
-                    실제 네이버 본문 폭과 읽는 흐름을 기준으로 단순화한 미리보기
-                  </p>
-                </div>
-                <span className="text-[9px] opacity-35">
-                  PC VIEW
-                </span>
+              <div className="border-b border-[color:rgb(9_41_68_/_12%)] px-5 py-4">
+                <p className="text-[13px] font-semibold text-[var(--navy)]">
+                  네이버 미리보기
+                </p>
               </div>
               <div className="mx-auto max-w-[760px] px-6 py-10 sm:px-10">
+                <h2 className="mb-10 text-center text-[28px] leading-[1.35] font-semibold tracking-[-0.03em] text-[#111]">
+                  {title}
+                </h2>
                 {blocks.map((block) => {
-                  if (block.type === "title") {
+                  if (block.type === "title") return null;
+
+                  if (block.type === "divider") {
                     return (
-                      <h2
+                      <div
                         key={block.id}
-                        className="mb-10 text-center text-[28px] leading-[1.35] font-semibold tracking-[-0.03em] text-[#111]"
-                      >
-                        {block.content}
-                      </h2>
+                        className="my-10 h-px bg-[#d9d9d9]"
+                        aria-label="구분선"
+                      />
                     );
                   }
 
@@ -758,7 +785,7 @@ export function NaverPublisherClient() {
                             className="mx-auto h-auto max-h-[620px] max-w-full object-contain"
                           />
                         ) : null}
-                        <figcaption className="mt-2 text-center text-[11px] leading-5 text-[#888]">
+                        <figcaption className="mt-2 text-center text-[12px] leading-5 text-[#555]">
                           {block.content === "이미지 설명을 입력하세요."
                             ? ""
                             : block.content}
@@ -779,10 +806,10 @@ export function NaverPublisherClient() {
                 {tagsText.trim() ? (
                   <p className="mt-10 text-[13px] leading-7 text-[#555]">
                     {tagsText
-                      .split(/[,\\n]+/)
+                      .split(/[,\n]+/)
                       .map((tag) => tag.trim().replace(/^#+/, ""))
                       .filter(Boolean)
-                      .map((tag) => "#" + tag.replace(/\\s+/g, ""))
+                      .map((tag) => "#" + tag.replace(/\s+/g, ""))
                       .join(" ")}
                   </p>
                 ) : null}
@@ -791,16 +818,14 @@ export function NaverPublisherClient() {
           ) : null}
 
           <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-            <p className="text-[10px] leading-4 opacity-48">
-              네이버 탭을 미리 열 필요가 없습니다. 보내기를 누르면 Bridge가 글쓰기
-              화면을 열고, 로그인이 필요하면 로그인 완료를 기다린 뒤 임시저장합니다.
-              {bridgeBuild ? " · Bridge " + bridgeBuild : ""}
+            <p className="text-[13px] leading-5">
+              보내기를 누르면 네이버 글쓰기 화면이 열리고 임시저장까지 진행됩니다.
             </p>
             <button
               type="button"
               onClick={() => void sendToNaver()}
               disabled={isSending || blocks.length === 0}
-              className="inline-flex h-11 items-center justify-center border border-[color:rgb(9_41_68_/_18%)] bg-[var(--navy)] px-5 text-xs font-semibold text-[#fffaf2] transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-35"
+              className="inline-flex h-11 items-center justify-center border border-[color:rgb(9_41_68_/_18%)] bg-[var(--navy)] px-5 text-[13px] font-semibold text-[#fffaf2] transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-35"
             >
               {isSending
                 ? "네이버로 보내는 중…"
