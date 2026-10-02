@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 type BlockType = "title" | "heading" | "paragraph" | "quote" | "image";
 
@@ -9,6 +9,7 @@ type DraftBlock = {
   type: BlockType;
   content: string;
   fileName?: string;
+  dataUrl?: string;
 };
 
 const blockLabels: Record<BlockType, string> = {
@@ -36,6 +37,173 @@ const sampleDraft = `머신러닝을 이해하는 가장 쉬운 방법
 > 중요한 것은 AI의 결과를 그대로 믿는 것이 아니라, 사람이 맥락에 맞는지 확인하는 일입니다.
 
 학습과 추론은 서로 다른 과정입니다. 학습에서는 패턴을 찾고, 추론에서는 그 패턴을 새로운 데이터에 적용합니다.`;
+
+type BridgeState = "checking" | "ready" | "naver-missing" | "missing";
+
+type BridgeReply = {
+  ok?: boolean;
+  error?: string;
+  result?: {
+    naverReady?: boolean;
+    imageRequestedCount?: number;
+    imageInsertedCount?: number;
+    draftSave?: { clicked?: boolean };
+  };
+};
+
+const WEB_SOURCE = "DECHIVE_PUBLISHER_WEB";
+const BRIDGE_SOURCE = "DECHIVE_NAVER_BRIDGE";
+
+function escapeNaverHtml(value: string) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function buildNaverPayload(blocks: DraftBlock[]) {
+  const title =
+    blocks.find((block) => block.type === "title")?.content.trim() || "";
+  const html: string[] = [];
+  const text: string[] = [];
+  const images: Array<{
+    dataUrl: string;
+    alt: string;
+    slot: string;
+    sequence: number;
+  }> = [];
+  let captionCount = 0;
+
+  for (const block of blocks) {
+    if (block.type === "title") continue;
+
+    if (html.length > 0) {
+      html.push('<p data-dechive-blank="1">ㅤ</p>');
+    }
+
+    if (block.type === "paragraph") {
+      html.push(
+        "<p>" +
+          escapeNaverHtml(block.content).replace(/\n/g, "<br>") +
+          "</p>",
+      );
+      text.push(block.content);
+      continue;
+    }
+
+    if (block.type === "heading") {
+      html.push("<H2>" + escapeNaverHtml(block.content) + "</H2>");
+      text.push(block.content);
+      continue;
+    }
+
+    if (block.type === "quote") {
+      html.push(
+        "<blockquote>" + escapeNaverHtml(block.content) + "</blockquote>",
+      );
+      text.push(block.content);
+      continue;
+    }
+
+    if (block.type === "image" && block.dataUrl) {
+      const imageIndex = images.length;
+      images.push({
+        dataUrl: block.dataUrl,
+        alt: block.fileName || "DECHIVE image",
+        slot: "IMAGE_" + String(imageIndex + 1),
+        sequence: imageIndex,
+      });
+      html.push(
+        '<p data-dd-photo-slot="' + String(imageIndex) + '"></p>',
+      );
+
+      const caption = block.content.trim();
+      if (caption && caption !== "이미지 설명을 입력하세요.") {
+        captionCount += 1;
+        html.push(
+          '<figcaption data-dechive-caption="' +
+            String(captionCount) +
+            '">' +
+            escapeNaverHtml(caption) +
+            "</figcaption>",
+        );
+      }
+    }
+  }
+
+  return {
+    title,
+    html: html.join(""),
+    text: text.join(" ").replace(/\s+/g, " ").trim(),
+    images,
+    bodyTags: [],
+    photoWriter: true,
+  };
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () =>
+      reject(new Error("이미지 파일을 읽지 못했습니다."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function bridgeRequest(type: string, payload?: unknown, timeoutMs = 5000) {
+  return new Promise<BridgeReply>((resolve, reject) => {
+    const requestId =
+      "dechive-" +
+      String(Date.now()) +
+      "-" +
+      Math.random().toString(36).slice(2, 8);
+    let timer = 0;
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== window) return;
+      const data = event.data as {
+        source?: string;
+        requestId?: string;
+        ok?: boolean;
+        result?: BridgeReply["result"];
+        error?: string;
+      };
+
+      if (
+        !data ||
+        data.source !== BRIDGE_SOURCE ||
+        data.requestId !== requestId
+      ) {
+        return;
+      }
+
+      window.clearTimeout(timer);
+      window.removeEventListener("message", onMessage);
+      resolve({
+        ok: data.ok,
+        result: data.result,
+        error: data.error,
+      });
+    };
+
+    window.addEventListener("message", onMessage);
+    timer = window.setTimeout(() => {
+      window.removeEventListener("message", onMessage);
+      reject(new Error("DECHIVE Naver Bridge 응답이 없습니다."));
+    }, timeoutMs);
+
+    window.postMessage(
+      {
+        source: WEB_SOURCE,
+        type,
+        requestId,
+        payload,
+      },
+      "*",
+    );
+  });
+}
 
 function makeId(index: number) {
   return `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`;
@@ -70,6 +238,31 @@ export function NaverPublisherClient() {
   const [message, setMessage] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [bridgeState, setBridgeState] =
+    useState<BridgeState>("checking");
+  const [isSending, setIsSending] = useState(false);
+
+  const checkBridge = async () => {
+    setBridgeState("checking");
+
+    try {
+      const response = await bridgeRequest("DECHIVE_BRIDGE_PING");
+      if (!response.ok) {
+        setBridgeState("missing");
+        return;
+      }
+
+      setBridgeState(
+        response.result?.naverReady ? "ready" : "naver-missing",
+      );
+    } catch {
+      setBridgeState("missing");
+    }
+  };
+
+  useEffect(() => {
+    void checkBridge();
+  }, []);
 
   const createPreview = () => {
     const nextBlocks = structureDraft(draft);
@@ -125,19 +318,89 @@ export function NaverPublisherClient() {
     setDraggedId(null);
   };
 
-  const addImage = (file: File | undefined) => {
+  const addImage = async (file: File | undefined) => {
     if (!file) return;
 
-    setBlocks((current) => [
-      ...current,
-      {
-        id: makeId(current.length),
-        type: "image",
-        content: "이미지 설명을 입력하세요.",
-        fileName: file.name,
-      },
-    ]);
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      setBlocks((current) => [
+        ...current,
+        {
+          id: makeId(current.length),
+          type: "image",
+          content: "이미지 설명을 입력하세요.",
+          fileName: file.name,
+          dataUrl,
+        },
+      ]);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "이미지를 읽지 못했습니다.",
+      );
+    }
   };
+
+  const sendToNaver = async () => {
+    if (blocks.length === 0) {
+      setMessage("먼저 미리보기를 만들어 주세요.");
+      return;
+    }
+
+    setIsSending(true);
+    setMessage("네이버로 전송하고 있습니다…");
+
+    try {
+      const response = await bridgeRequest(
+        "DECHIVE_BRIDGE_INSERT",
+        { payload: buildNaverPayload(blocks) },
+        30000,
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          response.error || "네이버 전송에 실패했습니다.",
+        );
+      }
+
+      const result = response.result;
+      const imageText =
+        result?.imageRequestedCount &&
+        result.imageRequestedCount > 0
+          ? " · 이미지 " +
+            String(result.imageInsertedCount || 0) +
+            "/" +
+            String(result.imageRequestedCount)
+          : "";
+      const saveText = result?.draftSave?.clicked
+        ? " · 임시저장 완료"
+        : " · 입력 완료";
+
+      setMessage(
+        "네이버에 전송했습니다" + imageText + saveText + ".",
+      );
+      setBridgeState("ready");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "네이버 전송에 실패했습니다.",
+      );
+      void checkBridge();
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const bridgeText =
+    bridgeState === "ready"
+      ? "Bridge 연결됨 · 네이버 준비됨"
+      : bridgeState === "naver-missing"
+        ? "Bridge 연결됨 · 네이버 글쓰기를 열어 주세요"
+        : bridgeState === "checking"
+          ? "Bridge 연결 확인 중"
+          : "DECHIVE Naver Bridge 설치 필요";
 
   return (
     <div className="border border-[color:rgb(9_41_68_/_14%)] bg-[color:rgb(255_255_255_/_22%)]">
@@ -150,9 +413,18 @@ export function NaverPublisherClient() {
             원고에서 미리보기까지
           </h2>
         </div>
-        <span className="border border-[color:rgb(185_79_44_/_22%)] bg-[color:rgb(185_79_44_/_5%)] px-3 py-1.5 text-[10px] text-[var(--terracotta)]">
-          웹 미리보기 사용 가능 · Bridge 준비 중
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="border border-[color:rgb(185_79_44_/_22%)] bg-[color:rgb(185_79_44_/_5%)] px-3 py-1.5 text-[10px] text-[var(--terracotta)]">
+            {bridgeText}
+          </span>
+          <button
+            type="button"
+            onClick={() => void checkBridge()}
+            className="h-8 border border-[color:rgb(9_41_68_/_14%)] px-3 text-[9px] transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
+          >
+            다시 확인
+          </button>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-[minmax(0,0.43fr)_minmax(0,0.57fr)]">
@@ -239,7 +511,7 @@ export function NaverPublisherClient() {
                 accept="image/*"
                 className="sr-only"
                 onChange={(event) => {
-                  addImage(event.target.files?.[0]);
+                  void addImage(event.target.files?.[0]);
                   event.target.value = "";
                 }}
               />
@@ -359,18 +631,17 @@ export function NaverPublisherClient() {
 
           <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <p className="text-[10px] leading-4 opacity-48">
-              최종 발행은 네이버에서 사람이 확인한 뒤 진행합니다.
+              네이버 글쓰기 화면을 열어 둔 뒤 전송하세요. 최종 공개 발행은 사람이 결정합니다.
             </p>
             <button
               type="button"
-              onClick={() =>
-                setMessage(
-                  "Naver Bridge 연결은 준비 중입니다. 현재는 블록 미리보기까지만 사용할 수 있습니다.",
-                )
-              }
-              className="inline-flex h-11 items-center justify-center border border-[color:rgb(9_41_68_/_18%)] bg-[var(--navy)] px-5 text-xs font-semibold text-[#fffaf2] transition-opacity hover:opacity-85"
+              onClick={() => void sendToNaver()}
+              disabled={isSending || blocks.length === 0}
+              className="inline-flex h-11 items-center justify-center border border-[color:rgb(9_41_68_/_18%)] bg-[var(--navy)] px-5 text-xs font-semibold text-[#fffaf2] transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-35"
             >
-              네이버 임시저장으로 보내기 →
+              {isSending
+                ? "네이버로 보내는 중…"
+                : "네이버 임시저장으로 보내기 →"}
             </button>
           </div>
         </section>
