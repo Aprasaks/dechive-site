@@ -44,6 +44,7 @@ type BridgeReply = {
   ok?: boolean;
   error?: string;
   result?: {
+    build?: string;
     naverReady?: boolean;
     imageRequestedCount?: number;
     imageInsertedCount?: number;
@@ -61,7 +62,7 @@ function escapeNaverHtml(value: string) {
     .replace(/>/g, "&gt;");
 }
 
-function buildNaverPayload(blocks: DraftBlock[]) {
+function buildNaverPayload(blocks: DraftBlock[], bodyTags: string[]) {
   const title =
     blocks.find((block) => block.type === "title")?.content.trim() || "";
   const html: string[] = [];
@@ -136,7 +137,7 @@ function buildNaverPayload(blocks: DraftBlock[]) {
     html: html.join(""),
     text: text.join(" ").replace(/\s+/g, " ").trim(),
     images,
-    bodyTags: [],
+    bodyTags,
     photoWriter: true,
   };
 }
@@ -241,6 +242,8 @@ export function NaverPublisherClient() {
   const [bridgeState, setBridgeState] =
     useState<BridgeState>("checking");
   const [isSending, setIsSending] = useState(false);
+  const [tagsText, setTagsText] = useState("");
+  const [bridgeBuild, setBridgeBuild] = useState("");
 
   const checkBridge = async () => {
     setBridgeState("checking");
@@ -252,6 +255,7 @@ export function NaverPublisherClient() {
         return;
       }
 
+      setBridgeBuild(response.result?.build || "");
       setBridgeState(
         response.result?.naverReady ? "ready" : "naver-missing",
       );
@@ -348,14 +352,31 @@ export function NaverPublisherClient() {
       return;
     }
 
+    if (bridgeState === "missing") {
+      setMessage("DECHIVE Naver Bridge를 설치한 뒤 페이지를 새로고침해 주세요.");
+      return;
+    }
+
+    const bodyTags = Array.from(
+      new Set(
+        tagsText
+          .split(/[,
+]+/)
+          .map((tag) => tag.trim().replace(/^#+/, "").replace(/s+/g, ""))
+          .filter(Boolean),
+      ),
+    );
+
     setIsSending(true);
-    setMessage("네이버로 전송하고 있습니다…");
+    setMessage(
+      "네이버 창을 열고 있습니다. 로그인 화면이 나오면 로그인해 주세요…",
+    );
 
     try {
       const response = await bridgeRequest(
         "DECHIVE_BRIDGE_INSERT",
-        { payload: buildNaverPayload(blocks) },
-        30000,
+        { payload: buildNaverPayload(blocks, bodyTags) },
+        150000,
       );
 
       if (!response.ok) {
@@ -397,7 +418,7 @@ export function NaverPublisherClient() {
     bridgeState === "ready"
       ? "Bridge 연결됨 · 네이버 준비됨"
       : bridgeState === "naver-missing"
-        ? "Bridge 연결됨 · 네이버 글쓰기를 열어 주세요"
+        ? "Bridge 연결됨 · 보내면 네이버가 자동으로 열립니다"
         : bridgeState === "checking"
           ? "Bridge 연결 확인 중"
           : "DECHIVE Naver Bridge 설치 필요";
@@ -410,7 +431,7 @@ export function NaverPublisherClient() {
             PUBLISHER WORKSPACE
           </p>
           <h2 className="font-editorial mt-1 text-lg font-semibold">
-            원고에서 미리보기까지
+            원고에서 네이버 임시저장까지
           </h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -462,6 +483,21 @@ export function NaverPublisherClient() {
           ) : null}
 
           <div className="mt-4 flex flex-wrap gap-2">
+            <label className="inline-flex h-10 cursor-pointer items-center border border-[color:rgb(9_41_68_/_20%)] px-4 text-[11px] transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]">
+              원고 파일 올리기
+              <input
+                type="file"
+                accept=".txt,.md,text/plain,text/markdown"
+                className="sr-only"
+                onChange={async (event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  setDraft(await file.text());
+                  setMessage(null);
+                  event.target.value = "";
+                }}
+              />
+            </label>
             <button
               type="button"
               onClick={createPreview}
@@ -482,9 +518,28 @@ export function NaverPublisherClient() {
             </button>
           </div>
 
-          <p className="mt-5 border-t border-[color:rgb(9_41_68_/_10%)] pt-4 text-[10px] leading-5 opacity-48">
-            현재 버전은 브라우저 안에서 블록 구조를 미리 보여주는 단계입니다.
-            입력한 원고는 서버로 전송되지 않습니다.
+          <div className="mt-5 border-t border-[color:rgb(9_41_68_/_10%)] pt-4">
+            <label
+              htmlFor="publisher-tags"
+              className="text-[10px] font-semibold text-[var(--terracotta)]"
+            >
+              태그
+            </label>
+            <input
+              id="publisher-tags"
+              value={tagsText}
+              onChange={(event) => setTagsText(event.target.value)}
+              placeholder="AI, 머신러닝, 딥러닝"
+              className="mt-2 h-10 w-full border border-[color:rgb(9_41_68_/_14%)] bg-[#fffaf2] px-3 text-[11px] outline-none placeholder:opacity-35 focus:border-[var(--terracotta)]"
+            />
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[9px] opacity-48">
+              <span>쉼표로 구분 · #은 입력하지 않아도 됩니다.</span>
+              <span>카테고리: 네이버 기본값</span>
+            </div>
+          </div>
+          <p className="mt-4 text-[10px] leading-5 opacity-48">
+            현재 원고 구조화는 브라우저에서 처리합니다. 네이버 전송 시에만
+            검토된 문서가 Bridge를 통해 전달됩니다.
           </p>
         </section>
 
@@ -504,7 +559,18 @@ export function NaverPublisherClient() {
               </div>
             </div>
 
-            <label className="inline-flex h-8 cursor-pointer items-center border border-[color:rgb(9_41_68_/_16%)] px-3 text-[10px] transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const target = document.getElementById("naver-blog-preview");
+                  target?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+                className="inline-flex h-8 items-center border border-[color:rgb(9_41_68_/_16%)] px-3 text-[10px] transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
+              >
+                네이버 미리보기
+              </button>
+              <label className="inline-flex h-8 cursor-pointer items-center border border-[color:rgb(9_41_68_/_16%)] px-3 text-[10px] transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]">
               + 이미지
               <input
                 type="file"
@@ -515,7 +581,8 @@ export function NaverPublisherClient() {
                   event.target.value = "";
                 }}
               />
-            </label>
+              </label>
+            </div>
           </div>
 
           <div className="mt-5 min-h-[455px] border border-[color:rgb(9_41_68_/_12%)] bg-[#fffdf8] p-4 sm:p-6">
@@ -629,9 +696,107 @@ export function NaverPublisherClient() {
             )}
           </div>
 
+          {blocks.length > 0 ? (
+            <section
+              id="naver-blog-preview"
+              className="mt-5 scroll-mt-24 border border-[color:rgb(9_41_68_/_12%)] bg-white"
+            >
+              <div className="flex items-center justify-between border-b border-[color:rgb(9_41_68_/_9%)] px-4 py-3">
+                <div>
+                  <p className="text-[9px] tracking-[0.12em] text-[#03c75a]">
+                    NAVER BLOG PREVIEW
+                  </p>
+                  <p className="mt-1 text-[10px] opacity-45">
+                    실제 네이버 본문 폭과 읽는 흐름을 기준으로 단순화한 미리보기
+                  </p>
+                </div>
+                <span className="text-[9px] opacity-35">
+                  PC VIEW
+                </span>
+              </div>
+              <div className="mx-auto max-w-[760px] px-6 py-10 sm:px-10">
+                {blocks.map((block) => {
+                  if (block.type === "title") {
+                    return (
+                      <h2
+                        key={block.id}
+                        className="mb-10 text-center text-[28px] leading-[1.35] font-semibold tracking-[-0.03em] text-[#111]"
+                      >
+                        {block.content}
+                      </h2>
+                    );
+                  }
+
+                  if (block.type === "heading") {
+                    return (
+                      <h3
+                        key={block.id}
+                        className="mt-10 mb-5 text-[22px] leading-[1.5] font-bold text-[#111]"
+                      >
+                        {block.content}
+                      </h3>
+                    );
+                  }
+
+                  if (block.type === "quote") {
+                    return (
+                      <blockquote
+                        key={block.id}
+                        className="my-8 border-l-2 border-[#222] px-5 py-2 text-center text-[16px] leading-8 font-bold text-[#222]"
+                      >
+                        {block.content}
+                      </blockquote>
+                    );
+                  }
+
+                  if (block.type === "image") {
+                    return (
+                      <figure key={block.id} className="my-8">
+                        {block.dataUrl ? (
+                          <img
+                            src={block.dataUrl}
+                            alt={block.fileName || "미리보기 이미지"}
+                            className="mx-auto h-auto max-h-[620px] max-w-full object-contain"
+                          />
+                        ) : null}
+                        <figcaption className="mt-2 text-center text-[11px] leading-5 text-[#888]">
+                          {block.content === "이미지 설명을 입력하세요."
+                            ? ""
+                            : block.content}
+                        </figcaption>
+                      </figure>
+                    );
+                  }
+
+                  return (
+                    <p
+                      key={block.id}
+                      className="my-5 whitespace-pre-wrap text-[16px] leading-[2] text-[#333]"
+                    >
+                      {block.content}
+                    </p>
+                  );
+                })}
+                {tagsText.trim() ? (
+                  <p className="mt-10 text-[13px] leading-7 text-[#555]">
+                    {tagsText
+                      .split(/[,
+]+/)
+                      .map((tag) => tag.trim().replace(/^#+/, ""))
+                      .filter(Boolean)
+                      .map((tag) => "#" + tag.replace(/s+/g, ""))
+                      .join(" ")}
+                  </p>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
+
           <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <p className="text-[10px] leading-4 opacity-48">
-              네이버 글쓰기 화면을 열어 둔 뒤 전송하세요. 최종 공개 발행은 사람이 결정합니다.
+              네이버 탭을 미리 열 필요가 없습니다. 보내기를 누르면 Bridge가 글쓰기
+              화면을 열고, 로그인이 필요하면 로그인 완료를 기다린 뒤 임시저장합니다.
+              {bridgeBuild ? " · Bridge " + bridgeBuild : ""}
             </p>
             <button
               type="button"
