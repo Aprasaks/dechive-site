@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { practices } from "@/data/practices";
 import { formatUpdateDate } from "@/lib/ai-update";
 import {
   formatPublishedDate,
@@ -33,19 +34,6 @@ const latestStories = [
     title: "직접 만들어보는 데이터 실습",
     description: "작은 데이터셋으로 시작하는 실전 가이드",
     meta: "8 min read",
-  },
-];
-
-const practiceStories = [
-  {
-    title: "나만의 RAG 챗봇 만들기",
-    description: "내 문서로 질문하는 AI를 직접 만들어봅니다.",
-    meta: "난이도 중급 · 12 min read",
-  },
-  {
-    title: "데이터 시각화 대시보드 만들기",
-    description: "파이썬으로 만드는 나만의 데이터 대시보드",
-    meta: "난이도 초급 · 10 min read",
   },
 ];
 
@@ -381,24 +369,50 @@ export default async function Home() {
         <div className="border-t border-[color:rgb(9_41_68_/_14%)] py-5 lg:border-t-0 lg:pl-6">
           <div className="flex items-center justify-between">
             <SectionHeading>PRACTICE</SectionHeading>
-            <span className="text-xs text-[var(--terracotta)]">더보기 →</span>
+            <Link
+              href="/practice"
+              className="text-xs text-[var(--terracotta)] transition-opacity hover:opacity-60"
+            >
+              더보기 →
+            </Link>
           </div>
 
           <div className="mt-3">
-            {practiceStories.map((story) => (
+            {practices.map((practice) => (
               <article
-                key={story.title}
+                key={practice.slug}
                 className="grid grid-cols-[minmax(112px,0.44fr)_minmax(0,0.56fr)] gap-4 border-t border-[color:rgb(9_41_68_/_12%)] py-4 first:border-t-0 first:pt-0"
               >
-                <MockImage label="MOCK IMAGE" className="aspect-[16/9]" />
+                <Link
+                  href={practice.detailHref}
+                  className="relative aspect-[16/9] overflow-hidden bg-[#e9dfd0]"
+                >
+                  <Image
+                    src={practice.image}
+                    alt={practice.imageAlt}
+                    fill
+                    sizes="(max-width: 1024px) 44vw, 220px"
+                    className="object-cover transition-transform duration-500 hover:scale-[1.02]"
+                  />
+                  <span className="font-editorial absolute top-2 left-2 flex size-7 items-center justify-center bg-[#fffaf2] text-[10px] text-[var(--terracotta)]">
+                    {practice.number}
+                  </span>
+                </Link>
                 <div className="self-center">
                   <h3 className="font-editorial text-base leading-snug font-semibold">
-                    {story.title}
+                    <Link
+                      href={practice.detailHref}
+                      className="transition-opacity hover:opacity-60"
+                    >
+                      {practice.title}
+                    </Link>
                   </h3>
                   <p className="mt-1 text-xs leading-5 opacity-62">
-                    {story.description}
+                    {practice.description}
                   </p>
-                  <p className="mt-1.5 text-[11px] opacity-48">{story.meta}</p>
+                  <p className="mt-1.5 text-[11px] opacity-48">
+                    {practice.difficulty} · {practice.duration}
+                  </p>
                 </div>
               </article>
             ))}
