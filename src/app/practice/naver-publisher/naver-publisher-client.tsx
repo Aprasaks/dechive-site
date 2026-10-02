@@ -360,9 +360,8 @@ export function NaverPublisherClient() {
     const bodyTags = Array.from(
       new Set(
         tagsText
-          .split(/[,
-]+/)
-          .map((tag) => tag.trim().replace(/^#+/, "").replace(/s+/g, ""))
+          .split(/[,\\n]+/)
+          .map((tag) => tag.trim().replace(/^#+/, "").replace(/\\s+/g, ""))
           .filter(Boolean),
       ),
     );
@@ -780,11 +779,10 @@ export function NaverPublisherClient() {
                 {tagsText.trim() ? (
                   <p className="mt-10 text-[13px] leading-7 text-[#555]">
                     {tagsText
-                      .split(/[,
-]+/)
+                      .split(/[,\\n]+/)
                       .map((tag) => tag.trim().replace(/^#+/, ""))
                       .filter(Boolean)
-                      .map((tag) => "#" + tag.replace(/s+/g, ""))
+                      .map((tag) => "#" + tag.replace(/\\s+/g, ""))
                       .join(" ")}
                   </p>
                 ) : null}
