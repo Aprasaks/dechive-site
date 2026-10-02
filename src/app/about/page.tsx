@@ -58,11 +58,6 @@ const archives = [
     href: "/knowledge",
   },
   {
-    title: "Lecture",
-    description: "처음부터 차근차근 배우는 강의",
-    href: "/lecture",
-  },
-  {
     title: "AI Update",
     description: "매일 달라지는 AI의 중요한 변화",
     href: "/ai-update",
@@ -211,7 +206,7 @@ export default function AboutPage() {
 
       <section className="border-b border-[color:rgb(9_41_68_/_14%)] py-6">
         <NumberedHeading number="03">모든 지식을 한곳에</NumberedHeading>
-        <div className="mt-5 grid gap-0 border-y border-[color:rgb(9_41_68_/_14%)] sm:ml-9 md:grid-cols-2 xl:grid-cols-5 xl:divide-x xl:divide-[color:rgb(9_41_68_/_12%)]">
+        <div className="mt-5 grid gap-0 border-y border-[color:rgb(9_41_68_/_14%)] sm:ml-9 md:grid-cols-2 xl:grid-cols-4 xl:divide-x xl:divide-[color:rgb(9_41_68_/_12%)]">
           {archives.map((archive) => (
             <Link
               key={archive.title}

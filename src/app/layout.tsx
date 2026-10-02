@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -27,10 +26,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <SiteFooter />
         </div>
         <SanityLive />
-        <Script
-          src="/mini-lecturer.js?v=20261002-4"
-          strategy="afterInteractive"
-        />
       </body>
     </html>
   );

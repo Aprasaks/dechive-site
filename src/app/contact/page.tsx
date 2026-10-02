@@ -3,20 +3,13 @@ import type { Metadata } from "next";
 const inquiryTypes = [
   {
     number: "01",
-    english: "LECTURE",
-    title: "강의 문의",
-    description:
-      "AI, 데이터, 기획과 제작을 주제로 한 강의와 워크숍을 함께 기획합니다.",
-  },
-  {
-    number: "02",
     english: "NOTION",
     title: "노션 템플릿 제작",
     description:
       "업무와 지식을 더 잘 정리하고 오래 활용할 수 있는 노션 구조를 만듭니다.",
   },
   {
-    number: "03",
+    number: "02",
     english: "WEBSITE",
     title: "홈페이지 제작",
     description:
@@ -41,8 +34,7 @@ const contactDetails = [
 
 export const metadata: Metadata = {
   title: "Contact | DECHIVE",
-  description:
-    "DECHIVE의 강의, 노션 템플릿 제작 및 홈페이지 제작 문의를 안내합니다.",
+  description: "DECHIVE의 노션 템플릿 및 홈페이지 제작 문의를 안내합니다.",
 };
 
 export default function ContactPage() {
@@ -62,9 +54,9 @@ export default function ContactPage() {
             들려주세요.
           </h1>
           <p className="mt-5 max-w-2xl text-sm leading-7 opacity-68 sm:text-[15px]">
-            강의부터 노션 템플릿, 홈페이지 제작까지 필요한 것을 편하게
-            알려주세요. 막연한 아이디어만 있어도 괜찮습니다. 무엇을 왜 만들고
-            싶은지부터 함께 정리하겠습니다.
+            노션 템플릿과 홈페이지 제작에 필요한 것을 편하게 알려주세요. 막연한
+            아이디어만 있어도 괜찮습니다. 무엇을 왜 만들고 싶은지부터 함께
+            정리하겠습니다.
           </p>
         </div>
 
@@ -108,7 +100,7 @@ export default function ContactPage() {
           </h2>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:pl-9 md:grid-cols-3">
+        <div className="mt-5 grid gap-3 sm:pl-9 md:grid-cols-2">
           {inquiryTypes.map((inquiry) => (
             <article
               key={inquiry.number}
@@ -156,7 +148,7 @@ export default function ContactPage() {
               만들고 싶은 것
             </strong>
             <span className="text-xs leading-5 opacity-58">
-              강의, 노션 템플릿, 홈페이지 중 필요한 작업
+              노션 템플릿 또는 홈페이지 중 필요한 작업
             </span>
           </li>
           <li className="grid gap-2 py-4 sm:grid-cols-[42px_150px_minmax(0,1fr)] sm:items-baseline">

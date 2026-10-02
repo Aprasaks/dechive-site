@@ -24,16 +24,18 @@ type MockImageProps = {
 
 const latestStories = [
   {
-    category: "LECTURE",
-    title: "AI Agent의 구조",
-    description: "스스로 계획하고 행동하는 AI의 설계 원리",
-    meta: "6 min read",
+    category: "AI UPDATE",
+    title: "이번 주 AI 변화 정리",
+    description: "빠르게 달라지는 AI 소식과 실제 영향을 확인합니다.",
+    meta: "주요 업데이트 보기",
+    href: "/ai-update",
   },
   {
     category: "PRACTICE",
     title: "직접 만들어보는 데이터 실습",
     description: "작은 데이터셋으로 시작하는 실전 가이드",
     meta: "8 min read",
+    href: "/practice",
   },
 ];
 
@@ -219,13 +221,24 @@ export default async function Home() {
                 index === latestStories.length - 1 ? "lg:pl-6" : "lg:px-6"
               }`}
             >
-              <MockImage label="MOCK IMAGE" className="aspect-[16/9]" />
+              <Link
+                href={story.href}
+                aria-label={`${story.title} 보기`}
+                className="block"
+              >
+                <MockImage label="MOCK IMAGE" className="aspect-[16/9]" />
+              </Link>
               <div className="flex min-w-0 flex-col justify-center">
                 <p className="text-[10px] font-bold tracking-[0.14em] text-[var(--terracotta)]">
                   {story.category}
                 </p>
                 <h3 className="font-editorial mt-1.5 text-lg leading-snug font-semibold">
-                  {story.title}
+                  <Link
+                    href={story.href}
+                    className="transition-opacity hover:opacity-60"
+                  >
+                    {story.title}
+                  </Link>
                 </h3>
                 <p className="mt-1 text-xs leading-5 opacity-68">
                   {story.description}
