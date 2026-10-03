@@ -230,6 +230,7 @@ export function NaverPublisherClient() {
   const [title, setTitle] = useState("");
   const [draft, setDraft] = useState("");
   const [blocks, setBlocks] = useState<DraftBlock[]>([]);
+  const [images, setImages] = useState<DraftBlock[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -277,7 +278,7 @@ export function NaverPublisherClient() {
 
     setMessage(null);
     startTransition(() => {
-      setBlocks(nextBlocks);
+      setBlocks([...nextBlocks, ...images]);
     });
   };
 
@@ -333,7 +334,7 @@ export function NaverPublisherClient() {
 
     try {
       const dataUrl = await readFileAsDataUrl(file);
-      setBlocks((current) => [
+      setImages((current) => [
         ...current,
         {
           id: makeId(current.length),
@@ -504,6 +505,11 @@ export function NaverPublisherClient() {
                 }}
               />
             </label>
+            {images.length > 0 ? (
+              <p className="mt-2 text-[13px] font-medium">
+                이미지 {images.length}장 준비됨
+              </p>
+            ) : null}
           </div>
 
           {message ? (
