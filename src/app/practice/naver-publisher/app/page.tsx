@@ -21,7 +21,9 @@ export default function NaverPublisherAppPage() {
             ← DECHIVE로 돌아가기
           </Link>
           <div className="mt-2 flex items-center gap-2">
-            <p className="font-editorial text-2xl font-semibold">NAVER PUBLISHER</p>
+            <p className="font-editorial text-2xl font-semibold">
+              NAVER PUBLISHER
+            </p>
             <span className="border border-[var(--terracotta)] px-2 py-1 text-[9px] font-bold tracking-[0.12em] text-[var(--terracotta)]">
               v1.0
             </span>

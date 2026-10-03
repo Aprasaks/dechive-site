@@ -68,7 +68,9 @@ type QueueItem = {
 export function SnsSalesClient() {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(false);
-  const [connection, setConnection] = useState<InstagramConnection | null>(null);
+  const [connection, setConnection] = useState<InstagramConnection | null>(
+    null,
+  );
   const [webhookSubscribed, setWebhookSubscribed] = useState(false);
   const [connectionLoading, setConnectionLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
@@ -84,7 +86,9 @@ export function SnsSalesClient() {
   const [triggerKeyword, setTriggerKeyword] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [accountExpanded, setAccountExpanded] = useState(false);
-  const [workspaceView, setWorkspaceView] = useState<"content" | "preview">("content");
+  const [workspaceView, setWorkspaceView] = useState<"content" | "preview">(
+    "content",
+  );
   const [publishing, setPublishing] = useState(false);
   const [publishMessage, setPublishMessage] = useState<string | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
@@ -92,15 +96,19 @@ export function SnsSalesClient() {
   const [appView, setAppView] = useState<"create" | "manage">("create");
   const [campaigns, setCampaigns] = useState<SalesCampaign[]>([]);
   const [campaignsLoading, setCampaignsLoading] = useState(false);
-  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(
+    null,
+  );
   const [comments, setComments] = useState<SalesComment[]>([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [syncingComments, setSyncingComments] = useState(false);
   const [syncingCampaigns, setSyncingCampaigns] = useState(false);
-  const [removingCampaignId, setRemovingCampaignId] = useState<string | null>(null);
+  const [removingCampaignId, setRemovingCampaignId] = useState<string | null>(
+    null,
+  );
   const [controlError, setControlError] = useState<string | null>(null);
-  const [clock, setClock] = useState(Date.now());
+  const [clock, setClock] = useState(0);
   const manageSyncRef = useRef<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -111,7 +119,8 @@ export function SnsSalesClient() {
   const accept = mediaKind === "video" ? "video/*" : "image/*";
 
   const previewLabel = useMemo(() => {
-    if (!selectedMedia.length) return "미디어를 선택하면 이곳에서 미리 확인할 수 있습니다.";
+    if (!selectedMedia.length)
+      return "미디어를 선택하면 이곳에서 미리 확인할 수 있습니다.";
     if (mediaKind === "video") return selectedMedia[0]?.name ?? "";
     return `${selectedMedia.length}장의 이미지가 선택되었습니다.`;
   }, [mediaKind, selectedMedia]);
@@ -135,13 +144,15 @@ export function SnsSalesClient() {
       setSelectedMedia((items) => {
         items.forEach((item) => URL.revokeObjectURL(item.url));
         if (!file) return [];
-        return [{
-          id: crypto.randomUUID(),
-          name: file.name,
-          url: URL.createObjectURL(file),
-          type: file.type,
-          file,
-        }];
+        return [
+          {
+            id: crypto.randomUUID(),
+            name: file.name,
+            url: URL.createObjectURL(file),
+            type: file.type,
+            file,
+          },
+        ];
       });
       return;
     }
@@ -190,7 +201,10 @@ export function SnsSalesClient() {
 
   function formatRemaining(value: string | null) {
     if (!value) return "-";
-    const seconds = Math.max(0, Math.floor((new Date(value).getTime() - clock) / 1000));
+    const seconds = Math.max(
+      0,
+      Math.floor((new Date(value).getTime() - clock) / 1000),
+    );
     const minutes = Math.floor(seconds / 60);
     const rest = seconds % 60;
     return `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
@@ -228,7 +242,8 @@ export function SnsSalesClient() {
       const next = (data ?? []) as SalesCampaign[];
       setCampaigns(next);
       setSelectedCampaignId((current) => {
-        if (preferredId && next.some((item) => item.id === preferredId)) return preferredId;
+        if (preferredId && next.some((item) => item.id === preferredId))
+          return preferredId;
         if (current && next.some((item) => item.id === current)) return current;
         return next[0]?.id ?? null;
       });
@@ -315,7 +330,9 @@ export function SnsSalesClient() {
     } catch (error) {
       if (!silent) {
         setControlError(
-          error instanceof Error ? error.message : "Instagram 게시물 동기화에 실패했습니다.",
+          error instanceof Error
+            ? error.message
+            : "Instagram 게시물 동기화에 실패했습니다.",
         );
       }
     } finally {
@@ -355,10 +372,14 @@ export function SnsSalesClient() {
       setComments([]);
       setQueue([]);
       await loadCampaigns();
-      setNotice("판매 관리 목록에서 제거했습니다. Instagram 원본 게시물은 그대로 유지됩니다.");
+      setNotice(
+        "판매 관리 목록에서 제거했습니다. Instagram 원본 게시물은 그대로 유지됩니다.",
+      );
     } catch (error) {
       setControlError(
-        error instanceof Error ? error.message : "판매 목록 제거에 실패했습니다.",
+        error instanceof Error
+          ? error.message
+          : "판매 목록 제거에 실패했습니다.",
       );
     } finally {
       setRemovingCampaignId(null);
@@ -447,7 +468,11 @@ export function SnsSalesClient() {
       for (let index = 0; index < selectedMedia.length; index += 1) {
         const item = selectedMedia[index];
         const extension = item.name.includes(".")
-          ? item.name.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "").slice(0, 10) || "bin"
+          ? item.name
+              .split(".")
+              .pop()
+              ?.replace(/[^a-zA-Z0-9]/g, "")
+              .slice(0, 10) || "bin"
           : "bin";
         const path = `users/${session.user.id}/campaigns/${campaignId}/${String(index + 1).padStart(2, "0")}-${item.id}.${extension}`;
 
@@ -479,17 +504,20 @@ export function SnsSalesClient() {
       setPublishMessage("Instagram 게시 준비 중입니다...");
 
       const { data: startData, error: startError } =
-        await snsSalesSupabase.functions.invoke("sns-sales-instagram-publish-start", {
-          body: {
-            campaignId,
-            connectionId: connection.id,
-            mediaKind,
-            price: Number(price),
-            description: description.trim(),
-            triggerKeyword: triggerKeyword.trim(),
-            media: uploadedMedia,
+        await snsSalesSupabase.functions.invoke(
+          "sns-sales-instagram-publish-start",
+          {
+            body: {
+              campaignId,
+              connectionId: connection.id,
+              mediaKind,
+              price: Number(price),
+              description: description.trim(),
+              triggerKeyword: triggerKeyword.trim(),
+              media: uploadedMedia,
+            },
           },
-        });
+        );
 
       if (startError) {
         let message = startError.message;
@@ -503,7 +531,9 @@ export function SnsSalesClient() {
         throw new Error(message);
       }
       if (!startData?.ok) {
-        throw new Error(startData?.message || "Instagram 게시 준비에 실패했습니다.");
+        throw new Error(
+          startData?.message || "Instagram 게시 준비에 실패했습니다.",
+        );
       }
       publishStarted = true;
 
@@ -518,9 +548,12 @@ export function SnsSalesClient() {
         await sleep(attempt === 0 ? 1800 : 3000);
 
         const { data: statusData, error: statusError } =
-          await snsSalesSupabase.functions.invoke("sns-sales-instagram-publish-status", {
-            body: { campaignId },
-          });
+          await snsSalesSupabase.functions.invoke(
+            "sns-sales-instagram-publish-status",
+            {
+              body: { campaignId },
+            },
+          );
 
         if (statusError) {
           transientFailures += 1;
@@ -541,7 +574,9 @@ export function SnsSalesClient() {
         }
 
         if (statusData?.status === "failed") {
-          throw new Error(statusData?.message || "Instagram 게시에 실패했습니다.");
+          throw new Error(
+            statusData?.message || "Instagram 게시에 실패했습니다.",
+          );
         }
 
         if (statusData?.instagramStatus) {
@@ -565,7 +600,9 @@ export function SnsSalesClient() {
       }
 
       const message =
-        error instanceof Error ? error.message : "Instagram 게시 중 오류가 발생했습니다.";
+        error instanceof Error
+          ? error.message
+          : "Instagram 게시 중 오류가 발생했습니다.";
       setPublishError(message);
       setPublishMessage(null);
       setPublishing(false);
@@ -590,7 +627,9 @@ export function SnsSalesClient() {
     } catch {
       setConnection(null);
       setWebhookSubscribed(false);
-      setNotice("Instagram 연결 상태를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.");
+      setNotice(
+        "Instagram 연결 상태를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.",
+      );
     } finally {
       setConnectionLoading(false);
     }
@@ -620,19 +659,28 @@ export function SnsSalesClient() {
 
   useEffect(() => {
     if (!authReady) return;
-    void loadConnection();
-    void loadCampaigns();
+    const timer = window.setTimeout(() => {
+      void loadConnection();
+      void loadCampaigns();
+    }, 0);
+    return () => window.clearTimeout(timer);
     // Connection and campaigns intentionally follow session changes only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user.id, authReady]);
 
   useEffect(() => {
     if (!selectedCampaignId || appView !== "manage") {
-      setComments([]);
-      setQueue([]);
-      return;
+      const timer = window.setTimeout(() => {
+        setComments([]);
+        setQueue([]);
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
-    void loadCampaignControl(selectedCampaignId);
+    const timer = window.setTimeout(
+      () => void loadCampaignControl(selectedCampaignId),
+      0,
+    );
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCampaignId, appView]);
 
@@ -709,22 +757,39 @@ export function SnsSalesClient() {
 
   useEffect(() => {
     if (appView !== "manage") return;
-    const timer = window.setInterval(() => setClock(Date.now()), 1000);
-    return () => window.clearInterval(timer);
+    const updateClock = () => setClock(Date.now());
+    const initialTimer = window.setTimeout(updateClock, 0);
+    const interval = window.setInterval(updateClock, 1000);
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(interval);
+    };
   }, [appView]);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("instagram_connected") === "1") {
-      setNotice("Instagram 계정 연결이 완료되었습니다.");
-      params.delete("instagram_connected");
-      window.history.replaceState({}, "", `${window.location.pathname}${params.size ? `?${params.toString()}` : ""}`);
-    }
-    if (params.get("instagram_error")) {
-      setNotice("Instagram 연결을 완료하지 못했습니다. 다시 시도해주세요.");
-      params.delete("instagram_error");
-      window.history.replaceState({}, "", `${window.location.pathname}${params.size ? `?${params.toString()}` : ""}`);
-    }
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("instagram_connected") === "1") {
+        setNotice("Instagram 계정 연결이 완료되었습니다.");
+        params.delete("instagram_connected");
+        window.history.replaceState(
+          {},
+          "",
+          `${window.location.pathname}${params.size ? `?${params.toString()}` : ""}`,
+        );
+      }
+      if (params.get("instagram_error")) {
+        setNotice("Instagram 연결을 완료하지 못했습니다. 다시 시도해주세요.");
+        params.delete("instagram_error");
+        window.history.replaceState(
+          {},
+          "",
+          `${window.location.pathname}${params.size ? `?${params.toString()}` : ""}`,
+        );
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, []);
 
   async function handleInstagramConnect() {
@@ -744,7 +809,9 @@ export function SnsSalesClient() {
       if (!data?.authorizationUrl) throw new Error("missing authorization url");
       window.location.assign(data.authorizationUrl);
     } catch {
-      setNotice("Instagram 연결을 시작하지 못했습니다. 로그인 상태를 다시 확인해주세요.");
+      setNotice(
+        "Instagram 연결을 시작하지 못했습니다. 로그인 상태를 다시 확인해주세요.",
+      );
       setConnecting(false);
     }
   }
@@ -792,9 +859,13 @@ export function SnsSalesClient() {
         },
       });
       if (error) throw error;
-      setAuthMessage("로그인 링크를 이메일로 보냈습니다. 받은 메일에서 링크를 열어주세요.");
+      setAuthMessage(
+        "로그인 링크를 이메일로 보냈습니다. 받은 메일에서 링크를 열어주세요.",
+      );
     } catch {
-      setAuthMessage("로그인 링크를 보내지 못했습니다. 이메일 주소를 확인해주세요.");
+      setAuthMessage(
+        "로그인 링크를 보내지 못했습니다. 이메일 주소를 확인해주세요.",
+      );
     } finally {
       setAuthSending(false);
     }
@@ -875,394 +946,446 @@ export function SnsSalesClient() {
 
       {appView === "create" ? (
         <div className="mt-5 grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="space-y-4">
-          <section className="border border-[color:rgb(9_41_68_/_22%)] bg-[color:rgb(255_255_255_/_34%)] p-3.5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="flex items-baseline gap-1.5 text-[16px] font-semibold">
-                  <span className="font-handwriting text-[23px] leading-none font-normal tracking-[-0.03em]">
-                    Instagram
-                  </span>
-                  <span>계정</span>
-                </h2>
-                {connected ? (
-                  <p className="mt-1 truncate text-[11px] text-[color:rgb(9_41_68_/_66%)]">
-                    @{connection?.instagram_username}
-                    <span className="mx-1.5 opacity-35">·</span>
-                    {connection?.account_type || "Professional"}
-                  </p>
-                ) : null}
-              </div>
+          <aside className="space-y-4">
+            <section className="border border-[color:rgb(9_41_68_/_22%)] bg-[color:rgb(255_255_255_/_34%)] p-3.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="flex items-baseline gap-1.5 text-[16px] font-semibold">
+                    <span className="font-handwriting text-[23px] leading-none font-normal tracking-[-0.03em]">
+                      Instagram
+                    </span>
+                    <span>계정</span>
+                  </h2>
+                  {connected ? (
+                    <p className="mt-1 truncate text-[11px] text-[color:rgb(9_41_68_/_66%)]">
+                      @{connection?.instagram_username}
+                      <span className="mx-1.5 opacity-35">·</span>
+                      {connection?.account_type || "Professional"}
+                    </p>
+                  ) : null}
+                </div>
 
-              <div className="flex shrink-0 items-center gap-2">
-                <span
-                  className={
-                    connected
-                      ? "inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#256b3d]"
-                      : "inline-flex items-center gap-1.5 text-[11px] font-semibold text-[color:rgb(9_41_68_/_58%)]"
-                  }
-                >
-                  <i
+                <div className="flex shrink-0 items-center gap-2">
+                  <span
                     className={
                       connected
-                        ? "size-2 rounded-full bg-[#39a660] shadow-[0_0_0_3px_rgb(57_166_96_/_12%)]"
-                        : "size-2 rounded-full bg-[color:rgb(9_41_68_/_22%)]"
+                        ? "inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#256b3d]"
+                        : "inline-flex items-center gap-1.5 text-[11px] font-semibold text-[color:rgb(9_41_68_/_58%)]"
                     }
-                  />
-                  {connected ? "연결됨" : "연결 필요"}
-                </span>
-
-                {connected ? (
-                  <button
-                    type="button"
-                    onClick={() => setAccountExpanded((value) => !value)}
-                    className="border border-[color:rgb(9_41_68_/_22%)] px-2.5 py-1 text-[10px] font-semibold text-[color:rgb(9_41_68_/_68%)] transition-opacity hover:opacity-100"
                   >
-                    {accountExpanded ? "접기" : "관리"}
-                  </button>
-                ) : null}
-              </div>
-            </div>
-
-            {!connected ? (
-              <>
-                <div className="mt-3 space-y-1">
-                  <p className="text-[12px] font-semibold leading-5 text-[#a63434]">
-                    Business 또는 Creator 계정만 연결 가능합니다.
-                  </p>
-                  <p className="text-[11px] leading-5 text-[color:rgb(9_41_68_/_62%)]">
-                    계정 연결이 완료되면 콘텐츠 등록과 판매 자동화를 시작할 수 있습니다.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleInstagramConnect}
-                  disabled={connecting || connectionLoading}
-                  className="mt-3 h-9 w-full bg-[var(--navy)] px-3 text-[12px] font-semibold text-[#fffaf2] transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {connecting ? "연결 준비 중..." : "Instagram 계정 연결하기"}
-                </button>
-              </>
-            ) : accountExpanded ? (
-              <div className="mt-3 border-t border-[color:rgb(9_41_68_/_9%)] pt-3">
-                <div className="flex items-center justify-between gap-3 text-[11px]">
-                  <span className="max-w-[220px] truncate opacity-45">
-                    {session?.user.email ? `DECHIVE · ${session.user.email}` : "DECHIVE 로그인"}
+                    <i
+                      className={
+                        connected
+                          ? "size-2 rounded-full bg-[#39a660] shadow-[0_0_0_3px_rgb(57_166_96_/_12%)]"
+                          : "size-2 rounded-full bg-[color:rgb(9_41_68_/_22%)]"
+                      }
+                    />
+                    {connected ? "연결됨" : "연결 필요"}
                   </span>
-                  {session ? (
+
+                  {connected ? (
                     <button
                       type="button"
-                      onClick={signOut}
-                      className="font-semibold opacity-48 transition-opacity hover:opacity-100"
+                      onClick={() => setAccountExpanded((value) => !value)}
+                      className="border border-[color:rgb(9_41_68_/_22%)] px-2.5 py-1 text-[10px] font-semibold text-[color:rgb(9_41_68_/_68%)] transition-opacity hover:opacity-100"
                     >
-                      로그아웃
+                      {accountExpanded ? "접기" : "관리"}
                     </button>
                   ) : null}
                 </div>
-                <button
-                  type="button"
-                  onClick={handleDisconnect}
-                  disabled={disconnecting}
-                  className="mt-3 h-8 w-full border border-[color:rgb(9_41_68_/_22%)] px-3 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-30"
-                >
-                  {disconnecting ? "연결 해제 중..." : "Instagram 연결 해제"}
-                </button>
+              </div>
+
+              {!connected ? (
+                <>
+                  <div className="mt-3 space-y-1">
+                    <p className="text-[12px] leading-5 font-semibold text-[#a63434]">
+                      Business 또는 Creator 계정만 연결 가능합니다.
+                    </p>
+                    <p className="text-[11px] leading-5 text-[color:rgb(9_41_68_/_62%)]">
+                      계정 연결이 완료되면 콘텐츠 등록과 판매 자동화를 시작할 수
+                      있습니다.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleInstagramConnect}
+                    disabled={connecting || connectionLoading}
+                    className="mt-3 h-9 w-full bg-[var(--navy)] px-3 text-[12px] font-semibold text-[#fffaf2] transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {connecting ? "연결 준비 중..." : "Instagram 계정 연결하기"}
+                  </button>
+                </>
+              ) : accountExpanded ? (
+                <div className="mt-3 border-t border-[color:rgb(9_41_68_/_9%)] pt-3">
+                  <div className="flex items-center justify-between gap-3 text-[11px]">
+                    <span className="max-w-[220px] truncate opacity-45">
+                      {session?.user.email
+                        ? `DECHIVE · ${session.user.email}`
+                        : "DECHIVE 로그인"}
+                    </span>
+                    {session ? (
+                      <button
+                        type="button"
+                        onClick={signOut}
+                        className="font-semibold opacity-48 transition-opacity hover:opacity-100"
+                      >
+                        로그아웃
+                      </button>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDisconnect}
+                    disabled={disconnecting}
+                    className="mt-3 h-8 w-full border border-[color:rgb(9_41_68_/_22%)] px-3 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    {disconnecting ? "연결 해제 중..." : "Instagram 연결 해제"}
+                  </button>
+                </div>
+              ) : null}
+            </section>
+
+            <section className="border border-[color:rgb(9_41_68_/_17%)] px-3.5 py-3">
+              <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
+                <div>
+                  <span className="block opacity-42">계정</span>
+                  <b className="mt-1 block text-[11px]">
+                    {connected ? "확인" : "대기"}
+                  </b>
+                </div>
+                <div className="border-x border-[color:rgb(9_41_68_/_10%)]">
+                  <span className="block opacity-42">콘텐츠</span>
+                  <b className="mt-1 block text-[11px]">
+                    {selectedMedia.length ? "선택" : "대기"}
+                  </b>
+                </div>
+                <div>
+                  <span className="block opacity-42">게시</span>
+                  <b className="mt-1 block text-[11px]">게시 전</b>
+                </div>
+              </div>
+            </section>
+          </aside>
+
+          <section className="relative border border-[color:rgb(9_41_68_/_22%)] bg-[color:rgb(255_255_255_/_28%)]">
+            {!connected ? (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-[color:rgb(244_239_230_/_82%)] backdrop-blur-[1px]">
+                <div className="max-w-sm px-6 text-center">
+                  <div className="mx-auto flex size-9 items-center justify-center border border-[color:rgb(9_41_68_/_22%)] text-sm">
+                    ↗
+                  </div>
+                  <b className="mt-3 block text-[14px]">
+                    Instagram 연결이 필요합니다.
+                  </b>
+                  <p className="mt-1 text-[12px] leading-5 text-[color:rgb(9_41_68_/_60%)]">
+                    계정 연결이 확인되면 콘텐츠 등록 영역이 활성화됩니다.
+                  </p>
+                </div>
               </div>
             ) : null}
-          </section>
 
-          <section className="border border-[color:rgb(9_41_68_/_17%)] px-3.5 py-3">
-            <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
-              <div>
-                <span className="block opacity-42">계정</span>
-                <b className="mt-1 block text-[11px]">{connected ? "확인" : "대기"}</b>
-              </div>
-              <div className="border-x border-[color:rgb(9_41_68_/_10%)]">
-                <span className="block opacity-42">콘텐츠</span>
-                <b className="mt-1 block text-[11px]">{selectedMedia.length ? "선택" : "대기"}</b>
-              </div>
-              <div>
-                <span className="block opacity-42">게시</span>
-                <b className="mt-1 block text-[11px]">게시 전</b>
-              </div>
-            </div>
-          </section>
-        </aside>
-
-        <section className="relative border border-[color:rgb(9_41_68_/_22%)] bg-[color:rgb(255_255_255_/_28%)]">
-          {!connected ? (
-            <div className="absolute inset-0 z-20 flex items-center justify-center bg-[color:rgb(244_239_230_/_82%)] backdrop-blur-[1px]">
-              <div className="max-w-sm px-6 text-center">
-                <div className="mx-auto flex size-9 items-center justify-center border border-[color:rgb(9_41_68_/_22%)] text-sm">
-                  ↗
-                </div>
-                <b className="mt-3 block text-[14px]">Instagram 연결이 필요합니다.</b>
-                <p className="mt-1 text-[12px] leading-5 text-[color:rgb(9_41_68_/_60%)]">
-                  계정 연결이 확인되면 콘텐츠 등록 영역이 활성화됩니다.
-                </p>
-              </div>
-            </div>
-          ) : null}
-
-          <div className={connected ? "" : "pointer-events-none select-none opacity-28"}>
-            {workspaceView === "content" ? (
-              <div className="grid lg:grid-cols-[minmax(0,1fr)_320px]">
-                <div className="p-4 sm:p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] font-bold tracking-[0.09em] text-[color:rgb(9_41_68_/_58%)]">
-                        NEW SALE CONTENT
-                      </p>
-                      <h2 className="mt-1 text-[16px] font-semibold">새 판매 콘텐츠</h2>
+            <div
+              className={
+                connected ? "" : "pointer-events-none opacity-28 select-none"
+              }
+            >
+              {workspaceView === "content" ? (
+                <div className="grid lg:grid-cols-[minmax(0,1fr)_320px]">
+                  <div className="p-4 sm:p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-bold tracking-[0.09em] text-[color:rgb(9_41_68_/_58%)]">
+                          NEW SALE CONTENT
+                        </p>
+                        <h2 className="mt-1 text-[16px] font-semibold">
+                          새 판매 콘텐츠
+                        </h2>
+                      </div>
+                      <div className="flex border border-[color:rgb(9_41_68_/_15%)] p-0.5">
+                        <button
+                          type="button"
+                          onClick={() => chooseKind("video")}
+                          className={
+                            mediaKind === "video"
+                              ? "bg-[var(--navy)] px-3 py-1.5 text-[11px] font-semibold text-white"
+                              : "px-3 py-1.5 text-[11px] font-semibold text-[color:rgb(9_41_68_/_58%)]"
+                          }
+                        >
+                          동영상
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => chooseKind("image")}
+                          className={
+                            mediaKind === "image"
+                              ? "bg-[var(--navy)] px-3 py-1.5 text-[11px] font-semibold text-white"
+                              : "px-3 py-1.5 text-[11px] font-semibold text-[color:rgb(9_41_68_/_58%)]"
+                          }
+                        >
+                          이미지
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex border border-[color:rgb(9_41_68_/_15%)] p-0.5">
-                      <button
-                        type="button"
-                        onClick={() => chooseKind("video")}
-                        className={
-                          mediaKind === "video"
-                            ? "bg-[var(--navy)] px-3 py-1.5 text-[11px] font-semibold text-white"
-                            : "px-3 py-1.5 text-[11px] font-semibold text-[color:rgb(9_41_68_/_58%)]"
-                        }
-                      >
-                        동영상
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => chooseKind("image")}
-                        className={
-                          mediaKind === "image"
-                            ? "bg-[var(--navy)] px-3 py-1.5 text-[11px] font-semibold text-white"
-                            : "px-3 py-1.5 text-[11px] font-semibold text-[color:rgb(9_41_68_/_58%)]"
-                        }
-                      >
-                        이미지
-                      </button>
-                    </div>
+
+                    <input
+                      ref={inputRef}
+                      type="file"
+                      accept={accept}
+                      multiple={mediaKind === "image"}
+                      onChange={handleFiles}
+                      className="hidden"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => inputRef.current?.click()}
+                      className="mt-4 flex min-h-36 w-full flex-col items-center justify-center border border-dashed border-[color:rgb(9_41_68_/_22%)] px-6 py-6 text-center transition-colors hover:bg-[color:rgb(9_41_68_/_2%)]"
+                    >
+                      <span className="text-lg opacity-45">＋</span>
+                      <b className="mt-2 text-[13px]">
+                        {mediaKind === "video" ? "동영상 추가" : "이미지 추가"}
+                      </b>
+                      <span className="mt-1 text-[11px] text-[color:rgb(9_41_68_/_55%)]">
+                        {mediaKind === "video"
+                          ? "동영상은 한 번에 1개만 선택할 수 있습니다."
+                          : "이미지는 최대 10장까지 선택할 수 있습니다."}
+                      </span>
+                    </button>
+
+                    {selectedMedia.length ? (
+                      <div className="mt-3 grid grid-cols-5 gap-2">
+                        {selectedMedia.map((item, index) => (
+                          <div
+                            key={item.id}
+                            className="relative aspect-square overflow-hidden border border-[color:rgb(9_41_68_/_17%)] bg-black/5"
+                          >
+                            {mediaKind === "video" ? (
+                              <video
+                                src={item.url}
+                                className="size-full object-cover"
+                                muted
+                              />
+                            ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={item.url}
+                                alt=""
+                                className="size-full object-cover"
+                              />
+                            )}
+                            <span className="absolute top-1 left-1 bg-[#fffaf2]/90 px-1.5 py-0.5 text-[9px] font-bold">
+                              {String(index + 1).padStart(2, "0")}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeMedia(item.id)}
+                              className="absolute top-1 right-1 flex size-5 items-center justify-center bg-[color:rgb(9_41_68_/_82%)] text-[12px] leading-none font-bold text-white transition-opacity hover:opacity-75"
+                              aria-label={`${item.name} 삭제`}
+                              title="선택 취소"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    <p className="mt-2 text-[11px] text-[color:rgb(9_41_68_/_55%)]">
+                      {previewLabel}
+                    </p>
                   </div>
 
-                  <input
-                    ref={inputRef}
-                    type="file"
-                    accept={accept}
-                    multiple={mediaKind === "image"}
-                    onChange={handleFiles}
-                    className="hidden"
-                  />
+                  <div className="border-t border-[color:rgb(9_41_68_/_17%)] p-4 lg:border-t-0 lg:border-l">
+                    <p className="text-[11px] font-bold tracking-[0.09em] text-[color:rgb(9_41_68_/_58%)]">
+                      SALES SETTINGS
+                    </p>
+                    <div className="mt-3 space-y-3">
+                      <label className="block text-[11px] font-semibold">
+                        결제 금액
+                        <div className="relative mt-1">
+                          <input
+                            type="number"
+                            min="0"
+                            value={price}
+                            onChange={(event) => setPrice(event.target.value)}
+                            className="h-9 w-full border border-[color:rgb(9_41_68_/_22%)] bg-transparent px-3 pr-8 text-[12px] outline-none focus:border-[var(--navy)]"
+                            placeholder="59000"
+                          />
+                          <span className="absolute top-1/2 right-3 -translate-y-1/2 text-[11px] text-[color:rgb(9_41_68_/_50%)]">
+                            원
+                          </span>
+                        </div>
+                      </label>
+                      <label className="block text-[11px] font-semibold">
+                        상세설명
+                        <span className="mt-1 block text-[10px] leading-4 font-normal text-[color:rgb(9_41_68_/_58%)]">
+                          상품명과 가격을 포함해서 상세설명을 적어주세요.
+                        </span>
+                        <textarea
+                          rows={6}
+                          value={description}
+                          onChange={(event) =>
+                            setDescription(event.target.value)
+                          }
+                          className="mt-2 w-full resize-none border border-[color:rgb(9_41_68_/_22%)] bg-transparent px-3 py-2 text-[12px] leading-5 outline-none focus:border-[var(--navy)]"
+                          placeholder={
+                            '예: 빈티지 데님 재킷입니다.\n판매가는 59,000원이며 상태는 양호합니다.\n구매를 원하시면 댓글에 "구매"라고 남겨주세요.'
+                          }
+                        />
+                      </label>
+                      <label className="block text-[11px] font-semibold">
+                        댓글 트리거
+                        <input
+                          value={triggerKeyword}
+                          onChange={(event) =>
+                            setTriggerKeyword(event.target.value)
+                          }
+                          className="mt-1 h-9 w-full border border-[color:rgb(9_41_68_/_22%)] bg-transparent px-3 text-[12px] outline-none focus:border-[var(--navy)]"
+                          placeholder="예: 구매"
+                        />
+                      </label>
+                    </div>
 
-                  <button
-                    type="button"
-                    onClick={() => inputRef.current?.click()}
-                    className="mt-4 flex min-h-36 w-full flex-col items-center justify-center border border-dashed border-[color:rgb(9_41_68_/_22%)] px-6 py-6 text-center transition-colors hover:bg-[color:rgb(9_41_68_/_2%)]"
-                  >
-                    <span className="text-lg opacity-45">＋</span>
-                    <b className="mt-2 text-[13px]">
-                      {mediaKind === "video" ? "동영상 추가" : "이미지 추가"}
-                    </b>
-                    <span className="mt-1 text-[11px] text-[color:rgb(9_41_68_/_55%)]">
-                      {mediaKind === "video"
-                        ? "동영상은 한 번에 1개만 선택할 수 있습니다."
-                        : "이미지는 최대 10장까지 선택할 수 있습니다."}
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setWorkspaceView("preview")}
+                      className="mt-4 h-9 w-full border border-[color:rgb(9_41_68_/_22%)] px-3 text-[11px] font-semibold transition-colors hover:bg-[color:rgb(9_41_68_/_3%)]"
+                    >
+                      게시 전 미리보기 확인 →
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid lg:grid-cols-[minmax(0,1fr)_320px]">
+                  <div className="p-4 sm:p-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[11px] font-bold tracking-[0.09em] text-[color:rgb(9_41_68_/_58%)]">
+                          INSTAGRAM PREVIEW
+                        </p>
+                        <h2 className="mt-1 text-[16px] font-semibold">
+                          게시물 미리보기
+                        </h2>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setWorkspaceView("content")}
+                        className="border border-[color:rgb(9_41_68_/_22%)] px-3 py-1.5 text-[11px] font-semibold"
+                      >
+                        ← 판매 내용 수정
+                      </button>
+                    </div>
 
-                  {selectedMedia.length ? (
-                    <div className="mt-3 grid grid-cols-5 gap-2">
-                      {selectedMedia.map((item, index) => (
-                        <div
-                          key={item.id}
-                          className="relative aspect-square overflow-hidden border border-[color:rgb(9_41_68_/_17%)] bg-black/5"
-                        >
-                          {mediaKind === "video" ? (
-                            <video src={item.url} className="size-full object-cover" muted />
+                    <div className="mx-auto mt-4 max-w-[360px] border border-[color:rgb(9_41_68_/_22%)] bg-[#faf7f1]">
+                      <div className="flex h-10 items-center gap-2 border-b border-[color:rgb(9_41_68_/_10%)] px-3">
+                        <span className="size-6 rounded-full border border-[color:rgb(9_41_68_/_22%)]" />
+                        <b className="text-[11px]">
+                          @{connection?.instagram_username || "instagram"}
+                        </b>
+                        <span className="ml-auto text-sm opacity-45">•••</span>
+                      </div>
+                      <div className="flex aspect-square max-h-[360px] items-center justify-center bg-[color:rgb(9_41_68_/_4%)]">
+                        {selectedMedia[0] ? (
+                          mediaKind === "video" ? (
+                            <video
+                              src={selectedMedia[0].url}
+                              controls
+                              className="size-full object-contain"
+                            />
                           ) : (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={item.url} alt="" className="size-full object-cover" />
-                          )}
-                          <span className="absolute top-1 left-1 bg-[#fffaf2]/90 px-1.5 py-0.5 text-[9px] font-bold">
-                            {String(index + 1).padStart(2, "0")}
+                            <img
+                              src={selectedMedia[0].url}
+                              alt=""
+                              className="size-full object-contain"
+                            />
+                          )
+                        ) : (
+                          <span className="text-[11px] text-[color:rgb(9_41_68_/_50%)]">
+                            미디어 미리보기
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => removeMedia(item.id)}
-                            className="absolute top-1 right-1 flex size-5 items-center justify-center bg-[color:rgb(9_41_68_/_82%)] text-[12px] font-bold leading-none text-white transition-opacity hover:opacity-75"
-                            aria-label={`${item.name} 삭제`}
-                            title="선택 취소"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-
-                  <p className="mt-2 text-[11px] text-[color:rgb(9_41_68_/_55%)]">{previewLabel}</p>
-                </div>
-
-                <div className="border-t border-[color:rgb(9_41_68_/_17%)] p-4 lg:border-t-0 lg:border-l">
-                  <p className="text-[11px] font-bold tracking-[0.09em] text-[color:rgb(9_41_68_/_58%)]">
-                    SALES SETTINGS
-                  </p>
-                  <div className="mt-3 space-y-3">
-                    <label className="block text-[11px] font-semibold">
-                      결제 금액
-                      <div className="relative mt-1">
-                        <input
-                          type="number"
-                          min="0"
-                          value={price}
-                          onChange={(event) => setPrice(event.target.value)}
-                          className="h-9 w-full border border-[color:rgb(9_41_68_/_22%)] bg-transparent px-3 pr-8 text-[12px] outline-none focus:border-[var(--navy)]"
-                          placeholder="59000"
-                        />
-                        <span className="absolute top-1/2 right-3 -translate-y-1/2 text-[11px] text-[color:rgb(9_41_68_/_50%)]">
-                          원
-                        </span>
+                        )}
                       </div>
-                    </label>
-                    <label className="block text-[11px] font-semibold">
-                      상세설명
-                      <span className="mt-1 block text-[10px] font-normal leading-4 text-[color:rgb(9_41_68_/_58%)]">
-                        상품명과 가격을 포함해서 상세설명을 적어주세요.
-                      </span>
-                      <textarea
-                        rows={6}
-                        value={description}
-                        onChange={(event) => setDescription(event.target.value)}
-                        className="mt-2 w-full resize-none border border-[color:rgb(9_41_68_/_22%)] bg-transparent px-3 py-2 text-[12px] leading-5 outline-none focus:border-[var(--navy)]"
-                        placeholder={'예: 빈티지 데님 재킷입니다.\n판매가는 59,000원이며 상태는 양호합니다.\n구매를 원하시면 댓글에 "구매"라고 남겨주세요.'}
-                      />
-                    </label>
-                    <label className="block text-[11px] font-semibold">
-                      댓글 트리거
-                      <input
-                        value={triggerKeyword}
-                        onChange={(event) => setTriggerKeyword(event.target.value)}
-                        className="mt-1 h-9 w-full border border-[color:rgb(9_41_68_/_22%)] bg-transparent px-3 text-[12px] outline-none focus:border-[var(--navy)]"
-                        placeholder="예: 구매"
-                      />
-                    </label>
+                      <div className="px-3 py-2.5">
+                        <div className="text-[15px] tracking-[0.24em]">
+                          ♡ ◯ ✈
+                        </div>
+                        <div className="mt-2 text-[11px] leading-5">
+                          <b>
+                            @{connection?.instagram_username || "instagram"}
+                          </b>
+                          <p className="mt-1 whitespace-pre-wrap text-[color:rgb(9_41_68_/_78%)]">
+                            {description.trim() ||
+                              "상품명과 가격을 포함한 상세설명을 입력해주세요."}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setWorkspaceView("preview")}
-                    className="mt-4 h-9 w-full border border-[color:rgb(9_41_68_/_22%)] px-3 text-[11px] font-semibold transition-colors hover:bg-[color:rgb(9_41_68_/_3%)]"
-                  >
-                    게시 전 미리보기 확인 →
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="grid lg:grid-cols-[minmax(0,1fr)_320px]">
-                <div className="p-4 sm:p-5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col justify-between border-t border-[color:rgb(9_41_68_/_17%)] p-4 lg:border-t-0 lg:border-l">
                     <div>
                       <p className="text-[11px] font-bold tracking-[0.09em] text-[color:rgb(9_41_68_/_58%)]">
-                        INSTAGRAM PREVIEW
+                        FINAL CHECK
                       </p>
-                      <h2 className="mt-1 text-[16px] font-semibold">게시물 미리보기</h2>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setWorkspaceView("content")}
-                      className="border border-[color:rgb(9_41_68_/_22%)] px-3 py-1.5 text-[11px] font-semibold"
-                    >
-                      ← 판매 내용 수정
-                    </button>
-                  </div>
-
-                  <div className="mx-auto mt-4 max-w-[360px] border border-[color:rgb(9_41_68_/_22%)] bg-[#faf7f1]">
-                    <div className="flex h-10 items-center gap-2 border-b border-[color:rgb(9_41_68_/_10%)] px-3">
-                      <span className="size-6 rounded-full border border-[color:rgb(9_41_68_/_22%)]" />
-                      <b className="text-[11px]">@{connection?.instagram_username || "instagram"}</b>
-                      <span className="ml-auto text-sm opacity-45">•••</span>
-                    </div>
-                    <div className="flex aspect-square max-h-[360px] items-center justify-center bg-[color:rgb(9_41_68_/_4%)]">
-                      {selectedMedia[0] ? (
-                        mediaKind === "video" ? (
-                          <video
-                            src={selectedMedia[0].url}
-                            controls
-                            className="size-full object-contain"
-                          />
-                        ) : (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={selectedMedia[0].url}
-                            alt=""
-                            className="size-full object-contain"
-                          />
-                        )
-                      ) : (
-                        <span className="text-[11px] text-[color:rgb(9_41_68_/_50%)]">미디어 미리보기</span>
-                      )}
-                    </div>
-                    <div className="px-3 py-2.5">
-                      <div className="text-[15px] tracking-[0.24em]">♡ ◯ ✈</div>
-                      <div className="mt-2 text-[11px] leading-5">
-                        <b>@{connection?.instagram_username || "instagram"}</b>
-                        <p className="mt-1 whitespace-pre-wrap text-[color:rgb(9_41_68_/_78%)]">
-                          {description.trim() || "상품명과 가격을 포함한 상세설명을 입력해주세요."}
-                        </p>
+                      <div className="mt-3 space-y-2 text-[11px]">
+                        <div className="flex justify-between gap-3 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
+                          <span className="opacity-45">계정</span>
+                          <b>
+                            @{connection?.instagram_username || "instagram"}
+                          </b>
+                        </div>
+                        <div className="flex justify-between gap-3 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
+                          <span className="opacity-55">미디어</span>
+                          <b>
+                            {selectedMedia.length
+                              ? `${selectedMedia.length}개`
+                              : "미선택"}
+                          </b>
+                        </div>
+                        <div className="flex justify-between gap-3 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
+                          <span className="opacity-55">결제 금액</span>
+                          <b>
+                            {price
+                              ? `${Number(price).toLocaleString("ko-KR")}원`
+                              : "미입력"}
+                          </b>
+                        </div>
+                        <div className="flex justify-between gap-3 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
+                          <span className="opacity-55">댓글 트리거</span>
+                          <b>{triggerKeyword.trim() || "미입력"}</b>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                          <span className="opacity-55">게시 상태</span>
+                          <b>게시 전</b>
+                        </div>
                       </div>
+                    </div>
+
+                    <div className="mt-6">
+                      <p className="text-[11px] leading-5 text-[color:rgb(9_41_68_/_60%)]">
+                        실제 Instagram 계정과 미디어를 확인한 뒤 게시하세요.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handlePublish}
+                        disabled={publishing || Boolean(publishedUrl)}
+                        className="mt-3 h-10 w-full bg-[var(--terracotta)] px-4 text-[12px] font-semibold text-[#fffaf2] transition-opacity disabled:cursor-not-allowed disabled:opacity-45"
+                      >
+                        {publishing
+                          ? "게시 처리 중..."
+                          : publishedUrl
+                            ? "Instagram 게시 완료"
+                            : "Instagram에 게시"}
+                      </button>
                     </div>
                   </div>
                 </div>
-
-                <div className="flex flex-col justify-between border-t border-[color:rgb(9_41_68_/_17%)] p-4 lg:border-t-0 lg:border-l">
-                  <div>
-                    <p className="text-[11px] font-bold tracking-[0.09em] text-[color:rgb(9_41_68_/_58%)]">
-                      FINAL CHECK
-                    </p>
-                    <div className="mt-3 space-y-2 text-[11px]">
-                      <div className="flex justify-between gap-3 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
-                        <span className="opacity-45">계정</span>
-                        <b>@{connection?.instagram_username || "instagram"}</b>
-                      </div>
-                      <div className="flex justify-between gap-3 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
-                        <span className="opacity-55">미디어</span>
-                        <b>{selectedMedia.length ? `${selectedMedia.length}개` : "미선택"}</b>
-                      </div>
-                      <div className="flex justify-between gap-3 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
-                        <span className="opacity-55">결제 금액</span>
-                        <b>{price ? `${Number(price).toLocaleString("ko-KR")}원` : "미입력"}</b>
-                      </div>
-                      <div className="flex justify-between gap-3 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
-                        <span className="opacity-55">댓글 트리거</span>
-                        <b>{triggerKeyword.trim() || "미입력"}</b>
-                      </div>
-                      <div className="flex justify-between gap-3">
-                        <span className="opacity-55">게시 상태</span>
-                        <b>게시 전</b>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-6">
-                    <p className="text-[11px] leading-5 text-[color:rgb(9_41_68_/_60%)]">
-                      실제 Instagram 계정과 미디어를 확인한 뒤 게시하세요.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handlePublish}
-                      disabled={publishing || Boolean(publishedUrl)}
-                      className="mt-3 h-10 w-full bg-[var(--terracotta)] px-4 text-[12px] font-semibold text-[#fffaf2] transition-opacity disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                      {publishing
-                        ? "게시 처리 중..."
-                        : publishedUrl
-                          ? "Instagram 게시 완료"
-                          : "Instagram에 게시"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-      </div>
+              )}
+            </div>
+          </section>
+        </div>
       ) : null}
 
       {appView === "manage" && connected ? (
@@ -1272,7 +1395,9 @@ export function SnsSalesClient() {
               <p className="text-[10px] font-bold tracking-[0.1em] text-[var(--terracotta)]">
                 SALES CONTROL CENTER
               </p>
-              <h2 className="mt-1 text-[18px] font-semibold">판매 캠페인 관리</h2>
+              <h2 className="mt-1 text-[18px] font-semibold">
+                판매 캠페인 관리
+              </h2>
             </div>
             <div className="flex flex-wrap items-center gap-3 text-[10px]">
               <button
@@ -1297,7 +1422,9 @@ export function SnsSalesClient() {
                       : "size-2 rounded-full bg-[#c8943d]"
                   }
                 />
-                {webhookSubscribed ? "Realtime 연결됨" : "Realtime 연결 확인 중"}
+                {webhookSubscribed
+                  ? "Realtime 연결됨"
+                  : "Realtime 연결 확인 중"}
               </span>
               <span className="text-[color:rgb(9_41_68_/_52%)]">
                 {webhookSubscribed
@@ -1324,7 +1451,9 @@ export function SnsSalesClient() {
 
               <div className="max-h-[560px] overflow-y-auto border-t border-[color:rgb(9_41_68_/_10%)]">
                 {campaignsLoading ? (
-                  <p className="px-4 py-5 text-[11px] opacity-55">불러오는 중...</p>
+                  <p className="px-4 py-5 text-[11px] opacity-55">
+                    불러오는 중...
+                  </p>
                 ) : campaigns.length ? (
                   campaigns.map((campaign, index) => {
                     const active = campaign.id === selectedCampaignId;
@@ -1340,20 +1469,30 @@ export function SnsSalesClient() {
                         }
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <b className="text-[11px]">판매 #{campaigns.length - index}</b>
-                          <span className={
-                            campaign.status === "active"
-                              ? "text-[9px] font-semibold text-[#256b3d]"
-                              : "text-[9px] font-semibold opacity-50"
-                          }>
-                            {campaign.status === "active" ? "판매 중" : campaign.status}
+                          <b className="text-[11px]">
+                            판매 #{campaigns.length - index}
+                          </b>
+                          <span
+                            className={
+                              campaign.status === "active"
+                                ? "text-[9px] font-semibold text-[#256b3d]"
+                                : "text-[9px] font-semibold opacity-50"
+                            }
+                          >
+                            {campaign.status === "active"
+                              ? "판매 중"
+                              : campaign.status}
                           </span>
                         </div>
                         <p className="mt-2 line-clamp-2 text-[11px] leading-4 text-[color:rgb(9_41_68_/_68%)]">
                           {campaign.description}
                         </p>
                         <div className="mt-2 flex items-center justify-between text-[9px] text-[color:rgb(9_41_68_/_48%)]">
-                          <span>{campaign.price ? `${campaign.price.toLocaleString("ko-KR")}원` : "-"}</span>
+                          <span>
+                            {campaign.price
+                              ? `${campaign.price.toLocaleString("ko-KR")}원`
+                              : "-"}
+                          </span>
                           <span>트리거 · {campaign.trigger_keyword}</span>
                         </div>
                       </button>
@@ -1361,7 +1500,9 @@ export function SnsSalesClient() {
                   })
                 ) : (
                   <div className="px-4 py-8 text-center">
-                    <p className="text-[11px] opacity-55">아직 게시된 판매가 없습니다.</p>
+                    <p className="text-[11px] opacity-55">
+                      아직 게시된 판매가 없습니다.
+                    </p>
                     <button
                       type="button"
                       onClick={() => setAppView("create")}
@@ -1380,7 +1521,8 @@ export function SnsSalesClient() {
                   <b className="text-[12px]">실시간 댓글</b>
                   {selectedCampaign ? (
                     <p className="mt-0.5 text-[9px] text-[color:rgb(9_41_68_/_50%)]">
-                      {formatDateTime(selectedCampaign.published_at)} · 트리거 "{selectedCampaign.trigger_keyword}"
+                      {formatDateTime(selectedCampaign.published_at)} · 트리거 ‘
+                      {selectedCampaign.trigger_keyword}’
                     </p>
                   ) : null}
                 </div>
@@ -1400,7 +1542,9 @@ export function SnsSalesClient() {
                     관리할 게시물을 선택해주세요.
                   </p>
                 ) : commentsLoading ? (
-                  <p className="px-4 py-5 text-[11px] opacity-55">댓글 불러오는 중...</p>
+                  <p className="px-4 py-5 text-[11px] opacity-55">
+                    댓글 불러오는 중...
+                  </p>
                 ) : comments.length ? (
                   comments.map((comment) => (
                     <div
@@ -1412,7 +1556,9 @@ export function SnsSalesClient() {
                       }
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <b className="text-[11px]">@{comment.instagram_username || "unknown"}</b>
+                        <b className="text-[11px]">
+                          @{comment.instagram_username || "unknown"}
+                        </b>
                         <div className="flex items-center gap-2">
                           {comment.matched_trigger ? (
                             <span className="border border-[var(--terracotta)]/35 px-1.5 py-0.5 text-[9px] font-semibold text-[var(--terracotta)]">
@@ -1420,18 +1566,22 @@ export function SnsSalesClient() {
                             </span>
                           ) : null}
                           <span className="text-[9px] text-[color:rgb(9_41_68_/_42%)]">
-                            {formatDateTime(comment.commented_at || comment.received_at)}
+                            {formatDateTime(
+                              comment.commented_at || comment.received_at,
+                            )}
                           </span>
                         </div>
                       </div>
-                      <p className="mt-1.5 whitespace-pre-wrap text-[12px] leading-5">
+                      <p className="mt-1.5 text-[12px] leading-5 whitespace-pre-wrap">
                         {comment.comment_text}
                       </p>
                     </div>
                   ))
                 ) : (
                   <div className="px-5 py-10 text-center">
-                    <p className="text-[12px] font-semibold">아직 수신된 댓글이 없습니다.</p>
+                    <p className="text-[12px] font-semibold">
+                      아직 수신된 댓글이 없습니다.
+                    </p>
                     <p className="mt-1 text-[10px] leading-5 text-[color:rgb(9_41_68_/_52%)]">
                       Webhook이 연결되면 새 댓글이 자동으로 나타납니다.
                     </p>
@@ -1448,7 +1598,9 @@ export function SnsSalesClient() {
                     트리거 댓글만 순번에 등록
                   </p>
                 </div>
-                <span className="text-[10px] font-semibold">{queue.length}명</span>
+                <span className="text-[10px] font-semibold">
+                  {queue.length}명
+                </span>
               </div>
 
               <div className="max-h-[560px] overflow-y-auto border-t border-[color:rgb(9_41_68_/_10%)]">
@@ -1463,28 +1615,38 @@ export function SnsSalesClient() {
                       }
                     >
                       <div className="flex items-center gap-3">
-                        <span className={
-                          item.status === "reserved"
-                            ? "flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--navy)] text-[10px] font-bold text-white"
-                            : "flex size-7 shrink-0 items-center justify-center rounded-full border border-[color:rgb(9_41_68_/_22%)] text-[10px] font-bold"
-                        }>
+                        <span
+                          className={
+                            item.status === "reserved"
+                              ? "flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--navy)] text-[10px] font-bold text-white"
+                              : "flex size-7 shrink-0 items-center justify-center rounded-full border border-[color:rgb(9_41_68_/_22%)] text-[10px] font-bold"
+                          }
+                        >
                           {item.queue_position}
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2">
-                            <b className="truncate text-[11px]">@{item.instagram_username || "unknown"}</b>
-                            <span className={
-                              item.status === "reserved"
-                                ? "text-[9px] font-semibold text-[#256b3d]"
-                                : "text-[9px] font-semibold text-[color:rgb(9_41_68_/_52%)]"
-                            }>
+                            <b className="truncate text-[11px]">
+                              @{item.instagram_username || "unknown"}
+                            </b>
+                            <span
+                              className={
+                                item.status === "reserved"
+                                  ? "text-[9px] font-semibold text-[#256b3d]"
+                                  : "text-[9px] font-semibold text-[color:rgb(9_41_68_/_52%)]"
+                              }
+                            >
                               {queueStatusLabel(item.status)}
                             </span>
                           </div>
                           {item.status === "reserved" ? (
                             <div className="mt-1.5 flex items-center justify-between text-[10px]">
-                              <span className="text-[color:rgb(9_41_68_/_52%)]">남은 시간</span>
-                              <b className="font-mono text-[12px]">{formatRemaining(item.due_at)}</b>
+                              <span className="text-[color:rgb(9_41_68_/_52%)]">
+                                남은 시간
+                              </span>
+                              <b className="font-mono text-[12px]">
+                                {formatRemaining(item.due_at)}
+                              </b>
                             </div>
                           ) : (
                             <p className="mt-1 text-[9px] text-[color:rgb(9_41_68_/_45%)]">
@@ -1497,9 +1659,12 @@ export function SnsSalesClient() {
                   ))
                 ) : (
                   <div className="px-5 py-10 text-center">
-                    <p className="text-[12px] font-semibold">구매 대기자가 없습니다.</p>
+                    <p className="text-[12px] font-semibold">
+                      구매 대기자가 없습니다.
+                    </p>
                     <p className="mt-1 text-[10px] leading-5 text-[color:rgb(9_41_68_/_52%)]">
-                      "{selectedCampaign?.trigger_keyword || "구매"}" 댓글이 들어오면 자동으로 순번을 부여합니다.
+                      ‘{selectedCampaign?.trigger_keyword || "구매"}’ 댓글이
+                      들어오면 자동으로 순번을 부여합니다.
                     </p>
                   </div>
                 )}
@@ -1552,7 +1717,9 @@ export function SnsSalesClient() {
 
             {publishError ? (
               <>
-                <h2 className="mt-2 text-[17px] font-semibold">게시를 완료하지 못했습니다.</h2>
+                <h2 className="mt-2 text-[17px] font-semibold">
+                  게시를 완료하지 못했습니다.
+                </h2>
                 <p className="mt-3 text-[12px] leading-5 text-[#9b3434]">
                   {publishError}
                 </p>
@@ -1567,7 +1734,9 @@ export function SnsSalesClient() {
             ) : (
               <>
                 <h2 className="mt-2 text-[17px] font-semibold">
-                  {publishedUrl ? "게시가 완료되었습니다." : "Instagram에 게시 중입니다."}
+                  {publishedUrl
+                    ? "게시가 완료되었습니다."
+                    : "Instagram에 게시 중입니다."}
                 </h2>
                 <p className="mt-3 text-[12px] leading-5 text-[color:rgb(9_41_68_/_68%)]">
                   {publishMessage}
@@ -1615,7 +1784,9 @@ export function SnsSalesClient() {
                 <p className="text-[10px] font-bold tracking-[0.12em] text-[var(--terracotta)]">
                   SECURE SIGN IN
                 </p>
-                <h2 className="mt-1 text-[16px] font-semibold">DECHIVE 로그인</h2>
+                <h2 className="mt-1 text-[16px] font-semibold">
+                  DECHIVE 로그인
+                </h2>
               </div>
               <button
                 type="button"
@@ -1662,7 +1833,8 @@ export function SnsSalesClient() {
             ) : null}
 
             <p className="mt-4 border-t border-[color:rgb(9_41_68_/_10%)] pt-3 text-[9px] leading-4 opacity-40">
-              로그인 후에만 Instagram OAuth를 시작할 수 있으며, Instagram access token은 브라우저에 저장하지 않습니다.
+              로그인 후에만 Instagram OAuth를 시작할 수 있으며, Instagram access
+              token은 브라우저에 저장하지 않습니다.
             </p>
           </div>
         </div>

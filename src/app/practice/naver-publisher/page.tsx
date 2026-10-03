@@ -6,22 +6,26 @@ const flow = [
   {
     number: "01",
     title: "원고 붙여넣기",
-    description: "유튜브 대본, SNS 글, ChatGPT에서 완성한 원고, 직접 쓴 글을 그대로 넣습니다.",
+    description:
+      "유튜브 대본, SNS 글, ChatGPT에서 완성한 원고, 직접 쓴 글을 그대로 넣습니다.",
   },
   {
     number: "02",
     title: "네이버용 정리",
-    description: "문단, 소제목, 인용구, 이미지 흐름을 네이버에서 읽기 좋은 구조로 나눕니다.",
+    description:
+      "문단, 소제목, 인용구, 이미지 흐름을 네이버에서 읽기 좋은 구조로 나눕니다.",
   },
   {
     number: "03",
     title: "네이버 미리보기",
-    description: "실제로 올라갈 글의 흐름을 먼저 보고 필요한 부분만 직접 손봅니다.",
+    description:
+      "실제로 올라갈 글의 흐름을 먼저 보고 필요한 부분만 직접 손봅니다.",
   },
   {
     number: "04",
     title: "임시저장",
-    description: "확인한 원고를 네이버 글쓰기 화면으로 보내고 임시저장까지 진행합니다.",
+    description:
+      "확인한 원고를 네이버 글쓰기 화면으로 보내고 임시저장까지 진행합니다.",
   },
 ];
 
@@ -69,7 +73,9 @@ export default function NaverPublisherPage() {
       <section className="grid gap-7 border-b border-[color:rgb(9_41_68_/_17%)] pb-9 lg:grid-cols-[minmax(0,0.44fr)_minmax(0,0.56fr)] lg:items-stretch lg:gap-10">
         <div className="flex flex-col justify-center py-6 lg:pr-4">
           <div className="flex flex-wrap items-center gap-3 text-[12px] tracking-[0.08em]">
-            <span className="font-bold text-[var(--terracotta)]">PRACTICE 02</span>
+            <span className="font-bold text-[var(--terracotta)]">
+              PRACTICE 02
+            </span>
             <span className="h-px w-5 bg-[var(--terracotta)]" />
             <span>NAVER PUBLISHER</span>
             <span className="border border-[var(--terracotta)] px-2 py-1 text-[9px] font-bold tracking-[0.12em] text-[var(--terracotta)]">
@@ -85,13 +91,14 @@ export default function NaverPublisherPage() {
 
           <p className="font-editorial mt-4 text-lg leading-8 sm:text-xl">
             원고를 넣으면 네이버 블로그용으로 정리하고,
-            <br className="hidden sm:block" /> 미리보기한 뒤 임시저장까지 연결합니다.
+            <br className="hidden sm:block" /> 미리보기한 뒤 임시저장까지
+            연결합니다.
           </p>
 
           <p className="mt-5 max-w-xl text-[14px] leading-7">
-            DECHIVE NAVER PUBLISHER는 글을 새로 생성하는 자동화가 아닙니다.
-            이미 다른 곳에서 만든 콘텐츠를 가져와 네이버에 맞게 옮기는
-            퍼블리싱 도구입니다.
+            DECHIVE NAVER PUBLISHER는 글을 새로 생성하는 자동화가 아닙니다. 이미
+            다른 곳에서 만든 콘텐츠를 가져와 네이버에 맞게 옮기는 퍼블리싱
+            도구입니다.
           </p>
 
           <div className="mt-7 flex flex-wrap gap-2.5">
@@ -110,7 +117,8 @@ export default function NaverPublisherPage() {
           </div>
 
           <p className="mt-4 text-[12px]">
-            자동 공개 발행이 아니라 임시저장까지. 마지막 발행은 사람이 결정합니다.
+            자동 공개 발행이 아니라 임시저장까지. 마지막 발행은 사람이
+            결정합니다.
           </p>
         </div>
 
@@ -216,12 +224,11 @@ export default function NaverPublisherPage() {
           </div>
           <h2 className="font-editorial mt-3 text-2xl font-semibold sm:text-3xl">
             첫 공개 버전은
-            <br />
-            한 가지에 집중합니다.
+            <br />한 가지에 집중합니다.
           </h2>
           <p className="mt-4 max-w-sm text-[13px] leading-6">
-            원고를 네이버용으로 바꾸고 미리보기한 뒤 임시저장하는 흐름.
-            다음 기능은 실제 사용하면서 필요한 순서대로 Practice에 기록합니다.
+            원고를 네이버용으로 바꾸고 미리보기한 뒤 임시저장하는 흐름. 다음
+            기능은 실제 사용하면서 필요한 순서대로 Practice에 기록합니다.
           </p>
         </div>
 
@@ -264,7 +271,9 @@ export default function NaverPublisherPage() {
           href="/practice/sns-automation"
           className="border border-[color:rgb(9_41_68_/_12%)] p-5 transition-colors hover:border-[var(--terracotta)]"
         >
-          <span className="text-[10px] tracking-[0.12em]">← PREVIOUS PRACTICE</span>
+          <span className="text-[10px] tracking-[0.12em]">
+            ← PREVIOUS PRACTICE
+          </span>
           <strong className="font-editorial mt-2 block text-base font-semibold">
             01 SNS 선착순 판매 자동화
           </strong>

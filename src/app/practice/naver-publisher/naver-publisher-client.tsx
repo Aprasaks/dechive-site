@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useTransition } from "react";
 
-type BlockType = "title" | "heading" | "paragraph" | "quote" | "divider" | "image";
+type BlockType =
+  "title" | "heading" | "paragraph" | "quote" | "divider" | "image";
 
 type DraftBlock = {
   id: string;
@@ -75,9 +76,7 @@ function buildNaverPayload(
 
     if (block.type === "paragraph") {
       html.push(
-        "<p>" +
-          escapeNaverHtml(block.content).replace(/\n/g, "<br>") +
-          "</p>",
+        "<p>" + escapeNaverHtml(block.content).replace(/\n/g, "<br>") + "</p>",
       );
       text.push(block.content);
       continue;
@@ -110,9 +109,7 @@ function buildNaverPayload(
         slot: "IMAGE_" + String(imageIndex + 1),
         sequence: imageIndex,
       });
-      html.push(
-        '<p data-dd-photo-slot="' + String(imageIndex) + '"></p>',
-      );
+      html.push('<p data-dd-photo-slot="' + String(imageIndex) + '"></p>');
 
       const caption = block.content.trim();
       if (caption && caption !== "이미지 설명을 입력하세요.") {
@@ -142,8 +139,7 @@ function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () =>
-      reject(new Error("이미지 파일을 읽지 못했습니다."));
+    reader.onerror = () => reject(new Error("이미지 파일을 읽지 못했습니다."));
     reader.readAsDataURL(file);
   });
 }
@@ -237,15 +233,12 @@ export function NaverPublisherClient() {
   const [message, setMessage] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [bridgeState, setBridgeState] =
-    useState<BridgeState>("checking");
+  const [bridgeState, setBridgeState] = useState<BridgeState>("checking");
   const [isSending, setIsSending] = useState(false);
   const [tagsText, setTagsText] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const checkBridge = async () => {
-    setBridgeState("checking");
-
     try {
       const response = await bridgeRequest("DECHIVE_BRIDGE_PING");
       if (!response.ok) {
@@ -253,16 +246,20 @@ export function NaverPublisherClient() {
         return;
       }
 
-      setBridgeState(
-        response.result?.naverReady ? "ready" : "naver-missing",
-      );
+      setBridgeState(response.result?.naverReady ? "ready" : "naver-missing");
     } catch {
       setBridgeState("missing");
     }
   };
 
-  useEffect(() => {
+  const retryBridge = () => {
+    setBridgeState("checking");
     void checkBridge();
+  };
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void checkBridge(), 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   const createPreview = () => {
@@ -348,9 +345,7 @@ export function NaverPublisherClient() {
       ]);
     } catch (error) {
       setMessage(
-        error instanceof Error
-          ? error.message
-          : "이미지를 읽지 못했습니다.",
+        error instanceof Error ? error.message : "이미지를 읽지 못했습니다.",
       );
     }
   };
@@ -362,7 +357,9 @@ export function NaverPublisherClient() {
     }
 
     if (bridgeState === "missing") {
-      setMessage("네이버 연결 프로그램을 설치한 뒤 페이지를 새로고침해 주세요.");
+      setMessage(
+        "네이버 연결 프로그램을 설치한 뒤 페이지를 새로고침해 주세요.",
+      );
       return;
     }
 
@@ -388,15 +385,12 @@ export function NaverPublisherClient() {
       );
 
       if (!response.ok) {
-        throw new Error(
-          response.error || "네이버 전송에 실패했습니다.",
-        );
+        throw new Error(response.error || "네이버 전송에 실패했습니다.");
       }
 
       const result = response.result;
       const imageText =
-        result?.imageRequestedCount &&
-        result.imageRequestedCount > 0
+        result?.imageRequestedCount && result.imageRequestedCount > 0
           ? " · 이미지 " +
             String(result.imageInsertedCount || 0) +
             "/" +
@@ -406,15 +400,11 @@ export function NaverPublisherClient() {
         ? " · 임시저장 완료"
         : " · 입력 완료";
 
-      setMessage(
-        "네이버에 전송했습니다" + imageText + saveText + ".",
-      );
+      setMessage("네이버에 전송했습니다" + imageText + saveText + ".");
       setBridgeState("ready");
     } catch (error) {
       setMessage(
-        error instanceof Error
-          ? error.message
-          : "네이버 전송에 실패했습니다.",
+        error instanceof Error ? error.message : "네이버 전송에 실패했습니다.",
       );
       void checkBridge();
     } finally {
@@ -436,8 +426,12 @@ export function NaverPublisherClient() {
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:rgb(9_41_68_/_12%)] px-5 py-4 sm:px-6">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="font-editorial text-xl font-semibold">NAVER PUBLISHER</h2>
-            <span className="border border-[var(--terracotta)] px-2 py-1 text-[9px] font-bold tracking-[0.12em] text-[var(--terracotta)]">v1.0</span>
+            <h2 className="font-editorial text-xl font-semibold">
+              NAVER PUBLISHER
+            </h2>
+            <span className="border border-[var(--terracotta)] px-2 py-1 text-[9px] font-bold tracking-[0.12em] text-[var(--terracotta)]">
+              v1.0
+            </span>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -446,7 +440,7 @@ export function NaverPublisherClient() {
           </span>
           <button
             type="button"
-            onClick={() => void checkBridge()}
+            onClick={retryBridge}
             className="h-9 border border-[color:rgb(9_41_68_/_18%)] bg-white px-3 text-[11px] font-medium transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
           >
             다시 확인
@@ -457,9 +451,12 @@ export function NaverPublisherClient() {
       <div className="grid lg:grid-cols-[minmax(0,0.43fr)_minmax(0,0.57fr)]">
         <section className="border-b border-[color:rgb(9_41_68_/_12%)] p-5 sm:p-6 lg:border-r lg:border-b-0">
           <div>
-            <h3 className="font-editorial text-xl font-semibold">원고 붙여넣기</h3>
+            <h3 className="font-editorial text-xl font-semibold">
+              원고 붙여넣기
+            </h3>
             <p className="mt-1 text-[12px] leading-5">
-              이미 작성한 글을 그대로 넣으세요. 내용은 바꾸지 않고 네이버에서 읽기 좋은 구조로 정리합니다.
+              이미 작성한 글을 그대로 넣으세요. 내용은 바꾸지 않고 네이버에서
+              읽기 좋은 구조로 정리합니다.
             </p>
           </div>
 
@@ -507,9 +504,10 @@ export function NaverPublisherClient() {
               disabled={isPending}
               className="inline-flex h-11 items-center bg-[var(--terracotta)] px-5 text-[13px] font-semibold text-[#fffaf2] transition-opacity hover:opacity-85 disabled:opacity-50"
             >
-              {isPending ? "네이버용으로 정리하는 중…" : "네이버 미리보기 만들기 →"}
+              {isPending
+                ? "네이버용으로 정리하는 중…"
+                : "네이버 미리보기 만들기 →"}
             </button>
-            
           </div>
 
           <div className="mt-5 border-t border-[color:rgb(9_41_68_/_10%)] pt-4">
@@ -531,13 +529,14 @@ export function NaverPublisherClient() {
               <span className="font-medium">카테고리 · 네이버 기본값</span>
             </div>
           </div>
-          
         </section>
 
         <section className="bg-[color:rgb(185_79_44_/_2%)] p-5 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h3 className="font-editorial text-xl font-semibold">네이버 미리보기</h3>
+              <h3 className="font-editorial text-xl font-semibold">
+                네이버 미리보기
+              </h3>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -556,132 +555,136 @@ export function NaverPublisherClient() {
                 + 구분선
               </button>
               <label className="inline-flex h-9 cursor-pointer items-center border border-[color:rgb(9_41_68_/_18%)] bg-white px-3 text-[12px] font-semibold transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]">
-              + 이미지
-              <input
-                type="file"
-                accept="image/*"
-                className="sr-only"
-                onChange={(event) => {
-                  void addImage(event.target.files?.[0]);
-                  event.target.value = "";
-                }}
-              />
+                + 이미지
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(event) => {
+                    void addImage(event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
               </label>
             </div>
           </div>
 
           {showAdvanced ? (
             <div className="mt-5 min-h-[455px] border border-[color:rgb(9_41_68_/_12%)] bg-[#fffdf8] p-4 sm:p-6">
-            {blocks.length === 0 ? (
-              <div className="flex min-h-[405px] flex-col items-center justify-center text-center">
-                <span className="font-editorial text-4xl text-[color:rgb(185_79_44_/_28%)]">
-                  02
-                </span>
-                <p className="font-editorial mt-4 text-base font-semibold">
-                  정리된 글이 이곳에 나타납니다.
-                </p>
-                <p className="mt-2 max-w-xs text-[10px] leading-5 opacity-45">
-                  내부 마커나 코드 대신 실제 독자가 보게 될 문서 구조만
-                  표시합니다.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {blocks.map((block, index) => (
-                  <article
-                    key={block.id}
-                    draggable
-                    onDragStart={() => setDraggedId(block.id)}
-                    onDragEnd={() => setDraggedId(null)}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={() => dropBlock(block.id)}
-                    className={`group border p-3 transition-colors ${draggedId === block.id ? "border-[var(--terracotta)] opacity-55" : "border-[color:rgb(9_41_68_/_10%)] hover:border-[color:rgb(185_79_44_/_32%)]"}`}
-                  >
-                    <div className="flex flex-wrap items-center gap-1.5 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
-                      <span className="mr-1 text-[9px] opacity-35">⋮⋮</span>
-                      {block.type === "title" || block.type === "image" || block.type === "divider" ? (
-                        <span className="text-[9px] font-semibold text-[var(--terracotta)]">
-                          {blockLabels[block.type]}
-                        </span>
-                      ) : (
-                        editableBlockTypes.map((type) => (
+              {blocks.length === 0 ? (
+                <div className="flex min-h-[405px] flex-col items-center justify-center text-center">
+                  <span className="font-editorial text-4xl text-[color:rgb(185_79_44_/_28%)]">
+                    02
+                  </span>
+                  <p className="font-editorial mt-4 text-base font-semibold">
+                    정리된 글이 이곳에 나타납니다.
+                  </p>
+                  <p className="mt-2 max-w-xs text-[10px] leading-5 opacity-45">
+                    내부 마커나 코드 대신 실제 독자가 보게 될 문서 구조만
+                    표시합니다.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {blocks.map((block, index) => (
+                    <article
+                      key={block.id}
+                      draggable
+                      onDragStart={() => setDraggedId(block.id)}
+                      onDragEnd={() => setDraggedId(null)}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={() => dropBlock(block.id)}
+                      className={`group border p-3 transition-colors ${draggedId === block.id ? "border-[var(--terracotta)] opacity-55" : "border-[color:rgb(9_41_68_/_10%)] hover:border-[color:rgb(185_79_44_/_32%)]"}`}
+                    >
+                      <div className="flex flex-wrap items-center gap-1.5 border-b border-[color:rgb(9_41_68_/_8%)] pb-2">
+                        <span className="mr-1 text-[9px] opacity-35">⋮⋮</span>
+                        {block.type === "title" ||
+                        block.type === "image" ||
+                        block.type === "divider" ? (
+                          <span className="text-[9px] font-semibold text-[var(--terracotta)]">
+                            {blockLabels[block.type]}
+                          </span>
+                        ) : (
+                          editableBlockTypes.map((type) => (
+                            <button
+                              key={type}
+                              type="button"
+                              onClick={() => updateBlock(block.id, { type })}
+                              className={`px-2 py-1 text-[9px] transition-colors ${block.type === type ? "bg-[var(--navy)] text-[#fffaf2]" : "opacity-45 hover:opacity-100"}`}
+                            >
+                              {blockLabels[type]}
+                            </button>
+                          ))
+                        )}
+                        <div className="ml-auto flex items-center gap-1">
                           <button
-                            key={type}
                             type="button"
-                            onClick={() => updateBlock(block.id, { type })}
-                            className={`px-2 py-1 text-[9px] transition-colors ${block.type === type ? "bg-[var(--navy)] text-[#fffaf2]" : "opacity-45 hover:opacity-100"}`}
+                            onClick={() => moveBlock(block.id, -1)}
+                            disabled={index === 0}
+                            className="px-1.5 text-[10px] opacity-45 hover:opacity-100 disabled:opacity-15"
+                            aria-label={`${blockLabels[block.type]} 블록을 위로 이동`}
                           >
-                            {blockLabels[type]}
+                            ↑
                           </button>
-                        ))
-                      )}
-                      <div className="ml-auto flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => moveBlock(block.id, -1)}
-                          disabled={index === 0}
-                          className="px-1.5 text-[10px] opacity-45 hover:opacity-100 disabled:opacity-15"
-                          aria-label={`${blockLabels[block.type]} 블록을 위로 이동`}
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => moveBlock(block.id, 1)}
-                          disabled={index === blocks.length - 1}
-                          className="px-1.5 text-[10px] opacity-45 hover:opacity-100 disabled:opacity-15"
-                          aria-label={`${blockLabels[block.type]} 블록을 아래로 이동`}
-                        >
-                          ↓
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setBlocks((current) =>
-                              current.filter((item) => item.id !== block.id),
-                            )
-                          }
-                          className="px-1.5 text-[10px] text-[var(--terracotta)] opacity-45 hover:opacity-100"
-                          aria-label={`${blockLabels[block.type]} 블록 삭제`}
-                        >
-                          ×
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => moveBlock(block.id, 1)}
+                            disabled={index === blocks.length - 1}
+                            className="px-1.5 text-[10px] opacity-45 hover:opacity-100 disabled:opacity-15"
+                            aria-label={`${blockLabels[block.type]} 블록을 아래로 이동`}
+                          >
+                            ↓
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setBlocks((current) =>
+                                current.filter((item) => item.id !== block.id),
+                              )
+                            }
+                            className="px-1.5 text-[10px] text-[var(--terracotta)] opacity-45 hover:opacity-100"
+                            aria-label={`${blockLabels[block.type]} 블록 삭제`}
+                          >
+                            ×
+                          </button>
+                        </div>
                       </div>
-                    </div>
 
-                    {block.type === "divider" ? (
-                      <div className="my-6 h-px bg-[color:rgb(9_41_68_/_28%)]" />
-                    ) : block.type === "image" ? (
-                      <div className="mt-3 border border-dashed border-[color:rgb(9_41_68_/_18%)] bg-[color:rgb(9_41_68_/_3%)] p-5 text-center">
-                        <p className="text-[10px] font-semibold">
-                          {block.fileName}
-                        </p>
-                        <input
+                      {block.type === "divider" ? (
+                        <div className="my-6 h-px bg-[color:rgb(9_41_68_/_28%)]" />
+                      ) : block.type === "image" ? (
+                        <div className="mt-3 border border-dashed border-[color:rgb(9_41_68_/_18%)] bg-[color:rgb(9_41_68_/_3%)] p-5 text-center">
+                          <p className="text-[10px] font-semibold">
+                            {block.fileName}
+                          </p>
+                          <input
+                            value={block.content}
+                            onChange={(event) =>
+                              updateBlock(block.id, {
+                                content: event.target.value,
+                              })
+                            }
+                            className="mt-2 w-full bg-transparent text-center text-[10px] opacity-55 outline-none"
+                            aria-label="이미지 설명"
+                          />
+                        </div>
+                      ) : (
+                        <textarea
                           value={block.content}
                           onChange={(event) =>
                             updateBlock(block.id, {
                               content: event.target.value,
                             })
                           }
-                          className="mt-2 w-full bg-transparent text-center text-[10px] opacity-55 outline-none"
-                          aria-label="이미지 설명"
+                          rows={block.type === "paragraph" ? 3 : 2}
+                          className={`mt-3 w-full resize-y bg-transparent outline-none ${block.type === "title" ? "font-editorial text-xl leading-tight font-semibold" : ""} ${block.type === "heading" ? "font-editorial text-base font-semibold" : ""} ${block.type === "quote" ? "border-l-2 border-[var(--terracotta)] pl-3 text-xs leading-6 italic" : ""} ${block.type === "paragraph" ? "text-xs leading-6" : ""}`}
+                          aria-label={`${blockLabels[block.type]} 블록 내용`}
                         />
-                      </div>
-                    ) : (
-                      <textarea
-                        value={block.content}
-                        onChange={(event) =>
-                          updateBlock(block.id, { content: event.target.value })
-                        }
-                        rows={block.type === "paragraph" ? 3 : 2}
-                        className={`mt-3 w-full resize-y bg-transparent outline-none ${block.type === "title" ? "font-editorial text-xl leading-tight font-semibold" : ""} ${block.type === "heading" ? "font-editorial text-base font-semibold" : ""} ${block.type === "quote" ? "border-l-2 border-[var(--terracotta)] pl-3 text-xs leading-6 italic" : ""} ${block.type === "paragraph" ? "text-xs leading-6" : ""}`}
-                        aria-label={`${blockLabels[block.type]} 블록 내용`}
-                      />
-                    )}
-                  </article>
-                ))}
-              </div>
-            )}
+                      )}
+                    </article>
+                  ))}
+                </div>
+              )}
             </div>
           ) : null}
 
@@ -692,8 +695,12 @@ export function NaverPublisherClient() {
             >
               <div className="flex items-center justify-between gap-3 border-b border-[color:rgb(9_41_68_/_12%)] px-5 py-4">
                 <div className="flex items-center gap-2">
-                  <span className="text-[16px] font-black tracking-[-0.04em] text-[#03c75a]">NAVER</span>
-                  <span className="text-[13px] font-semibold text-[#222]">블로그</span>
+                  <span className="text-[16px] font-black tracking-[-0.04em] text-[#03c75a]">
+                    NAVER
+                  </span>
+                  <span className="text-[13px] font-semibold text-[#222]">
+                    블로그
+                  </span>
                 </div>
                 <span className="border border-[#d9d9d9] bg-[#fafafa] px-2.5 py-1 text-[10px] font-semibold text-[#555]">
                   PC 미리보기
@@ -704,7 +711,9 @@ export function NaverPublisherClient() {
                   {title}
                 </h2>
                 <div className="mb-10 flex items-center justify-center gap-2 text-[11px] text-[#777]">
-                  <span className="flex size-6 items-center justify-center rounded-full bg-[#222] text-[9px] font-bold text-white">D</span>
+                  <span className="flex size-6 items-center justify-center rounded-full bg-[#222] text-[9px] font-bold text-white">
+                    D
+                  </span>
                   <span>DECHIVE</span>
                   <span>·</span>
                   <span>미리보기</span>
@@ -748,6 +757,8 @@ export function NaverPublisherClient() {
                     return (
                       <figure key={block.id} className="my-8">
                         {block.dataUrl ? (
+                          // A user-selected data URL cannot benefit from Next.js image optimization.
+                          // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={block.dataUrl}
                             alt={block.fileName || "미리보기 이미지"}
@@ -766,7 +777,7 @@ export function NaverPublisherClient() {
                   return (
                     <p
                       key={block.id}
-                      className="my-5 whitespace-pre-wrap text-[16px] leading-[2] text-[#333]"
+                      className="my-5 text-[16px] leading-[2] whitespace-pre-wrap text-[#333]"
                     >
                       {block.content}
                     </p>
@@ -788,7 +799,8 @@ export function NaverPublisherClient() {
 
           <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <p className="text-[13px] leading-5">
-              보내기를 누르면 네이버 글쓰기 화면이 열리고 임시저장까지 진행됩니다.
+              보내기를 누르면 네이버 글쓰기 화면이 열리고 임시저장까지
+              진행됩니다.
             </p>
             <button
               type="button"

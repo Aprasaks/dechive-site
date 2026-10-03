@@ -17,28 +17,6 @@ import type { KnowledgeSummary } from "@/sanity/lib/types";
 // publications that happen while no browser is connected to the live stream.
 export const revalidate = 60;
 
-type MockImageProps = {
-  label: string;
-  className?: string;
-};
-
-const latestStories = [
-  {
-    category: "AI UPDATE",
-    title: "이번 주 AI 변화 정리",
-    description: "빠르게 달라지는 AI 소식과 실제 영향을 확인합니다.",
-    meta: "주요 업데이트 보기",
-    href: "/ai-update",
-  },
-  {
-    category: "PRACTICE",
-    title: "직접 만들어보는 데이터 실습",
-    description: "작은 데이터셋으로 시작하는 실전 가이드",
-    meta: "8 min read",
-    href: "/practice",
-  },
-];
-
 const bookCover =
   "https://contents.kyobobook.co.kr/sih/fit-in/150x0/pdt/480D260993540.jpg";
 
@@ -49,18 +27,6 @@ const books = [
     meta: "윤강혁 · e퍼플 · 2026.09.04",
   },
 ];
-
-function MockImage({ label, className = "" }: MockImageProps) {
-  return (
-    <div
-      className={`mock-image flex items-center justify-center ${className}`}
-      role="img"
-      aria-label={`${label} 이미지 준비 중`}
-    >
-      <span>{label}</span>
-    </div>
-  );
-}
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
@@ -81,7 +47,11 @@ function KnowledgeImage({
 }) {
   return (
     <Image
-      src={knowledgeImageUrl(post.thumbnail, 1600, 900)}
+      src={knowledgeImageUrl(
+        post.thumbnail,
+        priority ? 1600 : 800,
+        priority ? 900 : 450,
+      )}
       alt={post.thumbnail.alt}
       fill
       loading={priority ? "eager" : "lazy"}
@@ -98,6 +68,8 @@ export default async function Home() {
     getAiUpdates(),
   ]);
   const aiUpdates = allAiUpdates.slice(0, 4);
+  const featuredAiUpdate = aiUpdates[0];
+  const featuredPractice = practices[0];
   const [featuredKnowledge, ...moreKnowledge] = knowledgePosts;
   const { headline, subheading } = splitKnowledgeTitle(
     featuredKnowledge?.title ?? "Dataset이란 무엇인가",
@@ -161,92 +133,143 @@ export default async function Home() {
             />
           </Link>
         ) : (
-          <MockImage label="FEATURED MOCK IMAGE" className="aspect-[16/9]" />
+          <div className="flex aspect-[16/9] items-end border border-[color:rgb(9_41_68_/_14%)] bg-[var(--navy)] p-6 text-[#fffaf2] sm:p-8">
+            <div>
+              <p className="text-[10px] font-bold tracking-[0.22em] text-[color:rgb(255_250_242_/_58%)]">
+                DECHIVE KNOWLEDGE
+              </p>
+              <p className="font-editorial mt-3 max-w-sm text-2xl leading-snug font-semibold">
+                첫 번째 이야기를 준비하고 있습니다.
+              </p>
+            </div>
+          </div>
         )}
       </section>
 
       <section className="border-b border-[color:rgb(9_41_68_/_18%)] py-4">
         <SectionHeading>LATEST</SectionHeading>
-        <div className="mt-3 grid divide-y divide-[color:rgb(9_41_68_/_14%)] lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+        <div className="mt-3 grid divide-y divide-[color:rgb(9_41_68_/_14%)] border-y border-[color:rgb(9_41_68_/_14%)] lg:grid-cols-3 lg:divide-x lg:divide-y-0 lg:border-y-0">
           {featuredKnowledge ? (
-            <article className="grid grid-cols-[42%_1fr] gap-4 py-3 lg:py-0 lg:pr-6">
+            <article>
               <Link
                 href={`/knowledge/${featuredKnowledge.slug}`}
-                className="relative block aspect-[16/9] overflow-hidden bg-[var(--background)]"
+                className="group grid grid-cols-[124px_minmax(0,1fr)] items-center gap-4 py-4 outline-none focus-visible:ring-2 focus-visible:ring-[var(--terracotta)] focus-visible:ring-offset-4 focus-visible:ring-offset-[var(--background)] sm:grid-cols-[168px_minmax(0,1fr)] lg:grid-cols-[132px_minmax(0,1fr)] lg:py-1 lg:pr-6 xl:grid-cols-[148px_minmax(0,1fr)]"
                 aria-label={`${featuredKnowledge.title} 읽기`}
               >
-                <KnowledgeImage
-                  post={featuredKnowledge}
-                  sizes="(min-width: 1024px) 14vw, 42vw"
-                />
-              </Link>
-              <div className="flex min-w-0 flex-col justify-center">
-                <p className="text-[10px] font-bold tracking-[0.14em] text-[var(--terracotta)]">
-                  KNOWLEDGE
-                </p>
-                <h3 className="font-editorial mt-1.5 text-lg leading-snug font-semibold">
-                  <Link
-                    href={`/knowledge/${featuredKnowledge.slug}`}
-                    className="transition-opacity hover:opacity-60"
-                  >
+                <div className="relative aspect-[4/3] overflow-hidden bg-[var(--background)]">
+                  <KnowledgeImage
+                    post={featuredKnowledge}
+                    sizes="(min-width: 1280px) 148px, (min-width: 1024px) 132px, (min-width: 640px) 168px, 124px"
+                  />
+                </div>
+                <div className="flex min-w-0 flex-col justify-center">
+                  <p className="text-[11px] font-bold tracking-[0.14em] text-[var(--terracotta)]">
+                    KNOWLEDGE
+                  </p>
+                  <h3 className="font-editorial mt-1.5 line-clamp-3 text-base leading-snug font-semibold transition-opacity group-hover:opacity-60">
                     {featuredKnowledge.title}
-                  </Link>
-                </h3>
-                <p className="mt-1 text-xs leading-5 opacity-68">
-                  {featuredKnowledge.summary}
-                </p>
-                <p className="mt-1 text-xs opacity-48">
-                  {readingTime(featuredKnowledge.bodyText)} min read
-                </p>
-              </div>
+                  </h3>
+                  <p className="mt-1 line-clamp-2 text-xs leading-5 opacity-68">
+                    {featuredKnowledge.summary}
+                  </p>
+                  <p className="mt-1 text-[11px] opacity-48">
+                    {readingTime(featuredKnowledge.bodyText)} min read
+                  </p>
+                </div>
+              </Link>
             </article>
           ) : (
-            <article className="grid grid-cols-[42%_1fr] gap-4 py-3 lg:py-0 lg:pr-6">
-              <MockImage label="MOCK IMAGE" className="aspect-[16/9]" />
-              <div className="flex min-w-0 flex-col justify-center">
-                <p className="text-[10px] font-bold tracking-[0.14em] text-[var(--terracotta)]">
-                  KNOWLEDGE
-                </p>
-                <h3 className="font-editorial mt-1.5 text-lg leading-snug font-semibold">
-                  첫 Knowledge를 준비하고 있습니다
-                </h3>
-              </div>
+            <article className="flex min-h-28 flex-col justify-center py-4 lg:pr-6">
+              <p className="text-[11px] font-bold tracking-[0.14em] text-[var(--terracotta)]">
+                KNOWLEDGE
+              </p>
+              <h3 className="font-editorial mt-1.5 text-base leading-snug font-semibold">
+                첫 Knowledge를 준비하고 있습니다
+              </h3>
             </article>
           )}
 
-          {latestStories.map((story, index) => (
-            <article
-              key={story.title}
-              className={`grid grid-cols-[42%_1fr] gap-4 py-3 lg:py-0 ${
-                index === latestStories.length - 1 ? "lg:pl-6" : "lg:px-6"
-              }`}
-            >
+          {featuredAiUpdate ? (
+            <article>
               <Link
-                href={story.href}
-                aria-label={`${story.title} 보기`}
-                className="block"
+                href={`/ai-update/${featuredAiUpdate.slug}`}
+                aria-label={`${featuredAiUpdate.title} 자세히 보기`}
+                className="group grid grid-cols-[124px_minmax(0,1fr)] items-center gap-4 py-4 outline-none focus-visible:ring-2 focus-visible:ring-[var(--terracotta)] focus-visible:ring-offset-4 focus-visible:ring-offset-[var(--background)] sm:grid-cols-[168px_minmax(0,1fr)] lg:grid-cols-[132px_minmax(0,1fr)] lg:px-6 lg:py-1 xl:grid-cols-[148px_minmax(0,1fr)]"
               >
-                <MockImage label="MOCK IMAGE" className="aspect-[16/9]" />
-              </Link>
-              <div className="flex min-w-0 flex-col justify-center">
-                <p className="text-[10px] font-bold tracking-[0.14em] text-[var(--terracotta)]">
-                  {story.category}
-                </p>
-                <h3 className="font-editorial mt-1.5 text-lg leading-snug font-semibold">
-                  <Link
-                    href={story.href}
-                    className="transition-opacity hover:opacity-60"
+                <div className="relative aspect-[4/3] overflow-hidden bg-[var(--background)]">
+                  <Image
+                    src={knowledgeImageUrl(
+                      featuredAiUpdate.thumbnail,
+                      800,
+                      600,
+                    )}
+                    alt={featuredAiUpdate.thumbnail.alt}
+                    fill
+                    sizes="(min-width: 1280px) 148px, (min-width: 1024px) 132px, (min-width: 640px) 168px, 124px"
+                    className="object-cover"
+                  />
+                </div>
+                <div className="flex min-w-0 flex-col justify-center">
+                  <p className="text-[11px] font-bold tracking-[0.14em] text-[var(--terracotta)]">
+                    AI UPDATE
+                  </p>
+                  <h3 className="font-editorial mt-1.5 line-clamp-3 text-base leading-snug font-semibold transition-opacity group-hover:opacity-60">
+                    {featuredAiUpdate.title}
+                  </h3>
+                  <p className="mt-1 line-clamp-2 text-xs leading-5 opacity-68">
+                    {featuredAiUpdate.summary}
+                  </p>
+                  <time
+                    className="mt-1 text-[11px] opacity-48"
+                    dateTime={featuredAiUpdate.publishedAt}
                   >
-                    {story.title}
-                  </Link>
-                </h3>
-                <p className="mt-1 text-xs leading-5 opacity-68">
-                  {story.description}
-                </p>
-                <p className="mt-1 text-xs opacity-48">{story.meta}</p>
-              </div>
+                    {formatUpdateDate(featuredAiUpdate.publishedAt)}
+                  </time>
+                </div>
+              </Link>
             </article>
-          ))}
+          ) : (
+            <article className="flex min-h-28 flex-col justify-center py-4 lg:px-6">
+              <p className="text-[11px] font-bold tracking-[0.14em] text-[var(--terracotta)]">
+                AI UPDATE
+              </p>
+              <h3 className="font-editorial mt-1.5 text-base leading-snug font-semibold">
+                첫 AI Update를 준비하고 있습니다
+              </h3>
+            </article>
+          )}
+
+          <article>
+            <Link
+              href={featuredPractice.detailHref}
+              aria-label={`${featuredPractice.title} 살펴보기`}
+              className="group grid grid-cols-[124px_minmax(0,1fr)] items-center gap-4 py-4 outline-none focus-visible:ring-2 focus-visible:ring-[var(--terracotta)] focus-visible:ring-offset-4 focus-visible:ring-offset-[var(--background)] sm:grid-cols-[168px_minmax(0,1fr)] lg:grid-cols-[132px_minmax(0,1fr)] lg:py-1 lg:pl-6 xl:grid-cols-[148px_minmax(0,1fr)]"
+            >
+              <div className="relative aspect-[4/3] overflow-hidden bg-[#e9dfd0]">
+                <Image
+                  src={featuredPractice.image}
+                  alt={featuredPractice.imageAlt}
+                  fill
+                  sizes="(min-width: 1280px) 148px, (min-width: 1024px) 132px, (min-width: 640px) 168px, 124px"
+                  className="object-cover"
+                />
+              </div>
+              <div className="flex min-w-0 flex-col justify-center">
+                <p className="text-[11px] font-bold tracking-[0.14em] text-[var(--terracotta)]">
+                  PRACTICE
+                </p>
+                <h3 className="font-editorial mt-1.5 line-clamp-3 text-base leading-snug font-semibold transition-opacity group-hover:opacity-60">
+                  {featuredPractice.title}
+                </h3>
+                <p className="mt-1 line-clamp-2 text-xs leading-5 opacity-68">
+                  {featuredPractice.description}
+                </p>
+                <p className="mt-1 text-[11px] opacity-48">
+                  {featuredPractice.difficulty} · {featuredPractice.duration}
+                </p>
+              </div>
+            </Link>
+          </article>
         </div>
       </section>
 

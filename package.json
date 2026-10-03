@@ -4,11 +4,11 @@
   "private": true,
   "packageManager": "npm@11.5.1",
   "engines": {
-    "node": ">=20.9.0"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run lint && npm run format:check && next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -22,13 +22,13 @@
     "@sanity/code-input": "^7.3.8",
     "@sanity/image-url": "^2.1.1",
     "@sanity/vision": "^5.31.2",
-    "next": "16.3.5",
+    "@supabase/supabase-js": "^2.57.4",
+    "next": "16.3.8",
     "next-sanity": "^13.3.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "sanity": "^5.31.2",
-    "styled-components": "^6.5.3",
-    "@supabase/supabase-js": "^2.57.4"
+    "styled-components": "^6.5.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -36,7 +36,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9.39.5",
-    "eslint-config-next": "16.3.5",
+    "eslint-config-next": "16.3.8",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
     "lint-staged": "^17.5.1",
