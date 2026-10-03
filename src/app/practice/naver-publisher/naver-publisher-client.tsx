@@ -237,7 +237,6 @@ export function NaverPublisherClient() {
   const [isSending, setIsSending] = useState(false);
   const [tagsText, setTagsText] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [previewFlash, setPreviewFlash] = useState(false);
 
   const checkBridge = async () => {
     try {
@@ -280,16 +279,6 @@ export function NaverPublisherClient() {
     startTransition(() => {
       setBlocks(nextBlocks);
     });
-
-    setPreviewFlash(true);
-    window.setTimeout(() => setPreviewFlash(false), 1400);
-    window.setTimeout(() => {
-      if (window.innerWidth < 1024) {
-        document
-          .getElementById("naver-blog-preview")
-          ?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }, 80);
   };
 
   const updateBlock = (id: string, patch: Partial<DraftBlock>) => {
@@ -330,6 +319,13 @@ export function NaverPublisherClient() {
       return next;
     });
     setDraggedId(null);
+  };
+
+  const addDivider = () => {
+    setBlocks((current) => [
+      ...current,
+      { id: makeId(current.length), type: "divider", content: "" },
+    ]);
   };
 
   const addImage = async (file: File | undefined) => {
@@ -430,10 +426,10 @@ export function NaverPublisherClient() {
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:rgb(9_41_68_/_12%)] px-5 py-4 sm:px-6">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="font-editorial text-[22px] font-semibold">
+            <h2 className="font-editorial text-xl font-semibold">
               NAVER PUBLISHER
             </h2>
-            <span className="border border-[var(--terracotta)] px-2.5 py-1 text-[10px] font-bold tracking-[0.12em] text-[var(--terracotta)]">
+            <span className="border border-[var(--terracotta)] px-2 py-1 text-[9px] font-bold tracking-[0.12em] text-[var(--terracotta)]">
               v1.0
             </span>
           </div>
@@ -453,20 +449,20 @@ export function NaverPublisherClient() {
       </div>
 
       <div className="grid lg:grid-cols-[minmax(0,0.38fr)_minmax(0,0.62fr)]">
-        <section className="border-b border-[color:rgb(9_41_68_/_12%)] p-6 sm:p-7 lg:border-r lg:border-b-0">
+        <section className="border-b border-[color:rgb(9_41_68_/_12%)] p-5 sm:p-6 lg:border-r lg:border-b-0">
           <div>
-            <h3 className="font-editorial text-[26px] font-semibold tracking-[-0.03em]">
+            <h3 className="font-editorial text-2xl font-semibold">
               원고 붙여넣기
             </h3>
-            <p className="mt-2 max-w-xl text-[14px] leading-6">
-              이미 작성한 글과 이미지를 넣으세요. 내용은 그대로 두고 네이버
-              블로그에서 읽기 좋은 구조로 정리합니다.
+            <p className="mt-2 text-[14px] leading-6">
+              이미 작성한 글을 그대로 넣으세요. 내용은 바꾸지 않고 네이버에서
+              읽기 좋은 구조로 정리합니다.
             </p>
           </div>
 
           <label
             htmlFor="publisher-title"
-            className="mt-7 block text-[14px] font-semibold"
+            className="mt-6 block text-[14px] font-semibold"
           >
             제목
           </label>
@@ -475,12 +471,12 @@ export function NaverPublisherClient() {
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="블로그 제목을 입력하세요."
-            className="mt-2 h-[52px] w-full border border-[color:rgb(9_41_68_/_18%)] bg-white px-4 text-[16px] font-medium outline-none placeholder:text-[color:rgb(9_41_68_/_45%)] focus:border-[var(--terracotta)]"
+            className="mt-2 h-12 w-full border border-[color:rgb(9_41_68_/_18%)] bg-white px-4 text-[16px] font-medium outline-none placeholder:text-[color:rgb(9_41_68_/_45%)] focus:border-[var(--terracotta)]"
           />
 
           <label
             htmlFor="publisher-draft"
-            className="mt-6 block text-[14px] font-semibold"
+            className="mt-5 block text-[14px] font-semibold"
           >
             원고
           </label>
@@ -489,7 +485,7 @@ export function NaverPublisherClient() {
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             placeholder="유튜브 대본, SNS용 글, ChatGPT에서 완성한 원고, 직접 쓴 글을 그대로 붙여넣으세요."
-            className="mt-2 min-h-[390px] w-full resize-y border border-[color:rgb(9_41_68_/_18%)] bg-white p-4 text-[15px] leading-7 outline-none placeholder:text-[color:rgb(9_41_68_/_45%)] focus:border-[var(--terracotta)]"
+            className="mt-2 min-h-[380px] w-full resize-y border border-[color:rgb(9_41_68_/_18%)] bg-white p-4 text-[15px] leading-7 outline-none placeholder:text-[color:rgb(9_41_68_/_45%)] focus:border-[var(--terracotta)]"
           />
 
           {message ? (
@@ -501,37 +497,20 @@ export function NaverPublisherClient() {
             </p>
           ) : null}
 
-          <div className="mt-6">
-            <p className="text-[14px] font-semibold">이미지</p>
-            <label className="mt-2 flex min-h-[56px] cursor-pointer items-center justify-center border border-dashed border-[color:rgb(9_41_68_/_26%)] bg-white px-4 text-[14px] font-semibold transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]">
-              + 이미지 추가
-              <input
-                type="file"
-                accept="image/*"
-                className="sr-only"
-                onChange={(event) => {
-                  void addImage(event.target.files?.[0]);
-                  event.target.value = "";
-                }}
-              />
-            </label>
-            <p className="mt-2 text-[12px] leading-5">
-              추가한 이미지는 미리보기에서 실제 글 흐름과 함께 확인할 수 있습니다.
-            </p>
-          </div>
-
-          <div className="mt-6">
+          <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={createPreview}
               disabled={isPending}
-              className="inline-flex h-[54px] w-full items-center justify-center bg-[var(--terracotta)] px-5 text-[15px] font-bold text-[#fffaf2] transition-opacity hover:opacity-85 disabled:opacity-50"
+              className="inline-flex h-12 items-center bg-[var(--terracotta)] px-6 text-[14px] font-semibold text-[#fffaf2] transition-opacity hover:opacity-85 disabled:opacity-50"
             >
-              {isPending ? "네이버용으로 정리하는 중…" : "네이버용으로 변환하기 →"}
+              {isPending
+                ? "네이버용으로 정리하는 중…"
+                : "네이버용으로 변환하기 →"}
             </button>
           </div>
 
-          <div className="mt-6 border-t border-[color:rgb(9_41_68_/_10%)] pt-5">
+          <div className="mt-5 border-t border-[color:rgb(9_41_68_/_10%)] pt-4">
             <label
               htmlFor="publisher-tags"
               className="text-[14px] font-semibold text-[var(--navy)]"
@@ -545,7 +524,7 @@ export function NaverPublisherClient() {
               placeholder="AI, 머신러닝, 딥러닝"
               className="mt-2 h-12 w-full border border-[color:rgb(9_41_68_/_18%)] bg-white px-3 text-[14px] outline-none placeholder:text-[color:rgb(9_41_68_/_45%)] focus:border-[var(--terracotta)]"
             />
-            <div className="mt-2 flex items-center justify-between gap-2 text-[12px]">
+            <div className="mt-2 flex items-center justify-between gap-2 text-[11px]">
               <span>쉼표로 구분</span>
               <span className="font-medium">카테고리 · 네이버 기본값</span>
             </div>
@@ -553,23 +532,41 @@ export function NaverPublisherClient() {
         </section>
 
         <section className="bg-[color:rgb(185_79_44_/_2%)] p-6 sm:p-7">
-          <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h3 className="font-editorial text-[28px] font-semibold tracking-[-0.03em]">
+              <h3 className="font-editorial text-2xl font-semibold">
                 네이버 미리보기
               </h3>
-              <p className="mt-2 text-[14px] leading-6">
-                원고가 네이버 블로그에서 어떻게 보일지 먼저 확인하세요.
-              </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowAdvanced((current) => !current)}
-              className="inline-flex h-10 items-center border border-[color:rgb(9_41_68_/_18%)] bg-white px-4 text-[13px] font-semibold transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
-            >
-              {showAdvanced ? "상세 편집 닫기" : "필요하면 상세 편집"}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAdvanced((current) => !current)}
+                className="inline-flex h-9 items-center border border-[color:rgb(9_41_68_/_18%)] bg-white px-3 text-[12px] font-semibold transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
+              >
+                {showAdvanced ? "상세 편집 닫기" : "상세 편집"}
+              </button>
+              <button
+                type="button"
+                onClick={addDivider}
+                className="inline-flex h-9 items-center border border-[color:rgb(9_41_68_/_18%)] bg-white px-3 text-[12px] font-semibold transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
+              >
+                + 구분선
+              </button>
+              <label className="inline-flex h-9 cursor-pointer items-center border border-[color:rgb(9_41_68_/_18%)] bg-white px-3 text-[12px] font-semibold transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]">
+                + 이미지
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(event) => {
+                    void addImage(event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
           </div>
 
           {showAdvanced ? (
@@ -694,12 +691,7 @@ export function NaverPublisherClient() {
           {blocks.length > 0 ? (
             <section
               id="naver-blog-preview"
-              className={
-                "mt-6 scroll-mt-24 border bg-white transition-all duration-500 " +
-                (previewFlash
-                  ? "border-[var(--terracotta)] shadow-[0_18px_50px_rgba(9,41,68,0.14)]"
-                  : "border-[color:rgb(9_41_68_/_12%)] shadow-[0_10px_30px_rgba(9,41,68,0.06)]")
-              }
+              className="mt-5 scroll-mt-24 border border-[color:rgb(9_41_68_/_12%)] bg-white"
             >
               <div className="flex items-center justify-between gap-3 border-b border-[color:rgb(9_41_68_/_12%)] px-5 py-4">
                 <div className="flex items-center gap-2">
@@ -714,8 +706,8 @@ export function NaverPublisherClient() {
                   PC 미리보기
                 </span>
               </div>
-              <div className="mx-auto max-w-[820px] px-7 py-12 sm:px-12">
-                <h2 className="mb-4 text-center text-[32px] leading-[1.35] font-semibold tracking-[-0.03em] text-[#111] sm:text-[36px]">
+              <div className="mx-auto max-w-[820px] px-6 py-12 sm:px-10">
+                <h2 className="mb-4 text-center text-[34px] leading-[1.35] font-semibold tracking-[-0.03em] text-[#111]">
                   {title}
                 </h2>
                 <div className="mb-12 flex items-center justify-center gap-2 text-[13px] text-[#777]">
@@ -743,7 +735,7 @@ export function NaverPublisherClient() {
                     return (
                       <h3
                         key={block.id}
-                        className="mt-12 mb-6 text-[24px] leading-[1.5] font-bold text-[#111]"
+                        className="mt-10 mb-5 text-[24px] leading-[1.5] font-bold text-[#111]"
                       >
                         {block.content}
                       </h3>
@@ -754,7 +746,7 @@ export function NaverPublisherClient() {
                     return (
                       <blockquote
                         key={block.id}
-                        className="my-10 border-y border-[#d8d8d8] px-6 py-7 text-center text-[18px] leading-8 font-bold text-[#222]"
+                        className="my-8 border-l-2 border-[#222] px-5 py-3 text-center text-[18px] leading-8 font-bold text-[#222]"
                       >
                         {block.content}
                       </blockquote>
@@ -785,14 +777,14 @@ export function NaverPublisherClient() {
                   return (
                     <p
                       key={block.id}
-                      className="my-6 text-[17px] leading-[2.05] whitespace-pre-wrap text-[#333]"
+                      className="my-5 text-[17px] leading-[2] whitespace-pre-wrap text-[#333]"
                     >
                       {block.content}
                     </p>
                   );
                 })}
                 {tagsText.trim() ? (
-                  <p className="mt-12 text-[14px] leading-7 text-[#555]">
+                  <p className="mt-10 text-[14px] leading-7 text-[#555]">
                     {tagsText
                       .split(/[,\n]+/)
                       .map((tag) => tag.trim().replace(/^#+/, ""))
@@ -803,40 +795,12 @@ export function NaverPublisherClient() {
                 ) : null}
               </div>
             </section>
-          ) : (
-            <section
-              id="naver-blog-preview"
-              className="mt-6 scroll-mt-24 border border-[color:rgb(9_41_68_/_12%)] bg-white shadow-[0_10px_30px_rgba(9,41,68,0.05)]"
-            >
-              <div className="flex items-center justify-between gap-3 border-b border-[color:rgb(9_41_68_/_12%)] px-5 py-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-[19px] font-black tracking-[-0.04em] text-[#03c75a]">
-                    NAVER
-                  </span>
-                  <span className="text-[15px] font-semibold text-[#222]">
-                    블로그
-                  </span>
-                </div>
-                <span className="border border-[#d9d9d9] bg-[#fafafa] px-3 py-1.5 text-[12px] font-semibold text-[#555]">
-                  PC 미리보기
-                </span>
-              </div>
-              <div className="flex min-h-[560px] flex-col items-center justify-center px-8 text-center">
-                <p className="font-editorial text-[30px] font-semibold tracking-[-0.03em] text-[#222]">
-                  여기에 네이버 글이 만들어집니다.
-                </p>
-                <p className="mt-4 max-w-md text-[15px] leading-7 text-[#666]">
-                  왼쪽에 원고와 이미지를 넣고 ‘네이버용으로 변환하기’를 누르면
-                  소제목, 인용구, 구분선, 이미지 흐름을 반영한 미리보기가 나타납니다.
-                </p>
-              </div>
-            </section>
-          )}
+          ) : null}
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <p className="text-[14px] leading-6">
-              미리보기가 마음에 들면 그대로 네이버 글쓰기 화면으로 보내
-              임시저장하세요.
+              보내기를 누르면 네이버 글쓰기 화면이 열리고 임시저장까지
+              진행됩니다.
             </p>
             <button
               type="button"
