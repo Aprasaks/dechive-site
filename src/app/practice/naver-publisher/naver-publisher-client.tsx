@@ -332,13 +332,6 @@ export function NaverPublisherClient() {
     setDraggedId(null);
   };
 
-  const addDivider = () => {
-    setBlocks((current) => [
-      ...current,
-      { id: makeId(current.length), type: "divider", content: "" },
-    ]);
-  };
-
   const addImage = async (file: File | undefined) => {
     if (!file) return;
 
@@ -466,7 +459,8 @@ export function NaverPublisherClient() {
               원고 붙여넣기
             </h3>
             <p className="mt-2 max-w-xl text-[14px] leading-6">
-              이미 작성한 글과 이미지를 넣으세요. 내용은 그대로 두고 네이버 블로그에서 읽기 좋은 구조로 정리합니다.
+              이미 작성한 글과 이미지를 넣으세요. 내용은 그대로 두고 네이버
+              블로그에서 읽기 좋은 구조로 정리합니다.
             </p>
           </div>
 
@@ -841,7 +835,8 @@ export function NaverPublisherClient() {
 
           <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <p className="text-[14px] leading-6">
-              미리보기가 마음에 들면 그대로 네이버 글쓰기 화면으로 보내 임시저장하세요.
+              미리보기가 마음에 들면 그대로 네이버 글쓰기 화면으로 보내
+              임시저장하세요.
             </p>
             <button
               type="button"
