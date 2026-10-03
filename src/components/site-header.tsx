@@ -13,9 +13,6 @@ const navigation = [
 export function SiteHeader() {
   const pathname = usePathname();
   const isSnsSales = pathname.startsWith("/practice/sns-sales");
-  const isNaverPublisherApp = pathname.startsWith(
-    "/practice/naver-publisher/app",
-  );
 
   return (
     <header className="site-header fixed inset-x-0 top-0 z-50 h-[var(--header-height)] text-[var(--navy)]">
@@ -35,13 +32,6 @@ export function SiteHeader() {
           >
             SNS판매자동화
           </Link>
-        ) : isNaverPublisherApp ? (
-          <Link
-            href="/practice/naver-publisher"
-            className="absolute left-1/2 -translate-x-1/2 text-[13px] font-semibold whitespace-nowrap sm:text-[14px]"
-          >
-            NAVER PUBLISHER <span className="text-[var(--terracotta)]">v1.0</span>
-          </Link>
         ) : (
           <nav
             className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-7 lg:flex xl:gap-9"
@@ -59,18 +49,9 @@ export function SiteHeader() {
           </nav>
         )}
 
-        {isNaverPublisherApp ? (
-          <Link
-            href="/practice/naver-publisher"
-            className="ml-auto text-[12px] font-semibold transition-opacity hover:opacity-60 sm:text-[13px]"
-          >
-            소개 보기
-          </Link>
-        ) : (
-          <p className="font-handwriting ml-auto text-xl leading-none sm:text-[22px]">
-            Humans verify
-          </p>
-        )}
+        <p className="font-handwriting ml-auto text-xl leading-none sm:text-[22px]">
+          Humans verify
+        </p>
       </div>
     </header>
   );
