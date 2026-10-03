@@ -203,27 +203,64 @@ function makeId(index: number) {
 }
 
 function structureDraft(source: string): DraftBlock[] {
-  const lines = source
-    .split(/\n+/)
-    .map((line) => line.trim())
+  const paragraphs = source
+    .replace(/\r/g, "")
+    .split(/\n\s*\n+/)
+    .map((paragraph) => paragraph.trim())
     .filter(Boolean);
 
-  return lines.map((line, index) => {
-    let type: BlockType = "paragraph";
-    let content = line;
+  const blocks: DraftBlock[] = [];
 
-    if (/^(?:-{3,}|_{3,}|\*{3,}|\[구분선\])$/.test(line)) {
+  paragraphs.forEach((paragraph) => {
+    const content = paragraph.replace(/\n+/g, "\n").trim();
+    const compact = content.replace(/\s+/g, " ");
+    let type: BlockType = "paragraph";
+
+    if (/^(?:-{3,}|_{3,}|\*{3,}|\[구분선\])$/.test(compact)) {
       type = "divider";
-      content = "";
-    } else if (line.startsWith(">")) {
+    } else if (compact.startsWith(">")) {
       type = "quote";
-      content = line.replace(/^>\s*/, "");
-    } else if (line.length <= 30 && !/[.!?。]$/.test(line)) {
+    } else if (
+      compact.length <= 34 &&
+      !/[.!?。！？]$/.test(compact) &&
+      compact.split(/\s+/).length <= 10
+    ) {
       type = "heading";
+    } else if (
+      compact.length >= 18 &&
+      compact.length <= 90 &&
+      /^(?:핵심은|결국|즉[, ]|중요한 것은|중요한 건|문제는|기억할 것은|한마디로)/.test(
+        compact,
+      )
+    ) {
+      type = "quote";
     }
 
-    return { id: makeId(index), type, content };
+    if (
+      type === "heading" &&
+      blocks.length >= 2 &&
+      blocks[blocks.length - 1]?.type !== "divider"
+    ) {
+      blocks.push({
+        id: makeId(blocks.length),
+        type: "divider",
+        content: "",
+      });
+    }
+
+    blocks.push({
+      id: makeId(blocks.length),
+      type,
+      content:
+        type === "divider"
+          ? ""
+          : type === "quote"
+            ? content.replace(/^>\s*/, "")
+            : content,
+    });
   });
+
+  return blocks;
 }
 
 export function NaverPublisherClient() {
@@ -275,10 +312,20 @@ export function NaverPublisherClient() {
       return;
     }
 
+    const imageBlocks = blocks.filter((block) => block.type === "image");
+
     setMessage(null);
     startTransition(() => {
-      setBlocks(nextBlocks);
+      setBlocks([...nextBlocks, ...imageBlocks]);
     });
+
+    window.setTimeout(() => {
+      if (window.innerWidth < 1024) {
+        document
+          .getElementById("naver-blog-preview")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 80);
   };
 
   const updateBlock = (id: string, patch: Partial<DraftBlock>) => {
@@ -422,41 +469,36 @@ export function NaverPublisherClient() {
           : "네이버 연결 필요";
 
   return (
-    <div className="border border-[color:rgb(9_41_68_/_14%)] bg-[color:rgb(255_255_255_/_22%)]">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:rgb(9_41_68_/_12%)] px-5 py-4 sm:px-6">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="font-editorial text-xl font-semibold">
-              NAVER PUBLISHER
-            </h2>
-            <span className="border border-[var(--terracotta)] px-2 py-1 text-[9px] font-bold tracking-[0.12em] text-[var(--terracotta)]">
-              v1.0
-            </span>
-          </div>
-        </div>
+    <div className="overflow-hidden border border-[color:rgb(9_41_68_/_14%)] bg-[color:rgb(255_255_255_/_22%)]">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[color:rgb(9_41_68_/_12%)] bg-white px-6 py-4 sm:px-7">
+        <p className="text-[14px] font-semibold">
+          원고 붙여넣기 <span className="mx-2 opacity-35">→</span> 네이버용 변환{" "}
+          <span className="mx-2 opacity-35">→</span> 미리보기{" "}
+          <span className="mx-2 opacity-35">→</span> 임시저장
+        </p>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="border border-[color:rgb(9_41_68_/_18%)] bg-white px-3 py-2 text-[12px] font-semibold text-[var(--navy)]">
+          <span className="border border-[color:rgb(9_41_68_/_18%)] bg-[#fffdf8] px-3 py-2 text-[13px] font-semibold text-[var(--navy)]">
             {bridgeText}
           </span>
           <button
             type="button"
             onClick={retryBridge}
-            className="h-9 border border-[color:rgb(9_41_68_/_18%)] bg-white px-3 text-[11px] font-medium transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
+            className="h-10 border border-[color:rgb(9_41_68_/_18%)] bg-white px-3 text-[12px] font-medium transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
           >
-            다시 확인
+            연결 다시 확인
           </button>
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-[minmax(0,0.38fr)_minmax(0,0.62fr)]">
-        <section className="border-b border-[color:rgb(9_41_68_/_12%)] p-5 sm:p-6 lg:border-r lg:border-b-0">
+      <div className="grid lg:grid-cols-[minmax(420px,0.36fr)_minmax(0,0.64fr)]">
+        <section className="border-b border-[color:rgb(9_41_68_/_12%)] p-6 sm:p-8 lg:border-r lg:border-b-0">
           <div>
-            <h3 className="font-editorial text-2xl font-semibold">
-              원고 붙여넣기
+            <h3 className="font-editorial text-[30px] font-semibold tracking-[-0.03em]">
+              원고와 이미지를 넣어주세요.
             </h3>
-            <p className="mt-2 text-[14px] leading-6">
-              이미 작성한 글을 그대로 넣으세요. 내용은 바꾸지 않고 네이버에서
-              읽기 좋은 구조로 정리합니다.
+            <p className="mt-3 max-w-xl text-[15px] leading-7">
+              문장은 그대로 유지하고, 소제목·인용구·구분선을 판별해 네이버
+              블로그에서 읽기 좋은 구조로 바꿉니다.
             </p>
           </div>
 
@@ -488,29 +530,46 @@ export function NaverPublisherClient() {
             className="mt-2 min-h-[380px] w-full resize-y border border-[color:rgb(9_41_68_/_18%)] bg-white p-4 text-[15px] leading-7 outline-none placeholder:text-[color:rgb(9_41_68_/_45%)] focus:border-[var(--terracotta)]"
           />
 
+          <div className="mt-6">
+            <p className="text-[14px] font-semibold">이미지</p>
+            <label className="mt-2 flex min-h-[58px] cursor-pointer items-center justify-center border border-dashed border-[color:rgb(9_41_68_/_28%)] bg-white px-4 text-[14px] font-semibold transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]">
+              + 이미지 추가
+              <input
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={(event) => {
+                  void addImage(event.target.files?.[0]);
+                  event.target.value = "";
+                }}
+              />
+            </label>
+            <p className="mt-2 text-[12px] leading-5 opacity-65">
+              이미지는 변환 결과와 함께 네이버 미리보기에서 확인할 수 있습니다.
+            </p>
+          </div>
+
           {message ? (
             <p
-              className="mt-3 text-[12px] font-medium text-[var(--terracotta)]"
+              className="mt-4 text-[13px] font-medium text-[var(--terracotta)]"
               role="status"
             >
               {message}
             </p>
           ) : null}
 
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={createPreview}
-              disabled={isPending}
-              className="inline-flex h-12 items-center bg-[var(--terracotta)] px-6 text-[14px] font-semibold text-[#fffaf2] transition-opacity hover:opacity-85 disabled:opacity-50"
-            >
-              {isPending
-                ? "네이버용으로 정리하는 중…"
-                : "네이버용으로 변환하기 →"}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={createPreview}
+            disabled={isPending}
+            className="mt-6 inline-flex h-[56px] w-full items-center justify-center bg-[var(--terracotta)] px-6 text-[15px] font-bold text-[#fffaf2] transition-opacity hover:opacity-85 disabled:opacity-50"
+          >
+            {isPending
+              ? "네이버용으로 정리하는 중…"
+              : "네이버용으로 변환하기 →"}
+          </button>
 
-          <div className="mt-5 border-t border-[color:rgb(9_41_68_/_10%)] pt-4">
+          <div className="mt-6 border-t border-[color:rgb(9_41_68_/_10%)] pt-5">
             <label
               htmlFor="publisher-tags"
               className="text-[14px] font-semibold text-[var(--navy)]"
@@ -531,46 +590,40 @@ export function NaverPublisherClient() {
           </div>
         </section>
 
-        <section className="bg-[color:rgb(185_79_44_/_2%)] p-6 sm:p-7">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+        <section className="bg-[color:rgb(185_79_44_/_2%)] p-6 sm:p-8">
+          <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h3 className="font-editorial text-2xl font-semibold">
+              <h3 className="font-editorial text-[30px] font-semibold tracking-[-0.03em]">
                 네이버 미리보기
               </h3>
+              <p className="mt-2 text-[15px] leading-6">
+                변환하면 실제 네이버 블로그에서 보일 흐름을 바로 확인할 수
+                있습니다.
+              </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            {blocks.length > 0 ? (
               <button
                 type="button"
                 onClick={() => setShowAdvanced((current) => !current)}
-                className="inline-flex h-9 items-center border border-[color:rgb(9_41_68_/_18%)] bg-white px-3 text-[12px] font-semibold transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
+                className="inline-flex h-10 items-center border border-[color:rgb(9_41_68_/_18%)] bg-white px-4 text-[13px] font-semibold transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
               >
-                {showAdvanced ? "상세 편집 닫기" : "상세 편집"}
+                {showAdvanced ? "상세 편집 닫기" : "필요하면 상세 편집"}
               </button>
-              <button
-                type="button"
-                onClick={addDivider}
-                className="inline-flex h-9 items-center border border-[color:rgb(9_41_68_/_18%)] bg-white px-3 text-[12px] font-semibold transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
-              >
-                + 구분선
-              </button>
-              <label className="inline-flex h-9 cursor-pointer items-center border border-[color:rgb(9_41_68_/_18%)] bg-white px-3 text-[12px] font-semibold transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]">
-                + 이미지
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="sr-only"
-                  onChange={(event) => {
-                    void addImage(event.target.files?.[0]);
-                    event.target.value = "";
-                  }}
-                />
-              </label>
-            </div>
+            ) : null}
           </div>
 
           {showAdvanced ? (
             <div className="mt-5 min-h-[455px] border border-[color:rgb(9_41_68_/_12%)] bg-[#fffdf8] p-4 sm:p-6">
+              <div className="mb-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={addDivider}
+                  className="h-9 border border-[color:rgb(9_41_68_/_18%)] bg-white px-3 text-[12px] font-semibold transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
+                >
+                  + 구분선 직접 추가
+                </button>
+              </div>
               {blocks.length === 0 ? (
                 <div className="flex min-h-[405px] flex-col items-center justify-center text-center">
                   <span className="font-editorial text-4xl text-[color:rgb(185_79_44_/_28%)]">
@@ -691,7 +744,7 @@ export function NaverPublisherClient() {
           {blocks.length > 0 ? (
             <section
               id="naver-blog-preview"
-              className="mt-5 scroll-mt-24 border border-[color:rgb(9_41_68_/_12%)] bg-white"
+              className="mt-6 scroll-mt-24 border border-[color:rgb(9_41_68_/_12%)] bg-white shadow-[0_16px_46px_rgba(9,41,68,0.08)]"
             >
               <div className="flex items-center justify-between gap-3 border-b border-[color:rgb(9_41_68_/_12%)] px-5 py-4">
                 <div className="flex items-center gap-2">
@@ -795,12 +848,41 @@ export function NaverPublisherClient() {
                 ) : null}
               </div>
             </section>
-          ) : null}
+          ) : (
+            <section
+              id="naver-blog-preview"
+              className="mt-6 scroll-mt-24 border border-[color:rgb(9_41_68_/_12%)] bg-white shadow-[0_16px_46px_rgba(9,41,68,0.06)]"
+            >
+              <div className="flex items-center justify-between gap-3 border-b border-[color:rgb(9_41_68_/_12%)] px-5 py-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-[19px] font-black tracking-[-0.04em] text-[#03c75a]">
+                    NAVER
+                  </span>
+                  <span className="text-[15px] font-semibold text-[#222]">
+                    블로그
+                  </span>
+                </div>
+                <span className="border border-[#d9d9d9] bg-[#fafafa] px-3 py-1.5 text-[12px] font-semibold text-[#555]">
+                  PC 미리보기
+                </span>
+              </div>
+              <div className="flex min-h-[590px] flex-col items-center justify-center px-8 text-center">
+                <p className="font-editorial text-[32px] font-semibold tracking-[-0.03em] text-[#222]">
+                  내 원고가 네이버에서는 어떻게 보일까요?
+                </p>
+                <p className="mt-4 max-w-lg text-[15px] leading-7 text-[#666]">
+                  왼쪽에 원고와 이미지를 넣고 변환해보세요. DECHIVE가 소제목,
+                  인용구, 구분선을 판별해 이 화면에 네이버 블로그 형태로
+                  보여드립니다.
+                </p>
+              </div>
+            </section>
+          )}
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <p className="text-[14px] leading-6">
-              보내기를 누르면 네이버 글쓰기 화면이 열리고 임시저장까지
-              진행됩니다.
+              결과가 마음에 들면 그대로 네이버 글쓰기 화면으로 보내
+              임시저장하세요.
             </p>
             <button
               type="button"
