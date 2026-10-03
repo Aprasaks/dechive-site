@@ -69,11 +69,18 @@ export default function PracticeIndexPage() {
                   <span className="font-editorial flex size-11 items-center justify-center bg-[#fffaf2] text-sm font-semibold text-[var(--terracotta)] shadow-sm">
                     {practice.number}
                   </span>
-                  {practice.status ? (
-                    <span className="bg-[var(--terracotta)] px-3 py-1.5 text-[9px] font-bold tracking-[0.14em] text-[#fffaf2]">
-                      {practice.status}
-                    </span>
-                  ) : null}
+                  <div className="flex items-center gap-2">
+                    {practice.version ? (
+                      <span className="border border-[var(--terracotta)] bg-[#fffaf2] px-2.5 py-1.5 text-[9px] font-bold tracking-[0.12em] text-[var(--terracotta)]">
+                        {practice.version}
+                      </span>
+                    ) : null}
+                    {practice.status ? (
+                      <span className="bg-[var(--terracotta)] px-3 py-1.5 text-[9px] font-bold tracking-[0.14em] text-[#fffaf2]">
+                        {practice.status}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               </Link>
 
