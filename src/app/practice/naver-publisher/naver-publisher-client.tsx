@@ -231,7 +231,6 @@ function structureDraft(source: string): DraftBlock[] {
 }
 
 export function NaverPublisherClient() {
-  const [writeMode, setWriteMode] = useState<"paste" | "ai">("paste");
   const [title, setTitle] = useState("");
   const [draft, setDraft] = useState("");
   const [blocks, setBlocks] = useState<DraftBlock[]>([]);
@@ -436,9 +435,10 @@ export function NaverPublisherClient() {
     <div className="border border-[color:rgb(9_41_68_/_14%)] bg-[color:rgb(255_255_255_/_22%)]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:rgb(9_41_68_/_12%)] px-5 py-4 sm:px-6">
         <div>
-          <h2 className="font-editorial text-xl font-semibold">
-            NAVER PUBLISHER
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-editorial text-xl font-semibold">NAVER PUBLISHER</h2>
+            <span className="border border-[var(--terracotta)] px-2 py-1 text-[9px] font-bold tracking-[0.12em] text-[var(--terracotta)]">v1.0</span>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="border border-[color:rgb(9_41_68_/_18%)] bg-white px-3 py-2 text-[12px] font-semibold text-[var(--navy)]">
@@ -456,34 +456,11 @@ export function NaverPublisherClient() {
 
       <div className="grid lg:grid-cols-[minmax(0,0.43fr)_minmax(0,0.57fr)]">
         <section className="border-b border-[color:rgb(9_41_68_/_12%)] p-5 sm:p-6 lg:border-r lg:border-b-0">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="font-editorial text-xl font-semibold">원고 작성</h3>
-            <div className="flex border border-[color:rgb(9_41_68_/_18%)] bg-white">
-              <button
-                type="button"
-                onClick={() => setWriteMode("paste")}
-                className={
-                  "h-9 px-4 text-[12px] font-semibold " +
-                  (writeMode === "paste"
-                    ? "bg-[var(--navy)] text-white"
-                    : "text-[var(--navy)]")
-                }
-              >
-                원고 붙여넣기
-              </button>
-              <button
-                type="button"
-                onClick={() => setWriteMode("ai")}
-                className={
-                  "h-9 border-l border-[color:rgb(9_41_68_/_18%)] px-4 text-[12px] font-semibold " +
-                  (writeMode === "ai"
-                    ? "bg-[var(--navy)] text-white"
-                    : "text-[var(--navy)]")
-                }
-              >
-                AI로 작성
-              </button>
-            </div>
+          <div>
+            <h3 className="font-editorial text-xl font-semibold">원고 붙여넣기</h3>
+            <p className="mt-1 text-[12px] leading-5">
+              이미 작성한 글을 그대로 넣으세요. 내용은 바꾸지 않고 네이버에서 읽기 좋은 구조로 정리합니다.
+            </p>
           </div>
 
           <label
@@ -500,37 +477,19 @@ export function NaverPublisherClient() {
             className="mt-2 h-12 w-full border border-[color:rgb(9_41_68_/_18%)] bg-white px-4 text-[15px] font-medium outline-none placeholder:text-[color:rgb(9_41_68_/_45%)] focus:border-[var(--terracotta)]"
           />
 
-          {writeMode === "paste" ? (
-            <>
-              <label
-                htmlFor="publisher-draft"
-                className="mt-5 block text-[12px] font-semibold"
-              >
-                본문
-              </label>
-              <textarea
-                id="publisher-draft"
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                placeholder="작성한 원고를 그대로 붙여넣으세요."
-                className="mt-2 min-h-[330px] w-full resize-y border border-[color:rgb(9_41_68_/_18%)] bg-white p-4 text-[14px] leading-7 outline-none placeholder:text-[color:rgb(9_41_68_/_45%)] focus:border-[var(--terracotta)]"
-              />
-            </>
-          ) : (
-            <div className="mt-5 border border-[color:rgb(9_41_68_/_18%)] bg-white p-5">
-              <p className="text-[14px] font-semibold">AI 원고 작성</p>
-              <p className="mt-2 text-[13px] leading-6">
-                AI 작성 기능은 다음 단계에서 연결합니다.
-              </p>
-              <button
-                type="button"
-                disabled
-                className="mt-4 h-10 bg-[color:rgb(9_41_68_/_18%)] px-4 text-[12px] font-semibold text-white"
-              >
-                AI 원고 작성 준비 중
-              </button>
-            </div>
-          )}
+          <label
+            htmlFor="publisher-draft"
+            className="mt-5 block text-[12px] font-semibold"
+          >
+            원고
+          </label>
+          <textarea
+            id="publisher-draft"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="유튜브 대본, SNS용 글, ChatGPT에서 완성한 원고, 직접 쓴 글을 그대로 붙여넣으세요."
+            className="mt-2 min-h-[360px] w-full resize-y border border-[color:rgb(9_41_68_/_18%)] bg-white p-4 text-[14px] leading-7 outline-none placeholder:text-[color:rgb(9_41_68_/_45%)] focus:border-[var(--terracotta)]"
+          />
 
           {message ? (
             <p
@@ -548,7 +507,7 @@ export function NaverPublisherClient() {
               disabled={isPending}
               className="inline-flex h-11 items-center bg-[var(--terracotta)] px-5 text-[13px] font-semibold text-[#fffaf2] transition-opacity hover:opacity-85 disabled:opacity-50"
             >
-              {isPending ? "구조를 정리하는 중…" : "미리보기 만들기 →"}
+              {isPending ? "네이버용으로 정리하는 중…" : "네이버 미리보기 만들기 →"}
             </button>
             
           </div>
@@ -578,7 +537,7 @@ export function NaverPublisherClient() {
         <section className="bg-[color:rgb(185_79_44_/_2%)] p-5 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h3 className="font-editorial text-xl font-semibold">미리보기</h3>
+              <h3 className="font-editorial text-xl font-semibold">네이버 미리보기</h3>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
