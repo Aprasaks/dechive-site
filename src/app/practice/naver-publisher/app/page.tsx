@@ -4,7 +4,7 @@ import Link from "next/link";
 import { NaverPublisherClient } from "../naver-publisher-client";
 
 export const metadata: Metadata = {
-  title: "NAVER PUBLISHER APP | DECHIVE",
+  title: "NAVER PUBLISHER v1.0 | DECHIVE",
   description:
     "원고를 정리하고 미리보기한 뒤 네이버 블로그 임시저장으로 보내는 DECHIVE NAVER PUBLISHER",
 };
@@ -20,12 +20,15 @@ export default function NaverPublisherAppPage() {
           >
             ← DECHIVE로 돌아가기
           </Link>
-          <p className="font-editorial mt-2 text-2xl font-semibold">
-            NAVER PUBLISHER
-          </p>
+          <div className="mt-2 flex items-center gap-2">
+            <p className="font-editorial text-2xl font-semibold">NAVER PUBLISHER</p>
+            <span className="border border-[var(--terracotta)] px-2 py-1 text-[9px] font-bold tracking-[0.12em] text-[var(--terracotta)]">
+              v1.0
+            </span>
+          </div>
         </div>
         <p className="text-[12px] font-medium">
-          원고 작성 → 미리보기 → 네이버 임시저장
+          원고 붙여넣기 → 네이버 미리보기 → 임시저장
         </p>
       </header>
 
