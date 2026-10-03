@@ -45,7 +45,7 @@ export const practices: readonly Practice[] = [
     duration: "약 20분",
     highlights: ["원고 구조화", "블록 미리보기", "사람의 최종 검토"],
     detailHref: "/practice/naver-publisher",
-    appHref: "/practice/naver-publisher#publisher-workspace",
+    appHref: "/practice/naver-publisher/app",
     appLabel: "무료로 사용하기",
     status: "NEW",
   },
