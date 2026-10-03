@@ -690,15 +690,25 @@ export function NaverPublisherClient() {
               id="naver-blog-preview"
               className="mt-5 scroll-mt-24 border border-[color:rgb(9_41_68_/_12%)] bg-white"
             >
-              <div className="border-b border-[color:rgb(9_41_68_/_12%)] px-5 py-4">
-                <p className="text-[13px] font-semibold text-[var(--navy)]">
-                  네이버 미리보기
-                </p>
+              <div className="flex items-center justify-between gap-3 border-b border-[color:rgb(9_41_68_/_12%)] px-5 py-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-[16px] font-black tracking-[-0.04em] text-[#03c75a]">NAVER</span>
+                  <span className="text-[13px] font-semibold text-[#222]">블로그</span>
+                </div>
+                <span className="border border-[#d9d9d9] bg-[#fafafa] px-2.5 py-1 text-[10px] font-semibold text-[#555]">
+                  PC 미리보기
+                </span>
               </div>
               <div className="mx-auto max-w-[760px] px-6 py-10 sm:px-10">
-                <h2 className="mb-10 text-center text-[28px] leading-[1.35] font-semibold tracking-[-0.03em] text-[#111]">
+                <h2 className="mb-4 text-center text-[28px] leading-[1.35] font-semibold tracking-[-0.03em] text-[#111]">
                   {title}
                 </h2>
+                <div className="mb-10 flex items-center justify-center gap-2 text-[11px] text-[#777]">
+                  <span className="flex size-6 items-center justify-center rounded-full bg-[#222] text-[9px] font-bold text-white">D</span>
+                  <span>DECHIVE</span>
+                  <span>·</span>
+                  <span>미리보기</span>
+                </div>
                 {blocks.map((block) => {
                   if (block.type === "title") return null;
 
