@@ -437,10 +437,10 @@ export function NaverPublisherClient() {
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:rgb(9_41_68_/_12%)] px-5 py-4 sm:px-6">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="font-editorial text-xl font-semibold">
+            <h2 className="font-editorial text-[22px] font-semibold">
               NAVER PUBLISHER
             </h2>
-            <span className="border border-[var(--terracotta)] px-2 py-1 text-[9px] font-bold tracking-[0.12em] text-[var(--terracotta)]">
+            <span className="border border-[var(--terracotta)] px-2.5 py-1 text-[10px] font-bold tracking-[0.12em] text-[var(--terracotta)]">
               v1.0
             </span>
           </div>
@@ -809,9 +809,37 @@ export function NaverPublisherClient() {
                 ) : null}
               </div>
             </section>
-          ) : null}
+          ) : (
+            <section
+              id="naver-blog-preview"
+              className="mt-6 scroll-mt-24 border border-[color:rgb(9_41_68_/_12%)] bg-white shadow-[0_10px_30px_rgba(9,41,68,0.05)]"
+            >
+              <div className="flex items-center justify-between gap-3 border-b border-[color:rgb(9_41_68_/_12%)] px-5 py-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-[19px] font-black tracking-[-0.04em] text-[#03c75a]">
+                    NAVER
+                  </span>
+                  <span className="text-[15px] font-semibold text-[#222]">
+                    블로그
+                  </span>
+                </div>
+                <span className="border border-[#d9d9d9] bg-[#fafafa] px-3 py-1.5 text-[12px] font-semibold text-[#555]">
+                  PC 미리보기
+                </span>
+              </div>
+              <div className="flex min-h-[560px] flex-col items-center justify-center px-8 text-center">
+                <p className="font-editorial text-[30px] font-semibold tracking-[-0.03em] text-[#222]">
+                  여기에 네이버 글이 만들어집니다.
+                </p>
+                <p className="mt-4 max-w-md text-[15px] leading-7 text-[#666]">
+                  왼쪽에 원고와 이미지를 넣고 ‘네이버용으로 변환하기’를 누르면
+                  소제목, 인용구, 구분선, 이미지 흐름을 반영한 미리보기가 나타납니다.
+                </p>
+              </div>
+            </section>
+          )}
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <p className="text-[14px] leading-6">
               미리보기가 마음에 들면 그대로 네이버 글쓰기 화면으로 보내 임시저장하세요.
             </p>
