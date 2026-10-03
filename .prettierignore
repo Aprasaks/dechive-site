@@ -6,3 +6,4 @@ node_modules
 out
 package-lock.json
 vercel.json
+src/app/practice/naver-publisher/naver-publisher-client.tsx
