@@ -2,111 +2,118 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
-import { NaverPublisherClient } from "./naver-publisher-client";
-
 const flow = [
   {
     number: "01",
-    title: "원고 붙여넣기",
-    description: "이미 쓴 글을 그대로 입력",
+    title: "원고 준비",
+    description: "직접 쓴 글, ChatGPT 답변, 메모를 그대로 가져옵니다.",
   },
-  { number: "02", title: "구조 정리", description: "문단과 블록으로 구분" },
-  { number: "03", title: "사람이 확인", description: "형식·순서·이미지 검토" },
+  {
+    number: "02",
+    title: "네이버용 정리",
+    description: "문단, 소제목, 인용구, 이미지 흐름을 읽기 좋게 정리합니다.",
+  },
+  {
+    number: "03",
+    title: "미리보기",
+    description: "네이버에 올라갈 모습을 확인하고 필요한 부분만 수정합니다.",
+  },
   {
     number: "04",
     title: "임시저장",
-    description: "Bridge를 통해 네이버로 전달",
+    description: "네이버 글쓰기 화면으로 보내고 임시저장까지 이어집니다.",
   },
 ];
 
-const architecture = [
+const features = [
   {
-    label: "WEB",
-    title: "DECHIVE Publisher",
-    description: "원고 입력, 블록 편집, 미리보기와 사람의 최종 확인",
+    title: "이미 쓴 글에서 시작",
+    description:
+      "키워드를 넣고 글을 다시 생성하는 대신, 이미 가지고 있는 원고를 그대로 활용합니다.",
   },
   {
-    label: "SERVER",
-    title: "Structure Engine",
-    description: "AI 구조 분석, 규칙, 인증과 일회용 작업 토큰",
+    title: "네이버에 맞는 문서 구조",
+    description:
+      "제목, 본문, 소제목, 인용구, 이미지, 캡션, 구분선을 한 흐름으로 정리합니다.",
   },
   {
-    label: "BRIDGE",
-    title: "Naver Bridge",
-    description: "검증된 문서 블록을 네이버 SmartEditor 임시저장으로 전달",
+    title: "보내기 전 미리보기",
+    description:
+      "자동으로 바로 발행하지 않습니다. 사람이 읽어보고 확인한 뒤 네이버로 보냅니다.",
+  },
+  {
+    title: "최종 발행은 사람이",
+    description:
+      "DECHIVE는 임시저장까지 돕고, 실제 공개 발행은 네이버에서 직접 결정합니다.",
   },
 ];
 
-const verificationQuestions = [
-  "원문의 의미가 AI 정리 과정에서 달라지지 않았나요?",
-  "소제목과 인용구가 문맥에 맞게 구분되었나요?",
-  "이미지 위치와 설명이 읽는 흐름을 방해하지 않나요?",
-  "네이버로 보낸 뒤에도 사람이 최종 발행을 결정하나요?",
+const useCases = [
+  "ChatGPT에서 원고를 이미 완성했는데 네이버에서 다시 편집하기 귀찮을 때",
+  "메모나 기존 글을 네이버 블로그 형식으로 빠르게 정리하고 싶을 때",
+  "이미지와 캡션까지 한 번에 확인한 뒤 네이버로 옮기고 싶을 때",
 ];
 
 export const metadata: Metadata = {
   title: "NAVER PUBLISHER | DECHIVE Practice",
   description:
-    "이미 작성한 글을 네이버 블로그용 블록으로 정리하고 사람이 확인하는 DECHIVE Practice",
+    "이미 작성한 글을 네이버 블로그에 맞게 정리하고 미리보기한 뒤 임시저장까지 연결하는 DECHIVE NAVER PUBLISHER",
 };
 
 export default function NaverPublisherPage() {
   return (
     <main className="mx-auto w-full max-w-[1440px] px-5 pt-3 pb-12 text-[var(--navy)] sm:px-7 lg:px-10 xl:px-12">
       <nav
-        className="flex items-center gap-2 py-4 text-[10px] opacity-52"
+        className="flex items-center gap-2 py-4 text-[11px]"
         aria-label="현재 위치"
       >
-        <Link href="/practice" className="transition-opacity hover:opacity-65">
+        <Link href="/practice" className="transition-colors hover:text-[var(--terracotta)]">
           PRACTICE
         </Link>
         <span aria-hidden="true">/</span>
         <span>02 NAVER PUBLISHER</span>
       </nav>
 
-      <section className="grid gap-6 border-b border-[color:rgb(9_41_68_/_17%)] pb-6 lg:grid-cols-[minmax(0,0.43fr)_minmax(0,0.57fr)] lg:items-stretch lg:gap-9">
-        <div className="flex flex-col justify-center py-4 lg:pr-3">
-          <div className="flex items-center gap-3 text-[11px] tracking-[0.09em]">
-            <span className="font-bold text-[var(--terracotta)]">
-              PRACTICE 02
-            </span>
+      <section className="grid gap-6 border-b border-[color:rgb(9_41_68_/_17%)] pb-8 lg:grid-cols-[minmax(0,0.43fr)_minmax(0,0.57fr)] lg:items-stretch lg:gap-9">
+        <div className="flex flex-col justify-center py-5 lg:pr-3">
+          <div className="flex items-center gap-3 text-[12px] tracking-[0.08em]">
+            <span className="font-bold text-[var(--terracotta)]">PRACTICE 02</span>
             <span className="h-px w-5 bg-[var(--terracotta)]" />
-            <span className="opacity-52">NAVER PUBLISHER</span>
+            <span>NAVER PUBLISHER</span>
           </div>
 
-          <h1 className="font-editorial mt-5 text-[2rem] leading-[1.18] font-semibold tracking-[-0.045em] sm:text-[2.55rem] lg:text-[2.75rem]">
-            이미 쓴 글을
+          <h1 className="font-editorial mt-5 text-[2.15rem] leading-[1.16] font-semibold tracking-[-0.045em] sm:text-[2.7rem] lg:text-[3rem]">
+            글은 이미 있으세요?
             <br />
-            다시 편집하지 마세요.
+            그냥 붙여넣으세요.
           </h1>
-          <p className="font-editorial mt-3 text-base leading-7 opacity-80 sm:text-lg">
-            AI가 구조를 정리하고,
-            <br className="hidden sm:block" /> 사람이 확인한 뒤 네이버에
-            저장합니다.
+          <p className="font-editorial mt-4 text-lg leading-8 sm:text-xl">
+            네이버에서 다시 편집하는 시간을 줄입니다.
           </p>
-          <p className="mt-4 max-w-xl text-[13px] leading-6 opacity-64 sm:text-sm">
-            ChatGPT 답변, 기존 원고, 메모를 그대로 붙여넣으세요. 내용을 새로
-            쓰는 대신 네이버 블로그에 맞는 문단·소제목·인용구·이미지 구조로
-            정리합니다.
-          </p>
-          <p className="mt-3 text-[11px] opacity-48">
-            난이도 중급 · 준비물: 완성된 원고 / Chrome 브라우저
+          <p className="mt-4 max-w-xl text-[14px] leading-7">
+            직접 쓴 원고, ChatGPT 답변, 기존 글을 넣으면 네이버 블로그에 맞는
+            문단과 소제목, 인용구, 이미지 흐름으로 정리합니다. 미리보기로
+            확인한 뒤 네이버 임시저장까지 이어집니다.
           </p>
 
-          <div className="mt-6 flex flex-wrap gap-2.5">
-            <a
-              href="#publisher-workspace"
-              className="inline-flex h-10 items-center bg-[var(--terracotta)] px-6 text-xs font-semibold text-[#fffaf2] transition-opacity hover:opacity-85"
+          <div className="mt-7 flex flex-wrap gap-2.5">
+            <Link
+              href="/practice/naver-publisher/app"
+              className="inline-flex h-11 items-center bg-[var(--terracotta)] px-6 text-[13px] font-semibold text-[#fffaf2] transition-opacity hover:opacity-85"
             >
-              무료로 사용하기 →
-            </a>
+              무료로 시작하기 →
+            </Link>
             <a
               href="#how-it-works"
-              className="inline-flex h-10 items-center border border-[color:rgb(9_41_68_/_24%)] px-5 text-xs font-semibold transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
+              className="inline-flex h-11 items-center border border-[color:rgb(9_41_68_/_24%)] px-5 text-[13px] font-semibold transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
             >
-              작동 구조 보기 ↓
+              작동 방식 보기 ↓
             </a>
           </div>
+
+          <p className="mt-4 text-[12px]">
+            최종 공개 발행은 네이버에서 직접 결정합니다.
+          </p>
         </div>
 
         <figure className="overflow-hidden border border-[color:rgb(9_41_68_/_12%)] bg-[#e9dfd0]">
@@ -123,22 +130,34 @@ export default function NaverPublisherPage() {
         </figure>
       </section>
 
-      <section className="border-b border-[color:rgb(9_41_68_/_14%)] py-8 sm:py-10">
+      <section
+        id="how-it-works"
+        className="scroll-mt-20 border-b border-[color:rgb(9_41_68_/_14%)] py-10 sm:py-12"
+      >
+        <div className="mb-6 max-w-2xl">
+          <p className="text-[11px] tracking-[0.14em] text-[var(--terracotta)]">
+            HOW IT WORKS
+          </p>
+          <h2 className="font-editorial mt-3 text-2xl font-semibold sm:text-3xl">
+            글을 쓰는 일이 아니라,
+            <br />
+            옮기는 일을 줄입니다.
+          </h2>
+        </div>
+
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {flow.map((item, index) => (
             <article
               key={item.number}
-              className="relative border border-[color:rgb(9_41_68_/_11%)] bg-[color:rgb(255_255_255_/_18%)] p-4"
+              className="relative min-h-44 border border-[color:rgb(9_41_68_/_12%)] bg-[color:rgb(255_255_255_/_22%)] p-5"
             >
               <span className="font-editorial text-sm text-[var(--terracotta)]">
                 {item.number}
               </span>
-              <h2 className="font-editorial mt-4 text-base font-semibold">
+              <h3 className="font-editorial mt-5 text-lg font-semibold">
                 {item.title}
-              </h2>
-              <p className="mt-1.5 text-[10px] leading-4 opacity-52">
-                {item.description}
-              </p>
+              </h3>
+              <p className="mt-2 text-[13px] leading-6">{item.description}</p>
               {index < flow.length - 1 ? (
                 <span
                   className="absolute top-1/2 -right-2.5 z-10 hidden -translate-y-1/2 bg-[var(--background)] px-1 text-[var(--terracotta)] lg:block"
@@ -152,108 +171,86 @@ export default function NaverPublisherPage() {
         </div>
       </section>
 
-      <section id="publisher-workspace" className="scroll-mt-20 py-8 sm:py-12">
-        <div className="mb-6 grid gap-3 sm:grid-cols-[42px_minmax(0,1fr)] sm:gap-4">
-          <span className="font-editorial border-t border-[var(--terracotta)] pt-2 text-sm text-[var(--terracotta)]">
-            01
-          </span>
-          <div>
-            <h2 className="font-editorial text-2xl font-semibold">
-              원고를 붙여넣고 직접 확인하세요.
-            </h2>
-            <p className="mt-2 max-w-2xl text-xs leading-6 opacity-55">
-              내부 마커나 네이버 서식 용어는 보여주지 않습니다. 독자가 보게 될
-              문서 블록만 정리하고, 모든 결과는 사람이 다시 확인합니다.
-            </p>
-          </div>
-        </div>
-        <NaverPublisherClient />
-      </section>
-
-      <section
-        id="how-it-works"
-        className="scroll-mt-20 border-t border-[color:rgb(9_41_68_/_15%)] py-10"
-      >
+      <section className="border-b border-[color:rgb(9_41_68_/_14%)] py-10 sm:py-12">
         <div className="grid gap-7 lg:grid-cols-[minmax(0,0.34fr)_minmax(0,0.66fr)]">
           <div>
-            <p className="text-[10px] tracking-[0.14em] text-[var(--terracotta)]">
-              HOW IT WORKS
+            <p className="text-[11px] tracking-[0.14em] text-[var(--terracotta)]">
+              WHY DECHIVE
             </p>
             <h2 className="font-editorial mt-3 text-2xl leading-tight font-semibold sm:text-3xl">
-              제품은 웹에,
+              자동으로 많이 쓰는 것보다
               <br />
-              연결은 Bridge에 둡니다.
+              이미 쓴 글을 잘 옮기는 데 집중합니다.
             </h2>
-            <p className="mt-4 text-xs leading-6 opacity-58">
-              웹사이트에는 편집과 검토 경험을, 서버에는 AI와 인증을, 확장
-              프로그램에는 네이버 입력 엔진만 남기는 구조입니다.
-            </p>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-3">
-            {architecture.map((item, index) => (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {features.map((feature) => (
               <article
-                key={item.label}
-                className="relative min-h-44 border border-[color:rgb(9_41_68_/_11%)] p-5"
+                key={feature.title}
+                className="border border-[color:rgb(9_41_68_/_12%)] p-5"
               >
-                <span className="text-[9px] tracking-[0.14em] text-[var(--terracotta)]">
-                  {item.label}
-                </span>
-                <h3 className="font-editorial mt-5 text-base font-semibold">
-                  {item.title}
+                <h3 className="font-editorial text-lg font-semibold">
+                  {feature.title}
                 </h3>
-                <p className="mt-2 text-[10px] leading-5 opacity-55">
-                  {item.description}
+                <p className="mt-2 text-[13px] leading-6">
+                  {feature.description}
                 </p>
-                {index < architecture.length - 1 ? (
-                  <span
-                    className="absolute top-1/2 -right-2.5 z-10 hidden -translate-y-1/2 bg-[var(--background)] px-1 text-[var(--terracotta)] md:block"
-                    aria-hidden="true"
-                  >
-                    →
-                  </span>
-                ) : null}
               </article>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="grid border-y border-[color:rgb(9_41_68_/_14%)] lg:grid-cols-[minmax(0,0.34fr)_minmax(0,0.66fr)]">
-        <div className="py-8 lg:border-r lg:border-[color:rgb(9_41_68_/_14%)] lg:pr-8">
-          <p className="text-[10px] tracking-[0.14em] text-[var(--terracotta)]">
-            HUMANS VERIFY
+      <section className="grid gap-6 border-b border-[color:rgb(9_41_68_/_14%)] py-10 sm:py-12 lg:grid-cols-[minmax(0,0.38fr)_minmax(0,0.62fr)]">
+        <div>
+          <p className="text-[11px] tracking-[0.14em] text-[var(--terracotta)]">
+            FOR WHO
           </p>
-          <h2 className="font-editorial mt-3 text-2xl font-semibold">
-            검증 질문
+          <h2 className="font-editorial mt-3 text-2xl font-semibold sm:text-3xl">
+            이런 순간을 위해 만들었습니다.
           </h2>
-          <p className="mt-2 text-xs leading-6 opacity-52">
-            정돈된 화면이 아니라, 원문의 의미가 지켜졌는지를 확인합니다.
-          </p>
         </div>
-        <ol className="divide-y divide-[color:rgb(9_41_68_/_10%)] py-4 lg:pl-8">
-          {verificationQuestions.map((question, index) => (
-            <li
-              key={question}
-              className="grid grid-cols-[36px_minmax(0,1fr)] gap-3 py-3 text-xs leading-5"
+        <div className="divide-y divide-[color:rgb(9_41_68_/_12%)] border-y border-[color:rgb(9_41_68_/_12%)]">
+          {useCases.map((item, index) => (
+            <div
+              key={item}
+              className="grid grid-cols-[42px_minmax(0,1fr)] gap-3 py-4 text-[14px] leading-6"
             >
               <span className="font-editorial text-[var(--terracotta)]">
                 {String(index + 1).padStart(2, "0")}
               </span>
-              <span>{question}</span>
-            </li>
+              <span>{item}</span>
+            </div>
           ))}
-        </ol>
+        </div>
       </section>
 
-      <nav className="mt-8 grid gap-3 sm:grid-cols-2" aria-label="다른 실습">
+      <section className="py-12 text-center sm:py-16">
+        <p className="text-[11px] tracking-[0.14em] text-[var(--terracotta)]">
+          READY TO USE
+        </p>
+        <h2 className="font-editorial mt-3 text-3xl font-semibold">
+          원고가 있다면 바로 시작할 수 있습니다.
+        </h2>
+        <p className="mx-auto mt-3 max-w-xl text-[14px] leading-7">
+          프로그램 화면에서는 설명을 걷어내고, 원고 작성과 미리보기,
+          네이버 임시저장에만 집중합니다.
+        </p>
+        <Link
+          href="/practice/naver-publisher/app"
+          className="mt-6 inline-flex h-12 items-center bg-[var(--navy)] px-7 text-[13px] font-semibold text-white transition-opacity hover:opacity-85"
+        >
+          NAVER PUBLISHER 열기 →
+        </Link>
+      </section>
+
+      <nav className="grid gap-3 sm:grid-cols-2" aria-label="다른 실습">
         <Link
           href="/practice/sns-automation"
           className="border border-[color:rgb(9_41_68_/_12%)] p-5 transition-colors hover:border-[var(--terracotta)]"
         >
-          <span className="text-[9px] tracking-[0.12em] opacity-45">
-            ← PREVIOUS PRACTICE
-          </span>
+          <span className="text-[10px] tracking-[0.12em]">← PREVIOUS PRACTICE</span>
           <strong className="font-editorial mt-2 block text-base font-semibold">
             01 SNS 선착순 판매 자동화
           </strong>
@@ -262,9 +259,7 @@ export default function NaverPublisherPage() {
           href="/practice"
           className="border border-[color:rgb(9_41_68_/_12%)] p-5 text-right transition-colors hover:border-[var(--terracotta)]"
         >
-          <span className="text-[9px] tracking-[0.12em] opacity-45">
-            ALL PRACTICES
-          </span>
+          <span className="text-[10px] tracking-[0.12em]">ALL PRACTICES</span>
           <strong className="font-editorial mt-2 block text-base font-semibold">
             실습 목록으로 돌아가기 →
           </strong>
