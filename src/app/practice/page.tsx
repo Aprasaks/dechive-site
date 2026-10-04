@@ -7,7 +7,7 @@ import { practices } from "@/data/practices";
 export const metadata: Metadata = {
   title: "Practice | DECHIVE",
   description:
-    "직접 만들고 구조를 이해하는 DECHIVE 실전 프로젝트를 살펴보세요.",
+    "실제 문제를 해결하는 작은 프로그램을 만들고, 직접 사용하며 다음 버전으로 발전시키는 DECHIVE Practice.",
 };
 
 export default function PracticeIndexPage() {
@@ -23,12 +23,12 @@ export default function PracticeIndexPage() {
           <h1 className="font-editorial mt-5 text-[2.4rem] leading-[1.12] font-semibold tracking-[-0.05em] sm:text-5xl lg:text-[3.25rem]">
             직접 만들고,
             <br />
-            구조를 이해합니다.
+            실제로 써봅니다.
           </h1>
         </div>
         <p className="max-w-md text-sm leading-7 opacity-62 lg:pb-1">
-          완성된 코드를 따라 치는 실습이 아닙니다. 어떤 문제를 어떤 구조로
-          해결하는지 먼저 이해하고, 실제 프로그램으로 검증합니다.
+          Practice는 튜토리얼 목록이 아닙니다. 실제로 필요한 문제를 작은
+          프로그램으로 만들고 공개한 뒤, 직접 사용하면서 다음 버전을 정합니다.
         </p>
       </section>
 
@@ -39,7 +39,7 @@ export default function PracticeIndexPage() {
               ALL PROJECTS
             </p>
             <h2 className="font-editorial mt-2 text-2xl font-semibold">
-              현재 진행할 수 있는 실습
+              지금 사용할 수 있는 Practice
             </h2>
           </div>
           <p className="font-editorial text-sm opacity-45">
