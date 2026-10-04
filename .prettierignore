@@ -8,3 +8,4 @@ package-lock.json
 vercel.json
 src/app/practice/naver-publisher/naver-publisher-client.tsx
 src/app/api/practice/naver-publisher/structure/route.ts
+src/app/practice/naver-publisher/page.tsx
