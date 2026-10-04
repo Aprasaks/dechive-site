@@ -21,6 +21,12 @@ type JobView = {
   source_code?: string;
   status?: string;
   result?: JobResult;
+  last_error?: string | null;
+  result_url?: string | null;
+  published_url?: string | null;
+  published_at?: string | null;
+  channel_status?: string | null;
+  provider_attempts?: number;
 };
 type CommandView = {
   status?: string;
@@ -32,6 +38,7 @@ type JarvisResponse = {
   intent?: string;
   command_id?: string;
   command?: CommandView;
+  knowledge_job?: JobView | null;
   providers?: { groq?: boolean; sanity?: boolean };
   message?: string;
 };
@@ -77,6 +84,133 @@ function stored(key: string) {
   return window.localStorage.getItem(key) ?? "";
 }
 
+function humanKnowledgeState(job: JobView) {
+  const status = job.status ?? "";
+  const publishedUrl = job.result_url || job.published_url || null;
+  const providerLimited =
+    /429|rate limit|tokens per day|quota/i.test(job.last_error ?? "");
+
+  if (status === "done" && publishedUrl) {
+    return {
+      title: "✅ 발행 완료",
+      detail: "DECHIVE에 공개됐고 실제 페이지 확인까지 끝났습니다.",
+      color: "#8bd49c",
+      background: "#102417",
+      border: "#2f7a45",
+    };
+  }
+
+  if (status === "post_verify") {
+    return {
+      title: "🟢 발행 후 확인 중",
+      detail: "Sanity 발행은 끝났고 DECHIVE 실제 페이지가 정상인지 확인하고 있습니다.",
+      color: "#8bd49c",
+      background: "#102417",
+      border: "#2f7a45",
+    };
+  }
+
+  if (status === "publishing") {
+    return {
+      title: "🟡 아직 발행 안 됨 · 발행 처리 중",
+      detail: "사람 검증 승인이 끝났고 Sanity에 실제 발행하는 중입니다.",
+      color: "#f4d27a",
+      background: "#292313",
+      border: "#7a6530",
+    };
+  }
+
+  if (status === "waiting_for_user" && job.result?.sanity_document_id) {
+    return {
+      title: "🟠 아직 발행 안 됨 · 사람 검증 대기",
+      detail: "글과 검증은 끝났습니다. 내용을 확인하고 승인해야 실제 발행됩니다.",
+      color: "#f0b36a",
+      background: "#291d12",
+      border: "#7a4f28",
+    };
+  }
+
+  if (status === "waiting_for_capability") {
+    return {
+      title: "🟡 아직 발행 안 됨 · Sanity 저장 대기",
+      detail: "JARVIS 검증을 통과했고 Sanity review 문서를 만드는 단계입니다.",
+      color: "#f4d27a",
+      background: "#292313",
+      border: "#7a6530",
+    };
+  }
+
+  if (status === "verifying") {
+    return {
+      title: "🔎 아직 발행 안 됨 · 검증 중",
+      detail: "작성된 글의 사실, 출처, 과장 여부를 독립적으로 다시 확인하고 있습니다.",
+      color: "#9fc5ff",
+      background: "#131d2a",
+      border: "#355b86",
+    };
+  }
+
+  if (status === "generating") {
+    return {
+      title: "✍️ 아직 발행 안 됨 · 글 작성 중",
+      detail: "확인한 자료를 바탕으로 Knowledge 원고를 작성하고 있습니다.",
+      color: "#9fc5ff",
+      background: "#131d2a",
+      border: "#355b86",
+    };
+  }
+
+  if (status === "researching") {
+    return {
+      title: "🔍 아직 발행 안 됨 · 자료 조사 중",
+      detail: "주제에 필요한 공식 자료와 근거를 조사하고 있습니다.",
+      color: "#9fc5ff",
+      background: "#131d2a",
+      border: "#355b86",
+    };
+  }
+
+  if (status === "retry_wait" || status === "waiting_for_provider") {
+    return {
+      title: "⏳ 아직 발행 안 됨 · 자동 재시도 대기",
+      detail: providerLimited
+        ? "Groq 무료 사용 한도 때문에 잠시 기다리는 중입니다. JARVIS가 자동으로 다시 시도합니다."
+        : "검증에서 보완할 점이 발견됐거나 Provider 응답을 기다리는 중입니다. 자동으로 다시 시도합니다.",
+      color: "#f4d27a",
+      background: "#292313",
+      border: "#7a6530",
+    };
+  }
+
+  if (status === "waiting_for_user") {
+    return {
+      title: "⚠️ 아직 발행 안 됨 · 확인 필요",
+      detail: "자동 처리를 계속하기 전에 사람이 확인해야 할 문제가 생겼습니다.",
+      color: "#ffad8a",
+      background: "#2b1712",
+      border: "#824632",
+    };
+  }
+
+  if (status === "failed" || status === "rejected") {
+    return {
+      title: "❌ 발행 안 됨 · 작업 실패",
+      detail: "발행하지 않았습니다. 원인을 확인한 뒤 다시 실행해야 합니다.",
+      color: "#ff8f8f",
+      background: "#2b1414",
+      border: "#7a3030",
+    };
+  }
+
+  return {
+    title: "⏳ 아직 발행 안 됨 · 작업 준비 중",
+    detail: "JARVIS가 작업을 접수했고 실행 순서를 기다리거나 시작하는 중입니다.",
+    color: "#b9bec7",
+    background: "#17191d",
+    border: "#343941",
+  };
+}
+
 export default function JarvisRemotePage() {
   const [deviceKey, setDeviceKey] = useState(() => stored("jarvis_device_key"));
   const [deviceToken, setDeviceToken] = useState(() =>
@@ -99,15 +233,18 @@ export default function JarvisRemotePage() {
   const [providerCheckedAt, setProviderCheckedAt] = useState<string | null>(null);
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [lastAction, setLastAction] = useState<string | null>(null);
+  const [knowledgeJob, setKnowledgeJob] = useState<JobView | null>(null);
 
   const approvalJobs = useMemo(() => {
-    const jobs = result?.command?.result?.jobs ?? [];
+    const jobs = knowledgeJob
+      ? [knowledgeJob]
+      : result?.command?.result?.jobs ?? [];
     return jobs.filter(
       (job) =>
         job.status === "waiting_for_user" &&
         Boolean(job.result?.sanity_document_id),
     );
-  }, [result]);
+  }, [knowledgeJob, result]);
 
   async function callJarvis(
     body: Record<string, unknown>,
@@ -133,6 +270,13 @@ export default function JarvisRemotePage() {
 
       const data = (await response.json().catch(() => ({}))) as JarvisResponse;
       setResult(data);
+      if (data.knowledge_job) {
+        setKnowledgeJob(data.knowledge_job);
+      } else {
+        const jobs = data.command?.result?.jobs ?? [];
+        const knowledge = jobs.find((job) => Boolean(job.source_code));
+        if (knowledge) setKnowledgeJob(knowledge);
+      }
       if (!silent) setStatus(response.ok ? "전달 완료" : data.error ?? "오류");
       return data;
     } catch (error) {
@@ -156,13 +300,18 @@ export default function JarvisRemotePage() {
         true,
       );
       const command = data?.command;
+      if (index % 2 === 0) {
+        await callJarvis({ action: "knowledge_status" }, true);
+      }
       if (!command) continue;
 
       if (command.status === "waiting_for_user") {
+        await callJarvis({ action: "knowledge_status" }, true);
         setStatus("사람 검증이 필요합니다.");
         return;
       }
       if (command.status === "done") {
+        await callJarvis({ action: "knowledge_status" }, true);
         setStatus("작업 완료");
         setActiveCommandId(null);
         return;
@@ -227,6 +376,20 @@ export default function JarvisRemotePage() {
           : "Knowledge 2건 명령 접수 완료 ✓",
       );
       void pollCommand(data.command_id);
+    }
+  }
+
+  async function checkKnowledgeStatus() {
+    setActiveAction("knowledge-status");
+    setLastAction("Knowledge 상태 확인 버튼을 눌렀습니다.");
+    setStatus("현재 Knowledge 상태 확인 중...");
+    const data = await callJarvis({ action: "knowledge_status" }, true);
+    setActiveAction(null);
+    if (data?.knowledge_job) {
+      setLastAction("Knowledge 상태 확인 완료 ✓");
+      setStatus("Knowledge 상태 확인 완료");
+    } else {
+      setStatus(data?.error ?? "현재 Knowledge 작업을 찾지 못했습니다.");
     }
   }
 
@@ -309,6 +472,98 @@ export default function JarvisRemotePage() {
               : lastAction ?? "아직 누른 버튼이 없습니다."}
           </div>
         </section>
+
+        {knowledgeJob ? (() => {
+          const state = humanKnowledgeState(knowledgeJob);
+          const details = knowledgeJob.result ?? {};
+          const title =
+            details.review_title ??
+            details.title ??
+            details.draft?.title ??
+            knowledgeJob.source_code ??
+            "Knowledge";
+          const score = details.verification?.score;
+          const publicUrl = knowledgeJob.result_url || knowledgeJob.published_url;
+
+          return (
+            <section
+              style={{
+                ...card,
+                background: state.background,
+                borderColor: state.border,
+              }}
+            >
+              <div style={{ fontSize: 12, color: "#9ca3af" }}>
+                현재 Knowledge 상태
+              </div>
+              <div
+                style={{
+                  marginTop: 6,
+                  fontSize: 20,
+                  fontWeight: 850,
+                  color: state.color,
+                }}
+              >
+                {state.title}
+              </div>
+              <div style={{ marginTop: 10, fontWeight: 750 }}>{title}</div>
+              <div
+                style={{
+                  marginTop: 7,
+                  color: "#c2c7cf",
+                  lineHeight: 1.55,
+                }}
+              >
+                {state.detail}
+              </div>
+              {typeof score === "number" ? (
+                <div style={{ marginTop: 10 }}>
+                  최근 검증 점수: <strong>{score}</strong>
+                </div>
+              ) : null}
+              {publicUrl ? (
+                <a
+                  href={publicUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: "inline-block",
+                    marginTop: 12,
+                    color: "#b8d8ff",
+                    fontWeight: 700,
+                  }}
+                >
+                  실제 발행 페이지 열기 →
+                </a>
+              ) : (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: 10,
+                    borderRadius: 10,
+                    background: "rgba(0,0,0,0.18)",
+                    fontWeight: 700,
+                  }}
+                >
+                  공개 URL 없음 — 아직 발행되지 않았습니다.
+                </div>
+              )}
+              <button
+                onClick={() => void checkKnowledgeStatus()}
+                disabled={activeAction === "knowledge-status"}
+                style={{
+                  ...secondaryButton,
+                  marginTop: 12,
+                  opacity: activeAction === "knowledge-status" ? 0.65 : 1,
+                }}
+              >
+                {activeAction === "knowledge-status"
+                  ? "상태 확인 중..."
+                  : "현재 상태 새로고침"}
+              </button>
+            </section>
+          );
+        })() : null}
 
         <section style={card}>
           <strong>기기 연결</strong>
@@ -410,6 +665,18 @@ export default function JarvisRemotePage() {
                 : activeCommandId
                   ? "Knowledge 작업 진행 중 ✓"
                   : "Knowledge 오늘 2건"}
+            </button>
+            <button
+              onClick={() => void checkKnowledgeStatus()}
+              disabled={activeAction === "knowledge-status"}
+              style={{
+                ...buttonStyle,
+                opacity: activeAction === "knowledge-status" ? 0.65 : 1,
+              }}
+            >
+              {activeAction === "knowledge-status"
+                ? "확인 중..."
+                : "Knowledge 상태 확인"}
             </button>
             <button
               onClick={() => void checkTodayStatus()}
@@ -757,23 +1024,36 @@ export default function JarvisRemotePage() {
         ) : null}
 
         <section style={card}>
-          <strong>결과</strong>
-          <div style={{ color: "#9ca3af", marginTop: 10 }}>{status}</div>
-          <pre
-            style={{
-              whiteSpace: "pre-wrap",
-              overflowWrap: "anywhere",
-              background: "#0d0f12",
-              padding: 12,
-              borderRadius: 12,
-              maxHeight: 380,
-              overflow: "auto",
-              fontSize: 12,
-              lineHeight: 1.5,
-            }}
-          >
-            {JSON.stringify(result ?? {}, null, 2)}
-          </pre>
+          <strong>JARVIS 상태</strong>
+          <div style={{ color: "#b9bec7", marginTop: 10, lineHeight: 1.5 }}>
+            {status}
+          </div>
+          <details style={{ marginTop: 12 }}>
+            <summary
+              style={{
+                cursor: "pointer",
+                color: "#777f8b",
+                fontSize: 13,
+              }}
+            >
+              개발자 상세 보기
+            </summary>
+            <pre
+              style={{
+                whiteSpace: "pre-wrap",
+                overflowWrap: "anywhere",
+                background: "#0d0f12",
+                padding: 12,
+                borderRadius: 12,
+                maxHeight: 380,
+                overflow: "auto",
+                fontSize: 12,
+                lineHeight: 1.5,
+              }}
+            >
+              {JSON.stringify(result ?? {}, null, 2)}
+            </pre>
+          </details>
         </section>
       </div>
     </main>
