@@ -7,7 +7,7 @@ import { practices } from "@/data/practices";
 export const metadata: Metadata = {
   title: "Practice | DECHIVE",
   description:
-    "실제 문제를 해결하는 작은 프로그램을 만들고, 직접 사용하며 다음 버전으로 발전시키는 DECHIVE Practice.",
+    "실제 문제를 어떤 구조로 풀었는지, v1에서 어디까지 구현했는지 기록하는 DECHIVE Practice.",
 };
 
 export default function PracticeIndexPage() {
@@ -23,12 +23,13 @@ export default function PracticeIndexPage() {
           <h1 className="font-editorial mt-5 text-[2.4rem] leading-[1.12] font-semibold tracking-[-0.05em] sm:text-5xl lg:text-[3.25rem]">
             직접 만들고,
             <br />
-            실제로 써봅니다.
+            구조를 남깁니다.
           </h1>
         </div>
         <p className="max-w-md text-sm leading-7 opacity-62 lg:pb-1">
-          Practice는 튜토리얼 목록이 아닙니다. 실제로 필요한 문제를 작은
-          프로그램으로 만들고 공개한 뒤, 직접 사용하면서 다음 버전을 정합니다.
+          Practice는 남에게 사용을 권하는 제품 목록이 아닙니다. 실제 문제를
+          어떤 구조로 풀었는지, v1에서 어디까지 만들었는지, 무엇을 자동화하고
+          무엇을 사람에게 남겼는지 기록합니다.
         </p>
       </section>
 
@@ -39,7 +40,7 @@ export default function PracticeIndexPage() {
               ALL PROJECTS
             </p>
             <h2 className="font-editorial mt-2 text-2xl font-semibold">
-              지금 사용할 수 있는 Practice
+              현재 기록 중인 Practice
             </h2>
           </div>
           <p className="font-editorial text-sm opacity-45">
@@ -116,7 +117,7 @@ export default function PracticeIndexPage() {
                     href={practice.detailHref}
                     className="inline-flex h-9 items-center bg-[var(--navy)] px-4 text-[11px] font-semibold text-[#fffaf2] transition-opacity hover:opacity-85"
                   >
-                    실습 살펴보기 →
+                    구조 살펴보기 →
                   </Link>
                   <Link
                     href={practice.appHref}
