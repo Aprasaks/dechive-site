@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const COMMAND_URL =
   "https://pexoeftnkbcowauxhopf.supabase.co/functions/v1/jarvis-command";
@@ -8,11 +8,16 @@ const COMMAND_URL =
 type SourceItem = { url?: string; title?: string };
 type JobResult = {
   sanity_document_id?: string;
+  sanity_slug?: string;
   review_title?: string;
   title?: string;
   review_summary?: string;
   summary?: string;
-  draft?: { title?: string; summary?: string; body_markdown?: string };
+  draft?: {
+    title?: string;
+    summary?: string;
+    body_markdown?: string;
+  };
   verification?: { score?: number };
   sources?: SourceItem[];
 };
@@ -26,7 +31,6 @@ type JobView = {
   published_url?: string | null;
   published_at?: string | null;
   channel_status?: string | null;
-  provider_attempts?: number;
 };
 type CommandView = {
   status?: string;
@@ -35,1008 +39,1074 @@ type CommandView = {
 type JarvisResponse = {
   ok?: boolean;
   error?: string;
+  message?: string;
   intent?: string;
   command_id?: string;
   command?: CommandView;
   knowledge_job?: JobView | null;
   providers?: { groq?: boolean; sanity?: boolean };
-  message?: string;
 };
 
+const shell = {
+  minHeight: "100vh",
+  background: "#0b0c0e",
+  color: "#f3f4f6",
+  padding: "20px 14px 48px",
+  fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif',
+} as const;
+
 const card = {
-  border: "1px solid #272a2f",
+  border: "1px solid #282c31",
   background: "#14161a",
-  borderRadius: 18,
+  borderRadius: 20,
   padding: 16,
-  margin: "14px 0",
+  marginTop: 14,
 } as const;
 
-const inputStyle = {
+const primary = {
   width: "100%",
-  border: "1px solid #30343a",
-  background: "#0f1114",
-  color: "#fff",
-  padding: 13,
-  borderRadius: 12,
-  fontSize: 16,
-} as const;
-
-const buttonStyle = {
+  minHeight: 52,
   border: 0,
-  borderRadius: 12,
-  padding: "12px 14px",
-  fontWeight: 750,
-  fontSize: 15,
+  borderRadius: 14,
+  padding: "14px 16px",
+  fontSize: 16,
+  fontWeight: 800,
   background: "#f3f4f6",
-  color: "#111",
+  color: "#101113",
   cursor: "pointer",
 } as const;
 
-const secondaryButton = {
-  ...buttonStyle,
-  background: "#22262b",
+const secondary = {
+  ...primary,
+  background: "#20242a",
   color: "#f3f4f6",
-  border: "1px solid #353a40",
+  border: "1px solid #343941",
 } as const;
 
-function stored(key: string) {
-  if (typeof window === "undefined") return "";
-  return window.localStorage.getItem(key) ?? "";
-}
+const input = {
+  width: "100%",
+  border: "1px solid #343941",
+  background: "#0e1013",
+  color: "#fff",
+  borderRadius: 12,
+  padding: 13,
+  fontSize: 16,
+} as const;
 
-function humanKnowledgeState(job: JobView) {
+function getHumanState(job: JobView | null) {
+  if (!job) {
+    return {
+      tone: "idle",
+      title: "준비됨",
+      detail: "Knowledge 1건을 시작할 수 있습니다.",
+      action: "start",
+    };
+  }
+
   const status = job.status ?? "";
-  const publishedUrl = job.result_url || job.published_url || null;
-  const providerLimited =
-    /429|rate limit|tokens per day|quota/i.test(job.last_error ?? "");
+  const url = job.result_url || job.published_url;
 
-  if (status === "done" && publishedUrl) {
+  if (status === "done" && url) {
     return {
-      title: "✅ 발행 완료",
-      detail: "DECHIVE에 공개됐고 실제 페이지 확인까지 끝났습니다.",
-      color: "#8bd49c",
-      background: "#102417",
-      border: "#2f7a45",
-    };
-  }
-
-  if (status === "post_verify") {
-    return {
-      title: "🟢 발행 후 확인 중",
-      detail: "Sanity 발행은 끝났고 DECHIVE 실제 페이지가 정상인지 확인하고 있습니다.",
-      color: "#8bd49c",
-      background: "#102417",
-      border: "#2f7a45",
-    };
-  }
-
-  if (status === "publishing") {
-    return {
-      title: "🟡 아직 발행 안 됨 · 발행 처리 중",
-      detail: "사람 검증 승인이 끝났고 Sanity에 실제 발행하는 중입니다.",
-      color: "#f4d27a",
-      background: "#292313",
-      border: "#7a6530",
+      tone: "success",
+      title: "발행 완료",
+      detail: "DECHIVE 공개와 실제 페이지 확인까지 끝났습니다.",
+      action: "done",
     };
   }
 
   if (status === "waiting_for_user" && job.result?.sanity_document_id) {
     return {
-      title: "🟠 아직 발행 안 됨 · 사람 검증 대기",
-      detail: "글과 검증은 끝났습니다. 내용을 확인하고 승인해야 실제 발행됩니다.",
-      color: "#f0b36a",
-      background: "#291d12",
-      border: "#7a4f28",
-    };
-  }
-
-  if (status === "waiting_for_capability") {
-    return {
-      title: "🟡 아직 발행 안 됨 · Sanity 저장 대기",
-      detail: "JARVIS 검증을 통과했고 Sanity review 문서를 만드는 단계입니다.",
-      color: "#f4d27a",
-      background: "#292313",
-      border: "#7a6530",
-    };
-  }
-
-  if (status === "verifying") {
-    return {
-      title: "🔎 아직 발행 안 됨 · 검증 중",
-      detail: "작성된 글의 사실, 출처, 과장 여부를 독립적으로 다시 확인하고 있습니다.",
-      color: "#9fc5ff",
-      background: "#131d2a",
-      border: "#355b86",
-    };
-  }
-
-  if (status === "generating") {
-    return {
-      title: "✍️ 아직 발행 안 됨 · 글 작성 중",
-      detail: "확인한 자료를 바탕으로 Knowledge 원고를 작성하고 있습니다.",
-      color: "#9fc5ff",
-      background: "#131d2a",
-      border: "#355b86",
-    };
-  }
-
-  if (status === "researching") {
-    return {
-      title: "🔍 아직 발행 안 됨 · 자료 조사 중",
-      detail: "주제에 필요한 공식 자료와 근거를 조사하고 있습니다.",
-      color: "#9fc5ff",
-      background: "#131d2a",
-      border: "#355b86",
-    };
-  }
-
-  if (status === "retry_wait" || status === "waiting_for_provider") {
-    return {
-      title: "⏳ 아직 발행 안 됨 · 자동 재시도 대기",
-      detail: providerLimited
-        ? "Groq 무료 사용 한도 때문에 잠시 기다리는 중입니다. JARVIS가 자동으로 다시 시도합니다."
-        : "검증에서 보완할 점이 발견됐거나 Provider 응답을 기다리는 중입니다. 자동으로 다시 시도합니다.",
-      color: "#f4d27a",
-      background: "#292313",
-      border: "#7a6530",
+      tone: "review",
+      title: "검토 후 승인 필요",
+      detail: "글과 출처를 확인한 뒤 승인하면 실제 발행됩니다.",
+      action: "approve",
     };
   }
 
   if (status === "waiting_for_user") {
     return {
-      title: "⚠️ 아직 발행 안 됨 · 확인 필요",
-      detail: "자동 처리를 계속하기 전에 사람이 확인해야 할 문제가 생겼습니다.",
-      color: "#ffad8a",
-      background: "#2b1712",
-      border: "#824632",
+      tone: "error",
+      title: "확인이 필요한 문제",
+      detail: job.last_error || "자동 처리를 계속하기 전에 확인이 필요합니다.",
+      action: "retry",
     };
   }
 
   if (status === "failed" || status === "rejected") {
     return {
-      title: "❌ 발행 안 됨 · 작업 실패",
-      detail: "발행하지 않았습니다. 원인을 확인한 뒤 다시 실행해야 합니다.",
-      color: "#ff8f8f",
-      background: "#2b1414",
-      border: "#7a3030",
+      tone: "error",
+      title: "발행 안 됨",
+      detail: job.last_error || "작업이 실패했습니다.",
+      action: "retry",
+    };
+  }
+
+  if (status === "retry_wait" || status === "waiting_for_provider") {
+    return {
+      tone: "waiting",
+      title: "자동 재시도 대기",
+      detail: "잠시 기다리면 JARVIS가 다시 시도합니다. 아직 발행되지 않았습니다.",
+      action: "wait",
+    };
+  }
+
+  if (status === "publishing" || status === "post_verify") {
+    return {
+      tone: "working",
+      title: "발행 처리 중",
+      detail: "승인은 끝났습니다. 실제 DECHIVE 페이지까지 확인하고 있습니다.",
+      action: "working",
+    };
+  }
+
+  if (status === "waiting_for_capability") {
+    return {
+      tone: "working",
+      title: "Sanity 저장 중",
+      detail: "검증은 끝났고 Sanity review 문서를 만드는 중입니다.",
+      action: "working",
+    };
+  }
+
+  if (status === "verifying") {
+    return {
+      tone: "working",
+      title: "사실 검증 중",
+      detail: "작성한 글과 출처를 다시 확인하고 있습니다.",
+      action: "working",
+    };
+  }
+
+  if (status === "generating") {
+    return {
+      tone: "working",
+      title: "글 작성 중",
+      detail: "조사 결과를 바탕으로 Knowledge 원고를 작성하고 있습니다.",
+      action: "working",
+    };
+  }
+
+  if (status === "researching") {
+    return {
+      tone: "working",
+      title: "자료 조사 중",
+      detail: "공식 자료와 근거를 조사하고 있습니다.",
+      action: "working",
     };
   }
 
   return {
-    title: "⏳ 아직 발행 안 됨 · 작업 준비 중",
-    detail: "JARVIS가 작업을 접수했고 실행 순서를 기다리거나 시작하는 중입니다.",
-    color: "#b9bec7",
-    background: "#17191d",
-    border: "#343941",
+    tone: "working",
+    title: "작업 진행 중",
+    detail: "JARVIS가 Knowledge 작업을 처리하고 있습니다.",
+    action: "working",
   };
 }
 
+function toneStyle(tone: string) {
+  if (tone === "success") {
+    return { background: "#102417", border: "#2f7a45", color: "#91dda3" };
+  }
+  if (tone === "review") {
+    return { background: "#2a1d10", border: "#875322", color: "#f2b66d" };
+  }
+  if (tone === "error") {
+    return { background: "#2b1515", border: "#7c3131", color: "#ff9292" };
+  }
+  if (tone === "waiting") {
+    return { background: "#292313", border: "#77632f", color: "#efd276" };
+  }
+  if (tone === "working") {
+    return { background: "#121d2a", border: "#31557b", color: "#a5c9ff" };
+  }
+  return { background: "#15171b", border: "#343941", color: "#f3f4f6" };
+}
+
 export default function JarvisRemotePage() {
-  const [deviceKey, setDeviceKey] = useState(() => stored("jarvis_device_key"));
-  const [deviceToken, setDeviceToken] = useState(() =>
-    stored("jarvis_device_token"),
-  );
-  const [commandText, setCommandText] = useState("");
-  const [groqKey, setGroqKey] = useState("");
-  const [sanityKey, setSanityKey] = useState("");
-  const [status, setStatus] = useState("대기 중");
-  const [result, setResult] = useState<JarvisResponse | null>(null);
-  const [activeCommandId, setActiveCommandId] = useState<string | null>(null);
-  const [pairSaved, setPairSaved] = useState(() =>
-    Boolean(stored("jarvis_device_key") && stored("jarvis_device_token")),
-  );
+  const [deviceKey, setDeviceKey] = useState("");
+  const [deviceToken, setDeviceToken] = useState("");
+  const [pairSaved, setPairSaved] = useState(false);
+
   const [providerState, setProviderState] = useState<{
     groq: boolean;
     sanity: boolean;
   } | null>(null);
   const [providerChecking, setProviderChecking] = useState(false);
   const [providerCheckedAt, setProviderCheckedAt] = useState<string | null>(null);
-  const [activeAction, setActiveAction] = useState<string | null>(null);
-  const [lastAction, setLastAction] = useState<string | null>(null);
+
   const [knowledgeJob, setKnowledgeJob] = useState<JobView | null>(null);
+  const [activeCommandId, setActiveCommandId] = useState<string | null>(null);
 
-  const approvalJobs = useMemo(() => {
-    const jobs = knowledgeJob
-      ? [knowledgeJob]
-      : result?.command?.result?.jobs ?? [];
-    return jobs.filter(
-      (job) =>
-        job.status === "waiting_for_user" &&
-        Boolean(job.result?.sanity_document_id),
-    );
-  }, [knowledgeJob, result]);
+  const [statusText, setStatusText] = useState("대기 중");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [result, setResult] = useState<JarvisResponse | null>(null);
 
-  async function callJarvis(
+  const [commandText, setCommandText] = useState("");
+  const [groqKey, setGroqKey] = useState("");
+  const [sanityKey, setSanityKey] = useState("");
+
+  useEffect(() => {
+    const dk = window.localStorage.getItem("jarvis_device_key") ?? "";
+    const dt = window.localStorage.getItem("jarvis_device_token") ?? "";
+    setDeviceKey(dk);
+    setDeviceToken(dt);
+    setPairSaved(Boolean(dk && dt));
+
+    if (dk && dt) {
+      void bootstrap(dk, dt);
+    }
+  }, []);
+
+  async function request(
     body: Record<string, unknown>,
-    silent = false,
+    creds?: { key: string; token: string },
+    quiet = false,
   ): Promise<JarvisResponse | null> {
-    if (!deviceKey.trim() || !deviceToken.trim()) {
-      setStatus("먼저 Device Key와 Device Token을 입력하세요.");
+    const key = creds?.key ?? deviceKey.trim();
+    const token = creds?.token ?? deviceToken.trim();
+
+    if (!key || !token) {
+      if (!quiet) setStatusText("먼저 기기 연결 정보를 저장하세요.");
       return null;
     }
-
-    if (!silent) setStatus("JARVIS에 전달 중...");
 
     try {
       const response = await fetch(COMMAND_URL, {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-jarvis-device": deviceKey.trim(),
-          "x-jarvis-token": deviceToken.trim(),
+          "x-jarvis-device": key,
+          "x-jarvis-token": token,
         },
         body: JSON.stringify(body),
       });
 
       const data = (await response.json().catch(() => ({}))) as JarvisResponse;
       setResult(data);
-      if (data.knowledge_job) {
-        setKnowledgeJob(data.knowledge_job);
-      } else {
-        const jobs = data.command?.result?.jobs ?? [];
-        const knowledge = jobs.find((job) => Boolean(job.source_code));
-        if (knowledge) setKnowledgeJob(knowledge);
+
+      if (data.knowledge_job) setKnowledgeJob(data.knowledge_job);
+
+      const jobs = data.command?.result?.jobs ?? [];
+      const knowledge = jobs.find((job) => Boolean(job.source_code));
+      if (knowledge) setKnowledgeJob(knowledge);
+
+      if (!response.ok && !quiet) {
+        setStatusText(data.error || "요청 처리 중 오류가 발생했습니다.");
       }
-      if (!silent) setStatus(response.ok ? "전달 완료" : data.error ?? "오류");
+
       return data;
     } catch (error) {
-      setStatus(
-        error instanceof Error
-          ? "네트워크 오류: " + error.message
-          : "네트워크 오류",
-      );
+      if (!quiet) {
+        setStatusText(
+          error instanceof Error ? "네트워크 오류: " + error.message : "네트워크 오류",
+        );
+      }
       return null;
     }
   }
 
-  async function pollCommand(commandId: string) {
-    setActiveCommandId(commandId);
-    setStatus("JARVIS 작업 진행 중...");
+  async function bootstrap(key: string, token: string) {
+    setStatusText("현재 상태 불러오는 중...");
+    const creds = { key, token };
 
-    for (let index = 0; index < 120; index += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-      const data = await callJarvis(
-        { action: "command_status", commandId },
-        true,
-      );
-      const command = data?.command;
-      if (index % 2 === 0) {
-        await callJarvis({ action: "knowledge_status" }, true);
-      }
-      if (!command) continue;
+    const [provider, knowledge] = await Promise.all([
+      request({ action: "provider_status" }, creds, true),
+      request({ action: "knowledge_status" }, creds, true),
+    ]);
 
-      if (command.status === "waiting_for_user") {
-        await callJarvis({ action: "knowledge_status" }, true);
-        setStatus("사람 검증이 필요합니다.");
-        return;
-      }
-      if (command.status === "done") {
-        await callJarvis({ action: "knowledge_status" }, true);
-        setStatus("작업 완료");
-        setActiveCommandId(null);
-        return;
-      }
-      if (command.status === "failed" || command.status === "cancelled") {
-        setStatus("확인이 필요합니다.");
-        setActiveCommandId(null);
-        return;
-      }
+    if (provider?.providers) {
+      setProviderState({
+        groq: Boolean(provider.providers.groq),
+        sanity: Boolean(provider.providers.sanity),
+      });
+      setProviderCheckedAt(new Date().toLocaleTimeString("ko-KR"));
     }
 
-    setStatus("작업은 계속 진행 중입니다. 오늘 상태에서 다시 확인하세요.");
+    if (knowledge?.knowledge_job) {
+      setKnowledgeJob(knowledge.knowledge_job);
+    }
+
+    setStatusText("현재 상태 확인 완료");
   }
 
-  async function checkProviderStatus() {
-    if (providerChecking) return;
-    setProviderChecking(true);
-    setActiveAction("provider-check");
-    setLastAction("Provider 상태 확인 버튼을 눌렀습니다.");
-    setStatus("Provider 상태 확인 중...");
+  async function refreshKnowledge() {
+    setBusy("refresh");
+    setStatusText("Knowledge 상태 확인 중...");
+    const data = await request({ action: "knowledge_status" }, undefined, true);
+    setBusy(null);
 
-    const data = await callJarvis({ action: "provider_status" }, true);
+    if (data?.knowledge_job) {
+      setKnowledgeJob(data.knowledge_job);
+      setStatusText("Knowledge 상태 확인 완료");
+    } else {
+      setStatusText("현재 Knowledge 작업이 없습니다.");
+    }
+  }
+
+  async function refreshProviders() {
+    setProviderChecking(true);
+    const data = await request({ action: "provider_status" }, undefined, true);
+    setProviderChecking(false);
+
     if (data?.providers) {
       setProviderState({
         groq: Boolean(data.providers.groq),
         sanity: Boolean(data.providers.sanity),
       });
       setProviderCheckedAt(new Date().toLocaleTimeString("ko-KR"));
-      setStatus("Provider 상태 확인 완료");
+      setStatusText("Provider 상태 확인 완료");
     } else {
-      setStatus(data?.error ?? "Provider 상태 확인 실패");
-    }
-
-    setProviderChecking(false);
-    setActiveAction(null);
-    if (data?.providers) {
-      setLastAction("Provider 상태 확인 완료 ✓");
+      setStatusText("Provider 상태 확인 실패");
     }
   }
 
-  async function runKnowledge(count: 1 | 2) {
-    const action = count === 1 ? "knowledge-one" : "knowledge-two";
-    setActiveAction(action);
-    setLastAction(
-      count === 1
-        ? "Knowledge 1건 테스트 버튼을 눌렀습니다."
-        : "Knowledge 오늘 2건 버튼을 눌렀습니다.",
-    );
-    setStatus("Knowledge 명령 접수 중...");
+  async function startKnowledge() {
+    setBusy("start");
+    setStatusText("Knowledge 1건 시작 요청 중...");
 
-    const data = await callJarvis({
+    const data = await request({
       text: "자비스, Knowledge 진행해",
-      count,
+      count: 1,
     });
 
-    setActiveAction(null);
+    setBusy(null);
 
     if (data?.command_id) {
-      setLastAction(
-        count === 1
-          ? "Knowledge 1건 명령 접수 완료 ✓"
-          : "Knowledge 2건 명령 접수 완료 ✓",
-      );
+      setActiveCommandId(data.command_id);
+      setStatusText("Knowledge 작업 시작됨");
       void pollCommand(data.command_id);
     }
   }
 
-  async function checkKnowledgeStatus() {
-    setActiveAction("knowledge-status");
-    setLastAction("Knowledge 상태 확인 버튼을 눌렀습니다.");
-    setStatus("현재 Knowledge 상태 확인 중...");
-    const data = await callJarvis({ action: "knowledge_status" }, true);
-    setActiveAction(null);
-    if (data?.knowledge_job) {
-      setLastAction("Knowledge 상태 확인 완료 ✓");
-      setStatus("Knowledge 상태 확인 완료");
-    } else {
-      setStatus(data?.error ?? "현재 Knowledge 작업을 찾지 못했습니다.");
+  async function pollCommand(commandId: string) {
+    setActiveCommandId(commandId);
+
+    for (let index = 0; index < 120; index += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+
+      const commandData = await request(
+        { action: "command_status", commandId },
+        undefined,
+        true,
+      );
+
+      if (index % 2 === 0) {
+        await refreshKnowledge();
+      }
+
+      const command = commandData?.command;
+      if (!command) continue;
+
+      if (
+        command.status === "waiting_for_user" ||
+        command.status === "done" ||
+        command.status === "failed" ||
+        command.status === "cancelled"
+      ) {
+        await refreshKnowledge();
+        setActiveCommandId(null);
+        return;
+      }
     }
   }
 
-  async function checkTodayStatus() {
-    setActiveAction("today");
-    setLastAction("오늘 상태 버튼을 눌렀습니다.");
-    const data = await callJarvis({ text: "자비스, 오늘 어떻게 됐어?" });
-    setActiveAction(null);
+  async function approveKnowledge(jobId: string) {
+    setBusy("approve");
+    setStatusText("승인 전달 중...");
+
+    const data = await request({
+      action: "approve_knowledge",
+      jobId,
+    });
+
     if (data?.ok) {
-      setLastAction("오늘 상태 조회 완료 ✓");
+      setStatusText("승인 완료. 실제 발행 확인 중...");
+      setBusy(null);
+
+      if (activeCommandId) {
+        void pollCommand(activeCommandId);
+      } else {
+        for (let index = 0; index < 24; index += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+          const latest = await request(
+            { action: "knowledge_status" },
+            undefined,
+            true,
+          );
+          if (latest?.knowledge_job) {
+            setKnowledgeJob(latest.knowledge_job);
+            if (
+              latest.knowledge_job.status === "done" ||
+              latest.knowledge_job.status === "waiting_for_user"
+            ) {
+              break;
+            }
+          }
+        }
+      }
+    } else {
+      setBusy(null);
+      setStatusText(data?.error || "승인 처리 실패");
     }
+  }
+
+  async function retryKnowledge(jobId?: string) {
+    if (!jobId) return;
+    setBusy("retry");
+    setStatusText("다시 실행 요청 중...");
+
+    const data = await request({ action: "run_job", jobId });
+    setBusy(null);
+
+    if (data?.ok) {
+      setStatusText("다시 실행 시작됨");
+      void refreshKnowledge();
+    } else {
+      setStatusText(data?.error || "다시 실행 실패");
+    }
+  }
+
+  function savePair() {
+    const key = deviceKey.trim();
+    const token = deviceToken.trim();
+
+    if (!key || !token) {
+      setStatusText("Device Key와 Token을 모두 입력하세요.");
+      return;
+    }
+
+    window.localStorage.setItem("jarvis_device_key", key);
+    window.localStorage.setItem("jarvis_device_token", token);
+    setPairSaved(true);
+    setStatusText("이 iPhone 연결 정보 저장 완료");
+    void bootstrap(key, token);
   }
 
   async function sendFreeCommand() {
     const text = commandText.trim();
     if (!text) return;
-    setActiveAction("free-command");
-    setLastAction("자비스에게 명령을 전달했습니다.");
-    const data = await callJarvis({ text });
-    setActiveAction(null);
+
+    setBusy("command");
+    setStatusText("명령 전달 중...");
+    const data = await request({ text });
+    setBusy(null);
+
     if (data?.intent === "knowledge_run" && data.command_id) {
-      setLastAction("Knowledge 명령 접수 완료 ✓");
+      setActiveCommandId(data.command_id);
+      setStatusText("Knowledge 명령 접수 완료");
       void pollCommand(data.command_id);
     } else if (data?.ok) {
-      setLastAction("명령 전달 완료 ✓");
+      setStatusText("명령 전달 완료");
     }
   }
 
-  async function approveKnowledge(jobId: string) {
-    if (!activeCommandId) return;
-    const data = await callJarvis({ action: "approve_knowledge", jobId });
-    if (data?.ok) {
-      setLastAction("Knowledge 사람 검증 승인 완료 ✓");
-      setStatus("승인 완료. 실제 발행 확인 중...");
-      void pollCommand(activeCommandId);
-    }
-  }
+  const state = useMemo(() => getHumanState(knowledgeJob), [knowledgeJob]);
+  const tone = toneStyle(state.tone);
 
-  function savePair() {
-    setActiveAction("pair");
-    window.localStorage.setItem("jarvis_device_key", deviceKey.trim());
-    window.localStorage.setItem("jarvis_device_token", deviceToken.trim());
-    setPairSaved(true);
-    setStatus("이 iPhone에 pairing 정보 저장 완료");
-    setLastAction("기기 연결 정보 저장 완료 ✓");
-    setActiveAction(null);
-  }
+  const details = knowledgeJob?.result ?? {};
+  const draft = details.draft ?? {};
+  const title =
+    details.review_title ??
+    details.title ??
+    draft.title ??
+    knowledgeJob?.source_code ??
+    "Knowledge";
+
+  const summary =
+    details.review_summary ?? details.summary ?? draft.summary ?? "";
+
+  const score = details.verification?.score;
+  const sources = details.sources ?? [];
+  const publicUrl = knowledgeJob?.result_url || knowledgeJob?.published_url;
+
+  const providersReady = Boolean(
+    providerState?.groq && providerState?.sanity,
+  );
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#0b0c0e",
-        color: "#f3f4f6",
-        padding: "24px 16px 48px",
-        fontFamily:
-          '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif',
-      }}
-    >
+    <main style={shell}>
       <div style={{ maxWidth: 680, margin: "0 auto" }}>
-        <h1 style={{ fontSize: 24, margin: "8px 0 4px" }}>JARVIS Remote</h1>
-        <p style={{ color: "#9ca3af", fontSize: 13, marginTop: 0 }}>
-          iPhone → DECHIVE Cloud Control Plane
-        </p>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 12,
+            margin: "6px 2px 18px",
+          }}
+        >
+          <div>
+            <h1 style={{ fontSize: 25, margin: 0 }}>JARVIS</h1>
+            <div style={{ color: "#8b929c", fontSize: 13, marginTop: 5 }}>
+              DECHIVE Remote
+            </div>
+          </div>
+
+          <div
+            style={{
+              padding: "7px 10px",
+              borderRadius: 999,
+              background: pairSaved ? "#15331d" : "#2a1b1b",
+              color: pairSaved ? "#93dda4" : "#ff9a9a",
+              fontSize: 12,
+              fontWeight: 800,
+            }}
+          >
+            {pairSaved ? "iPhone 연결됨" : "기기 연결 필요"}
+          </div>
+        </div>
 
         <section
           style={{
             ...card,
-            padding: 12,
-            borderColor: activeAction ? "#5f6f86" : "#272a2f",
-            background: activeAction ? "#141d28" : "#111317",
+            background: tone.background,
+            borderColor: tone.border,
+            marginTop: 0,
           }}
         >
-          <div style={{ fontSize: 12, color: "#9ca3af" }}>
-            최근 동작
+          <div style={{ fontSize: 12, color: "#969da7", fontWeight: 700 }}>
+            지금 상태
           </div>
-          <div style={{ marginTop: 5, fontWeight: 700 }}>
-            {activeAction
-              ? "처리 중..."
-              : lastAction ?? "아직 누른 버튼이 없습니다."}
+
+          <div
+            style={{
+              marginTop: 6,
+              color: tone.color,
+              fontSize: 22,
+              fontWeight: 900,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            {state.title}
           </div>
-        </section>
 
-        {knowledgeJob ? (() => {
-          const state = humanKnowledgeState(knowledgeJob);
-          const details = knowledgeJob.result ?? {};
-          const title =
-            details.review_title ??
-            details.title ??
-            details.draft?.title ??
-            knowledgeJob.source_code ??
-            "Knowledge";
-          const score = details.verification?.score;
-          const publicUrl = knowledgeJob.result_url || knowledgeJob.published_url;
+          <div
+            style={{
+              marginTop: 8,
+              color: "#c4c9d0",
+              lineHeight: 1.55,
+              fontSize: 14,
+            }}
+          >
+            {state.detail}
+          </div>
 
-          return (
-            <section
+          {knowledgeJob ? (
+            <div
               style={{
-                ...card,
-                background: state.background,
-                borderColor: state.border,
+                marginTop: 14,
+                paddingTop: 14,
+                borderTop: "1px solid rgba(255,255,255,0.08)",
               }}
             >
-              <div style={{ fontSize: 12, color: "#9ca3af" }}>
-                현재 Knowledge 상태
-              </div>
-              <div
-                style={{
-                  marginTop: 6,
-                  fontSize: 20,
-                  fontWeight: 850,
-                  color: state.color,
-                }}
-              >
-                {state.title}
-              </div>
-              <div style={{ marginTop: 10, fontWeight: 750 }}>{title}</div>
-              <div
-                style={{
-                  marginTop: 7,
-                  color: "#c2c7cf",
-                  lineHeight: 1.55,
-                }}
-              >
-                {state.detail}
-              </div>
+              <div style={{ fontWeight: 800, lineHeight: 1.45 }}>{title}</div>
               {typeof score === "number" ? (
-                <div style={{ marginTop: 10 }}>
-                  최근 검증 점수: <strong>{score}</strong>
+                <div
+                  style={{
+                    display: "inline-block",
+                    marginTop: 9,
+                    padding: "5px 8px",
+                    borderRadius: 8,
+                    background: "rgba(255,255,255,0.07)",
+                    fontSize: 12,
+                    fontWeight: 800,
+                  }}
+                >
+                  검증 점수 {score}
                 </div>
               ) : null}
-              {publicUrl ? (
+            </div>
+          ) : null}
+
+          <div style={{ marginTop: 16 }}>
+            {!pairSaved ? (
+              <button
+                style={primary}
+                onClick={() =>
+                  document
+                    .getElementById("settings")
+                    ?.scrollIntoView({ behavior: "smooth" })
+                }
+              >
+                기기 연결하기
+              </button>
+            ) : state.action === "start" ? (
+              <button
+                style={{
+                  ...primary,
+                  opacity: providersReady ? 1 : 0.55,
+                }}
+                disabled={!providersReady || busy === "start"}
+                onClick={() => void startKnowledge()}
+              >
+                {busy === "start" ? "시작 중..." : "Knowledge 1건 시작"}
+              </button>
+            ) : state.action === "approve" && knowledgeJob?.job_id ? (
+              <button
+                style={{
+                  ...primary,
+                  background: "#f2b66d",
+                  color: "#25170b",
+                }}
+                onClick={() => void approveKnowledge(knowledgeJob.job_id!)}
+                disabled={busy === "approve"}
+              >
+                {busy === "approve"
+                  ? "승인 처리 중..."
+                  : "검토 완료 — 승인 & 발행"}
+              </button>
+            ) : state.action === "retry" && knowledgeJob?.job_id ? (
+              <button
+                style={primary}
+                onClick={() => void retryKnowledge(knowledgeJob.job_id)}
+                disabled={busy === "retry"}
+              >
+                {busy === "retry" ? "다시 실행 중..." : "다시 실행"}
+              </button>
+            ) : state.action === "done" && publicUrl ? (
+              <div style={{ display: "grid", gap: 9 }}>
                 <a
                   href={publicUrl}
                   target="_blank"
                   rel="noreferrer"
                   style={{
-                    display: "inline-block",
-                    marginTop: 12,
-                    color: "#b8d8ff",
-                    fontWeight: 700,
+                    ...primary,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textDecoration: "none",
+                    background: "#91dda3",
                   }}
                 >
-                  실제 발행 페이지 열기 →
+                  실제 발행 페이지 열기
                 </a>
-              ) : (
-                <div
-                  style={{
-                    marginTop: 12,
-                    padding: 10,
-                    borderRadius: 10,
-                    background: "rgba(0,0,0,0.18)",
-                    fontWeight: 700,
-                  }}
-                >
-                  공개 URL 없음 — 아직 발행되지 않았습니다.
-                </div>
-              )}
+                <button style={secondary} onClick={() => void startKnowledge()}>
+                  다음 Knowledge 1건 시작
+                </button>
+              </div>
+            ) : (
               <button
-                onClick={() => void checkKnowledgeStatus()}
-                disabled={activeAction === "knowledge-status"}
                 style={{
-                  ...secondaryButton,
-                  marginTop: 12,
-                  opacity: activeAction === "knowledge-status" ? 0.65 : 1,
+                  ...secondary,
+                  opacity: busy === "refresh" ? 0.6 : 1,
                 }}
+                disabled={busy === "refresh"}
+                onClick={() => void refreshKnowledge()}
               >
-                {activeAction === "knowledge-status"
-                  ? "상태 확인 중..."
-                  : "현재 상태 새로고침"}
+                {busy === "refresh" ? "상태 확인 중..." : "현재 상태 새로고침"}
               </button>
-            </section>
-          );
-        })() : null}
-
-        <section style={card}>
-          <strong>기기 연결</strong>
-          <label style={{ display: "block", margin: "12px 0 6px" }}>
-            Device Key
-          </label>
-          <input
-            value={deviceKey}
-            onChange={(event) => { setDeviceKey(event.target.value); setPairSaved(false); }}
-            placeholder="iphone-primary"
-            style={inputStyle}
-          />
-          <label style={{ display: "block", margin: "12px 0 6px" }}>
-            Device Token
-          </label>
-          <input
-            value={deviceToken}
-            onChange={(event) => { setDeviceToken(event.target.value); setPairSaved(false); }}
-            type="password"
-            placeholder="pairing token"
-            style={inputStyle}
-          />
-          <button
-            onClick={savePair}
-            style={{
-              ...secondaryButton,
-              marginTop: 10,
-              background: pairSaved ? "#17351f" : secondaryButton.background,
-              borderColor: pairSaved ? "#2f7a45" : secondaryButton.border,
-            }}
-          >
-            {activeAction === "pair"
-              ? "저장 중..."
-              : pairSaved
-                ? "저장됨 ✓"
-                : "이 기기에 저장"}
-          </button>
-          <div
-            style={{
-              marginTop: 10,
-              fontSize: 13,
-              color: pairSaved ? "#8bd49c" : "#9ca3af",
-            }}
-          >
-            {pairSaved
-              ? "이 iPhone이 JARVIS Remote에 연결되었습니다."
-              : "Device Key와 Token을 저장하면 이곳에 연결 상태가 표시됩니다."}
-          </div>
-        </section>
-
-        <section style={card}>
-          <strong>빠른 명령</strong>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 10,
-              marginTop: 12,
-            }}
-          >
-            <button
-              onClick={() => void runKnowledge(1)}
-              disabled={
-                activeAction === "knowledge-one" || Boolean(activeCommandId)
-              }
-              style={{
-                ...buttonStyle,
-                boxShadow:
-                  providerState?.groq && providerState?.sanity
-                    ? "0 0 0 2px rgba(139,212,156,0.35)"
-                    : "none",
-                opacity:
-                  activeAction === "knowledge-one" || activeCommandId
-                    ? 0.65
-                    : 1,
-              }}
-            >
-              {activeAction === "knowledge-one"
-                ? "명령 접수 중..."
-                : activeCommandId
-                  ? "Knowledge 작업 진행 중 ✓"
-                  : "Knowledge 1건 테스트"}
-            </button>
-            <button
-              onClick={() => void runKnowledge(2)}
-              disabled={
-                activeAction === "knowledge-two" || Boolean(activeCommandId)
-              }
-              style={{
-                ...buttonStyle,
-                opacity:
-                  activeAction === "knowledge-two" || activeCommandId
-                    ? 0.65
-                    : 1,
-              }}
-            >
-              {activeAction === "knowledge-two"
-                ? "명령 접수 중..."
-                : activeCommandId
-                  ? "Knowledge 작업 진행 중 ✓"
-                  : "Knowledge 오늘 2건"}
-            </button>
-            <button
-              onClick={() => void checkKnowledgeStatus()}
-              disabled={activeAction === "knowledge-status"}
-              style={{
-                ...buttonStyle,
-                opacity: activeAction === "knowledge-status" ? 0.65 : 1,
-              }}
-            >
-              {activeAction === "knowledge-status"
-                ? "확인 중..."
-                : "Knowledge 상태 확인"}
-            </button>
-            <button
-              onClick={() => void checkTodayStatus()}
-              disabled={activeAction === "today"}
-              style={{
-                ...buttonStyle,
-                opacity: activeAction === "today" ? 0.65 : 1,
-              }}
-            >
-              {activeAction === "today" ? "조회 중..." : "오늘 상태"}
-            </button>
-            <button
-              onClick={() => void checkProviderStatus()}
-              disabled={providerChecking}
-              style={{
-                ...secondaryButton,
-                opacity: providerChecking ? 0.65 : 1,
-              }}
-            >
-              {providerChecking ? "확인 중..." : "Provider 상태 확인"}
-            </button>
-          </div>
-        </section>
-
-        <section
-          style={{
-            ...card,
-            borderColor:
-              providerState?.groq && providerState?.sanity
-                ? "#2f7a45"
-                : providerState
-                  ? "#7a3b3b"
-                  : "#272a2f",
-            background:
-              providerState?.groq && providerState?.sanity
-                ? "#102417"
-                : "#14161a",
-          }}
-        >
-          <div style={{ fontWeight: 800, fontSize: 18 }}>
-            {providerState === null
-              ? "Provider 연결 상태"
-              : providerState.groq && providerState.sanity
-                ? "✅ Provider 연결 완료"
-                : providerState.groq || providerState.sanity
-                  ? "⚠️ Provider 1/2 연결됨"
-                  : "❌ Provider 미연결"}
-          </div>
-          <div
-            style={{
-              marginTop: 6,
-              color:
-                providerState?.groq && providerState?.sanity
-                  ? "#8bd49c"
-                  : "#b9bec7",
-              fontSize: 14,
-            }}
-          >
-            {providerState === null
-              ? "아직 상태를 확인하지 않았습니다."
-              : providerState.groq && providerState.sanity
-                ? "Groq · Sanity 모두 연결됨"
-                : providerState.groq
-                  ? "Groq만 연결됨"
-                  : providerState.sanity
-                    ? "Sanity만 연결됨"
-                    : "Groq와 Sanity를 연결하세요"}
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 10,
-              marginTop: 12,
-            }}
-          >
-            <div
-              style={{
-                border: "1px solid #30343a",
-                borderRadius: 12,
-                padding: 12,
-                background: "#0f1114",
-              }}
-            >
-              <div style={{ fontSize: 12, color: "#9ca3af" }}>Groq</div>
-              <div
-                style={{
-                  marginTop: 6,
-                  fontWeight: 700,
-                  color:
-                    providerState === null
-                      ? "#9ca3af"
-                      : providerState.groq
-                        ? "#8bd49c"
-                        : "#ff8f8f",
-                }}
-              >
-                {providerState === null
-                  ? "확인 전"
-                  : providerState.groq
-                    ? "연결됨 ✓"
-                    : "미연결"}
-              </div>
-            </div>
-
-            <div
-              style={{
-                border: "1px solid #30343a",
-                borderRadius: 12,
-                padding: 12,
-                background: "#0f1114",
-              }}
-            >
-              <div style={{ fontSize: 12, color: "#9ca3af" }}>Sanity</div>
-              <div
-                style={{
-                  marginTop: 6,
-                  fontWeight: 700,
-                  color:
-                    providerState === null
-                      ? "#9ca3af"
-                      : providerState.sanity
-                        ? "#8bd49c"
-                        : "#ff8f8f",
-                }}
-              >
-                {providerState === null
-                  ? "확인 전"
-                  : providerState.sanity
-                    ? "연결됨 ✓"
-                    : "미연결"}
-              </div>
-            </div>
+            )}
           </div>
 
-          <div style={{ marginTop: 10, color: "#9ca3af", fontSize: 13 }}>
-            {providerChecking
-              ? "JARVIS Cloud에서 현재 Provider 상태를 확인하고 있습니다..."
-              : providerCheckedAt
-                ? "마지막 확인: " + providerCheckedAt
-                : "아직 상태를 조회하지 않았습니다."}
-          </div>
-
-          {providerState?.groq && providerState?.sanity ? (
+          {!providersReady && pairSaved ? (
             <div
               style={{
                 marginTop: 10,
-                padding: 12,
-                borderRadius: 12,
-                background: "#17351f",
-                border: "1px solid #2f7a45",
-                color: "#b7efc4",
-                fontWeight: 700,
-                fontSize: 14,
+                padding: 10,
+                borderRadius: 10,
+                background: "rgba(0,0,0,0.2)",
+                color: "#e7c976",
+                fontSize: 13,
               }}
             >
-              이제 Knowledge 1건 테스트를 실행할 수 있습니다.
+              Provider 연결 상태를 확인하거나 설정을 열어주세요.
             </div>
           ) : null}
-
-          <button
-            onClick={() => void checkProviderStatus()}
-            disabled={providerChecking}
-            style={{
-              ...secondaryButton,
-              marginTop: 10,
-              opacity: providerChecking ? 0.65 : 1,
-            }}
-          >
-            {providerChecking ? "확인 중..." : "지금 다시 확인"}
-          </button>
         </section>
 
-        <section style={card}>
-          <strong>자비스에게 말하기</strong>
-          <textarea
-            value={commandText}
-            onChange={(event) => setCommandText(event.target.value)}
-            placeholder="예: 자비스, Knowledge 진행해"
-            style={{ ...inputStyle, minHeight: 96, marginTop: 12 }}
-          />
-          <button
-            onClick={() => void sendFreeCommand()}
-            disabled={activeAction === "free-command"}
-            style={{ ...buttonStyle, marginTop: 10 }}
-          >
-            {activeAction === "free-command" ? "전달 중..." : "진행해"}
-          </button>
-        </section>
+        {state.action === "approve" && knowledgeJob ? (
+          <section style={{ ...card, borderColor: "#754a25" }}>
+            <div style={{ fontWeight: 900, fontSize: 18 }}>발행 전 확인</div>
+            <div style={{ color: "#aeb4bd", marginTop: 6, lineHeight: 1.55 }}>
+              아래 글과 출처를 확인한 뒤 위의 <strong>승인 & 발행</strong>을
+              누르세요.
+            </div>
 
-        <section style={card}>
-          <strong>Cloud Provider 연결</strong>
-          <p style={{ color: "#9ca3af", fontSize: 13 }}>
-            키는 JARVIS Cloud Vault로 전달하고 이 화면에는 남기지 않습니다.
-          </p>
-          <label style={{ display: "block", margin: "12px 0 6px" }}>
-            Groq API Key
-          </label>
-          <input
-            value={groqKey}
-            onChange={(event) => setGroqKey(event.target.value)}
-            type="password"
-            placeholder="gsk_..."
-            style={inputStyle}
-          />
-          <button
-            onClick={async () => {
-              if (!groqKey.trim()) return;
-              setActiveAction("groq-save");
-              setLastAction("Groq 연결 버튼을 눌렀습니다.");
-              const data = await callJarvis({
-                action: "set_provider_secret",
-                provider: "groq",
-                secret: groqKey.trim(),
-              });
-              setActiveAction(null);
-              if (data?.ok) {
-                setGroqKey("");
-                setStatus("Groq 연결 저장 완료 — 상태를 다시 확인합니다.");
-                setLastAction("Groq 연결 저장 완료 ✓");
-                void checkProviderStatus();
-              }
-            }}
-            style={{ ...secondaryButton, marginTop: 10 }}
-          >
-            {activeAction === "groq-save" ? "연결 중..." : "Groq 연결"}
-          </button>
+            {summary ? (
+              <div
+                style={{
+                  marginTop: 14,
+                  padding: 12,
+                  borderRadius: 12,
+                  background: "#0f1114",
+                  lineHeight: 1.55,
+                }}
+              >
+                {summary}
+              </div>
+            ) : null}
 
-          <label style={{ display: "block", margin: "16px 0 6px" }}>
-            Sanity Write Token
-          </label>
-          <input
-            value={sanityKey}
-            onChange={(event) => setSanityKey(event.target.value)}
-            type="password"
-            placeholder="Sanity API token"
-            style={inputStyle}
-          />
-          <button
-            onClick={async () => {
-              if (!sanityKey.trim()) return;
-              setActiveAction("sanity-save");
-              setLastAction("Sanity 연결 버튼을 눌렀습니다.");
-              const data = await callJarvis({
-                action: "set_provider_secret",
-                provider: "sanity",
-                secret: sanityKey.trim(),
-              });
-              setActiveAction(null);
-              if (data?.ok) {
-                setSanityKey("");
-                setStatus("Sanity 연결 저장 완료 — 상태를 다시 확인합니다.");
-                setLastAction("Sanity 연결 저장 완료 ✓");
-                void checkProviderStatus();
-              }
-            }}
-            style={{ ...secondaryButton, marginTop: 10 }}
-          >
-            {activeAction === "sanity-save" ? "연결 중..." : "Sanity 연결"}
-          </button>
-        </section>
+            <details style={{ marginTop: 12 }}>
+              <summary
+                style={{
+                  cursor: "pointer",
+                  fontWeight: 800,
+                  padding: "10px 0",
+                }}
+              >
+                글 전체 보기
+              </summary>
+              <pre
+                style={{
+                  whiteSpace: "pre-wrap",
+                  overflowWrap: "anywhere",
+                  background: "#0d0f12",
+                  padding: 12,
+                  borderRadius: 12,
+                  maxHeight: 480,
+                  overflow: "auto",
+                  lineHeight: 1.6,
+                  fontSize: 13,
+                }}
+              >
+                {draft.body_markdown ?? ""}
+              </pre>
+            </details>
 
-        {approvalJobs.length > 0 ? (
-          <section style={card}>
-            <strong>사람 검증이 필요합니다</strong>
-            {approvalJobs.map((job) => {
-              const details = job.result ?? {};
-              const draft = details.draft ?? {};
-              const title =
-                details.review_title ??
-                details.title ??
-                draft.title ??
-                job.source_code ??
-                "Knowledge";
-              const summary =
-                details.review_summary ?? details.summary ?? draft.summary ?? "";
-              const sources = details.sources ?? [];
-
-              return (
-                <article
-                  key={job.job_id ?? title}
-                  style={{
-                    borderTop: "1px solid #2b2f35",
-                    paddingTop: 14,
-                    marginTop: 14,
-                  }}
-                >
-                  <div style={{ fontWeight: 700, fontSize: 17 }}>{title}</div>
-                  <p style={{ color: "#b9bec7", lineHeight: 1.55 }}>{summary}</p>
-                  <div>
-                    JARVIS 검증 점수 {details.verification?.score ?? "-"}
-                  </div>
-                  <details style={{ marginTop: 12 }}>
-                    <summary style={{ cursor: "pointer" }}>글 전체 보기</summary>
-                    <pre
-                      style={{
-                        whiteSpace: "pre-wrap",
-                        overflowWrap: "anywhere",
-                        background: "#0d0f12",
-                        padding: 12,
-                        borderRadius: 12,
-                        maxHeight: 420,
-                        overflow: "auto",
-                      }}
-                    >
-                      {draft.body_markdown ?? ""}
-                    </pre>
-                  </details>
-                  <details style={{ marginTop: 10 }}>
-                    <summary style={{ cursor: "pointer" }}>
-                      검증 출처 보기 ({sources.length})
-                    </summary>
-                    <ul>
-                      {sources.map((source, index) =>
-                        source.url ? (
-                          <li
-                            key={source.url + index}
-                            style={{ margin: "6px 0" }}
-                          >
-                            <a
-                              href={source.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{ color: "#b8d8ff" }}
-                            >
-                              {source.title || source.url}
-                            </a>
-                          </li>
-                        ) : null,
-                      )}
-                    </ul>
-                  </details>
-                  {job.job_id ? (
-                    <button
-                      onClick={() => void approveKnowledge(job.job_id!)}
-                      style={{ ...buttonStyle, marginTop: 12 }}
-                    >
-                      내용·출처 확인 완료 — 승인 & 발행
-                    </button>
-                  ) : null}
-                </article>
-              );
-            })}
+            <details style={{ marginTop: 2 }}>
+              <summary
+                style={{
+                  cursor: "pointer",
+                  fontWeight: 800,
+                  padding: "10px 0",
+                }}
+              >
+                검증 출처 보기 ({sources.length})
+              </summary>
+              <ul style={{ paddingLeft: 20 }}>
+                {sources.map((source, index) =>
+                  source.url ? (
+                    <li key={source.url + index} style={{ margin: "8px 0" }}>
+                      <a
+                        href={source.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: "#b7d7ff" }}
+                      >
+                        {source.title || source.url}
+                      </a>
+                    </li>
+                  ) : null,
+                )}
+              </ul>
+            </details>
           </section>
         ) : null}
 
         <section style={card}>
-          <strong>JARVIS 상태</strong>
-          <div style={{ color: "#b9bec7", marginTop: 10, lineHeight: 1.5 }}>
-            {status}
+          <div style={{ fontWeight: 900, fontSize: 17 }}>빠른 확인</div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 9,
+              marginTop: 12,
+            }}
+          >
+            <button style={secondary} onClick={() => void refreshKnowledge()}>
+              Knowledge 상태
+            </button>
+            <button
+              style={secondary}
+              onClick={() =>
+                void request({ text: "자비스, 오늘 어떻게 됐어?" })
+              }
+            >
+              오늘 상태
+            </button>
           </div>
-          <details style={{ marginTop: 12 }}>
+        </section>
+
+        <section style={card}>
+          <details>
             <summary
               style={{
                 cursor: "pointer",
-                color: "#777f8b",
-                fontSize: 13,
+                fontWeight: 900,
+                fontSize: 17,
+                padding: "2px 0",
               }}
             >
-              개발자 상세 보기
+              자비스에게 직접 명령하기
+            </summary>
+
+            <textarea
+              value={commandText}
+              onChange={(event) => setCommandText(event.target.value)}
+              placeholder="예: 자비스, Knowledge 진행해"
+              style={{ ...input, minHeight: 92, marginTop: 14, resize: "vertical" }}
+            />
+            <button
+              style={{ ...secondary, marginTop: 9 }}
+              onClick={() => void sendFreeCommand()}
+              disabled={busy === "command"}
+            >
+              {busy === "command" ? "전달 중..." : "명령 보내기"}
+            </button>
+          </details>
+        </section>
+
+        <section id="settings" style={card}>
+          <details>
+            <summary
+              style={{
+                cursor: "pointer",
+                fontWeight: 900,
+                fontSize: 17,
+                padding: "2px 0",
+              }}
+            >
+              설정 · 연결
+            </summary>
+
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontWeight: 800 }}>기기 연결</div>
+              <div
+                style={{
+                  marginTop: 8,
+                  fontSize: 13,
+                  color: pairSaved ? "#91dda3" : "#aeb4bd",
+                }}
+              >
+                {pairSaved
+                  ? "이 iPhone의 연결 정보가 저장되어 있습니다."
+                  : "Device Key와 Token을 입력하세요."}
+              </div>
+
+              <label
+                style={{
+                  display: "block",
+                  margin: "12px 0 6px",
+                  color: "#9aa1aa",
+                  fontSize: 12,
+                }}
+              >
+                Device Key
+              </label>
+              <input
+                style={input}
+                value={deviceKey}
+                onChange={(event) => {
+                  setDeviceKey(event.target.value);
+                  setPairSaved(false);
+                }}
+                placeholder="iphone-primary"
+              />
+
+              <label
+                style={{
+                  display: "block",
+                  margin: "12px 0 6px",
+                  color: "#9aa1aa",
+                  fontSize: 12,
+                }}
+              >
+                Device Token
+              </label>
+              <input
+                style={input}
+                value={deviceToken}
+                onChange={(event) => {
+                  setDeviceToken(event.target.value);
+                  setPairSaved(false);
+                }}
+                type="password"
+                placeholder="pairing token"
+              />
+
+              <button style={{ ...secondary, marginTop: 9 }} onClick={savePair}>
+                {pairSaved ? "저장됨 ✓" : "이 기기에 저장"}
+              </button>
+            </div>
+
+            <div
+              style={{
+                borderTop: "1px solid #2a2e34",
+                marginTop: 20,
+                paddingTop: 18,
+              }}
+            >
+              <div style={{ fontWeight: 800 }}>Provider</div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 9,
+                  marginTop: 10,
+                }}
+              >
+                <div
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    background: "#0e1013",
+                    border: "1px solid #30343a",
+                  }}
+                >
+                  <div style={{ color: "#8f96a0", fontSize: 12 }}>Groq</div>
+                  <div
+                    style={{
+                      marginTop: 5,
+                      fontWeight: 800,
+                      color: providerState?.groq ? "#91dda3" : "#ff9c9c",
+                    }}
+                  >
+                    {providerState === null
+                      ? "확인 전"
+                      : providerState.groq
+                        ? "연결됨 ✓"
+                        : "미연결"}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    background: "#0e1013",
+                    border: "1px solid #30343a",
+                  }}
+                >
+                  <div style={{ color: "#8f96a0", fontSize: 12 }}>Sanity</div>
+                  <div
+                    style={{
+                      marginTop: 5,
+                      fontWeight: 800,
+                      color: providerState?.sanity ? "#91dda3" : "#ff9c9c",
+                    }}
+                  >
+                    {providerState === null
+                      ? "확인 전"
+                      : providerState.sanity
+                        ? "연결됨 ✓"
+                        : "미연결"}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                style={{ ...secondary, marginTop: 9 }}
+                onClick={() => void refreshProviders()}
+                disabled={providerChecking}
+              >
+                {providerChecking ? "확인 중..." : "Provider 상태 다시 확인"}
+              </button>
+
+              {providerCheckedAt ? (
+                <div
+                  style={{
+                    color: "#858d97",
+                    fontSize: 12,
+                    marginTop: 7,
+                  }}
+                >
+                  마지막 확인 {providerCheckedAt}
+                </div>
+              ) : null}
+
+              <label
+                style={{
+                  display: "block",
+                  margin: "18px 0 6px",
+                  color: "#9aa1aa",
+                  fontSize: 12,
+                }}
+              >
+                Groq API Key
+              </label>
+              <input
+                style={input}
+                type="password"
+                value={groqKey}
+                onChange={(event) => setGroqKey(event.target.value)}
+                placeholder="변경할 때만 입력"
+              />
+              <button
+                style={{ ...secondary, marginTop: 8 }}
+                onClick={async () => {
+                  if (!groqKey.trim()) return;
+                  setBusy("groq");
+                  const data = await request({
+                    action: "set_provider_secret",
+                    provider: "groq",
+                    secret: groqKey.trim(),
+                  });
+                  setBusy(null);
+                  if (data?.ok) {
+                    setGroqKey("");
+                    setStatusText("Groq 저장 완료");
+                    void refreshProviders();
+                  }
+                }}
+              >
+                {busy === "groq" ? "저장 중..." : "Groq 키 저장"}
+              </button>
+
+              <label
+                style={{
+                  display: "block",
+                  margin: "16px 0 6px",
+                  color: "#9aa1aa",
+                  fontSize: 12,
+                }}
+              >
+                Sanity Write Token
+              </label>
+              <input
+                style={input}
+                type="password"
+                value={sanityKey}
+                onChange={(event) => setSanityKey(event.target.value)}
+                placeholder="변경할 때만 입력"
+              />
+              <button
+                style={{ ...secondary, marginTop: 8 }}
+                onClick={async () => {
+                  if (!sanityKey.trim()) return;
+                  setBusy("sanity");
+                  const data = await request({
+                    action: "set_provider_secret",
+                    provider: "sanity",
+                    secret: sanityKey.trim(),
+                  });
+                  setBusy(null);
+                  if (data?.ok) {
+                    setSanityKey("");
+                    setStatusText("Sanity 저장 완료");
+                    void refreshProviders();
+                  }
+                }}
+              >
+                {busy === "sanity" ? "저장 중..." : "Sanity 토큰 저장"}
+              </button>
+            </div>
+          </details>
+        </section>
+
+        <section style={card}>
+          <div style={{ fontWeight: 900 }}>JARVIS 상태</div>
+          <div
+            style={{
+              marginTop: 8,
+              color: "#b6bdc6",
+              fontSize: 14,
+              lineHeight: 1.5,
+            }}
+          >
+            {statusText}
+          </div>
+
+          <details style={{ marginTop: 10 }}>
+            <summary
+              style={{
+                cursor: "pointer",
+                color: "#717985",
+                fontSize: 12,
+              }}
+            >
+              개발자 상세
             </summary>
             <pre
               style={{
@@ -1045,9 +1115,9 @@ export default function JarvisRemotePage() {
                 background: "#0d0f12",
                 padding: 12,
                 borderRadius: 12,
-                maxHeight: 380,
+                maxHeight: 320,
                 overflow: "auto",
-                fontSize: 12,
+                fontSize: 11,
                 lineHeight: 1.5,
               }}
             >
