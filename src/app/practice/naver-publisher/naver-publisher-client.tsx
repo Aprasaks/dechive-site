@@ -203,27 +203,81 @@ function makeId(index: number) {
 }
 
 function structureDraft(source: string): DraftBlock[] {
-  const lines = source
-    .split(/\n+/)
-    .map((line) => line.trim())
+  const normalized = source.replace(/\r/g, "").trim();
+  const paragraphChunks = normalized
+    .split(/\n\s*\n+/)
+    .map((chunk) => chunk.trim())
     .filter(Boolean);
+  const chunks =
+    paragraphChunks.length === 1 && normalized.includes("\n")
+      ? normalized
+          .split(/\n+/)
+          .map((chunk) => chunk.trim())
+          .filter(Boolean)
+      : paragraphChunks;
 
-  return lines.map((line, index) => {
-    let type: BlockType = "paragraph";
-    let content = line;
+  const result: DraftBlock[] = [];
 
-    if (/^(?:-{3,}|_{3,}|\*{3,}|\[구분선\])$/.test(line)) {
-      type = "divider";
-      content = "";
-    } else if (line.startsWith(">")) {
-      type = "quote";
-      content = line.replace(/^>\s*/, "");
-    } else if (line.length <= 30 && !/[.!?。]$/.test(line)) {
-      type = "heading";
+  const pushBlock = (type: BlockType, content: string) => {
+    result.push({
+      id: makeId(result.length),
+      type,
+      content,
+    });
+  };
+
+  for (const chunk of chunks) {
+    const compact = chunk.replace(/\s+/g, " ").trim();
+
+    if (/^(?:-{3,}|_{3,}|\*{3,}|\[구분선\])$/.test(compact)) {
+      if (result[result.length - 1]?.type !== "divider") {
+        pushBlock("divider", "");
+      }
+      continue;
     }
 
-    return { id: makeId(index), type, content };
-  });
+    if (compact.startsWith(">")) {
+      pushBlock("quote", compact.replace(/^>\s*/, ""));
+      continue;
+    }
+
+    const looksLikeHeading =
+      compact.length <= 34 &&
+      compact.split(/\s+/).length <= 10 &&
+      !/[.!?。！？]$/.test(compact);
+
+    if (looksLikeHeading) {
+      const hasContentBefore = result.some(
+        (block) =>
+          block.type === "paragraph" ||
+          block.type === "quote" ||
+          block.type === "heading",
+      );
+
+      if (hasContentBefore && result[result.length - 1]?.type !== "divider") {
+        pushBlock("divider", "");
+      }
+
+      pushBlock("heading", compact);
+      continue;
+    }
+
+    const looksLikeQuote =
+      compact.length >= 18 &&
+      compact.length <= 120 &&
+      /^(?:결국|즉[, ]|한마디로|다시 말해|정리하면|핵심은|중요한 것은|중요한 건|기억할 것은|AI를 이해할 때 중요한 것은)/.test(
+        compact,
+      );
+
+    if (looksLikeQuote) {
+      pushBlock("quote", compact);
+      continue;
+    }
+
+    pushBlock("paragraph", chunk);
+  }
+
+  return result;
 }
 
 export function NaverPublisherClient() {
