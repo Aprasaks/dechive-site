@@ -180,6 +180,8 @@ export default function JarvisRemotePage() {
   async function checkProviderStatus() {
     if (providerChecking) return;
     setProviderChecking(true);
+    setActiveAction("provider-check");
+    setLastAction("Provider 상태 확인 버튼을 눌렀습니다.");
     setStatus("Provider 상태 확인 중...");
 
     const data = await callJarvis({ action: "provider_status" }, true);
@@ -195,6 +197,10 @@ export default function JarvisRemotePage() {
     }
 
     setProviderChecking(false);
+    setActiveAction(null);
+    if (data?.providers) {
+      setLastAction("Provider 상태 확인 완료 ✓");
+    }
   }
 
   async function runKnowledge(count: 1 | 2) {
@@ -253,6 +259,7 @@ export default function JarvisRemotePage() {
     if (!activeCommandId) return;
     const data = await callJarvis({ action: "approve_knowledge", jobId });
     if (data?.ok) {
+      setLastAction("Knowledge 사람 검증 승인 완료 ✓");
       setStatus("승인 완료. 실제 발행 확인 중...");
       void pollCommand(activeCommandId);
     }
@@ -364,31 +371,45 @@ export default function JarvisRemotePage() {
           >
             <button
               onClick={() => void runKnowledge(1)}
-              disabled={activeAction === "knowledge-one"}
+              disabled={
+                activeAction === "knowledge-one" || Boolean(activeCommandId)
+              }
               style={{
                 ...buttonStyle,
                 boxShadow:
                   providerState?.groq && providerState?.sanity
                     ? "0 0 0 2px rgba(139,212,156,0.35)"
                     : "none",
-                opacity: activeAction === "knowledge-one" ? 0.65 : 1,
+                opacity:
+                  activeAction === "knowledge-one" || activeCommandId
+                    ? 0.65
+                    : 1,
               }}
             >
               {activeAction === "knowledge-one"
                 ? "명령 접수 중..."
-                : "Knowledge 1건 테스트"}
+                : activeCommandId
+                  ? "Knowledge 작업 진행 중 ✓"
+                  : "Knowledge 1건 테스트"}
             </button>
             <button
               onClick={() => void runKnowledge(2)}
-              disabled={activeAction === "knowledge-two"}
+              disabled={
+                activeAction === "knowledge-two" || Boolean(activeCommandId)
+              }
               style={{
                 ...buttonStyle,
-                opacity: activeAction === "knowledge-two" ? 0.65 : 1,
+                opacity:
+                  activeAction === "knowledge-two" || activeCommandId
+                    ? 0.65
+                    : 1,
               }}
             >
               {activeAction === "knowledge-two"
                 ? "명령 접수 중..."
-                : "Knowledge 오늘 2건"}
+                : activeCommandId
+                  ? "Knowledge 작업 진행 중 ✓"
+                  : "Knowledge 오늘 2건"}
             </button>
             <button
               onClick={() => void checkTodayStatus()}
