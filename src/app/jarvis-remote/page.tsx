@@ -88,7 +88,15 @@ export default function JarvisRemotePage() {
   const [status, setStatus] = useState("대기 중");
   const [result, setResult] = useState<JarvisResponse | null>(null);
   const [activeCommandId, setActiveCommandId] = useState<string | null>(null);
-  const [pairSaved, setPairSaved] = useState(() => Boolean(stored("jarvis_device_key") && stored("jarvis_device_token")));
+  const [pairSaved, setPairSaved] = useState(() =>
+    Boolean(stored("jarvis_device_key") && stored("jarvis_device_token")),
+  );
+  const [providerState, setProviderState] = useState<{
+    groq: boolean;
+    sanity: boolean;
+  } | null>(null);
+  const [providerChecking, setProviderChecking] = useState(false);
+  const [providerCheckedAt, setProviderCheckedAt] = useState<string | null>(null);
 
   const approvalJobs = useMemo(() => {
     const jobs = result?.command?.result?.jobs ?? [];
@@ -165,6 +173,26 @@ export default function JarvisRemotePage() {
     }
 
     setStatus("작업은 계속 진행 중입니다. 오늘 상태에서 다시 확인하세요.");
+  }
+
+  async function checkProviderStatus() {
+    if (providerChecking) return;
+    setProviderChecking(true);
+    setStatus("Provider 상태 확인 중...");
+
+    const data = await callJarvis({ action: "provider_status" }, true);
+    if (data?.providers) {
+      setProviderState({
+        groq: Boolean(data.providers.groq),
+        sanity: Boolean(data.providers.sanity),
+      });
+      setProviderCheckedAt(new Date().toLocaleTimeString("ko-KR"));
+      setStatus("Provider 상태 확인 완료");
+    } else {
+      setStatus(data?.error ?? "Provider 상태 확인 실패");
+    }
+
+    setProviderChecking(false);
   }
 
   async function runKnowledge(count: 1 | 2) {
@@ -278,12 +306,106 @@ export default function JarvisRemotePage() {
               오늘 상태
             </button>
             <button
-              onClick={() => void callJarvis({ action: "provider_status" })}
-              style={secondaryButton}
+              onClick={() => void checkProviderStatus()}
+              disabled={providerChecking}
+              style={{
+                ...secondaryButton,
+                opacity: providerChecking ? 0.65 : 1,
+              }}
             >
-              Provider 상태
+              {providerChecking ? "확인 중..." : "Provider 상태 확인"}
             </button>
           </div>
+        </section>
+
+        <section style={card}>
+          <strong>Provider 연결 상태</strong>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 10,
+              marginTop: 12,
+            }}
+          >
+            <div
+              style={{
+                border: "1px solid #30343a",
+                borderRadius: 12,
+                padding: 12,
+                background: "#0f1114",
+              }}
+            >
+              <div style={{ fontSize: 12, color: "#9ca3af" }}>Groq</div>
+              <div
+                style={{
+                  marginTop: 6,
+                  fontWeight: 700,
+                  color:
+                    providerState === null
+                      ? "#9ca3af"
+                      : providerState.groq
+                        ? "#8bd49c"
+                        : "#ff8f8f",
+                }}
+              >
+                {providerState === null
+                  ? "확인 전"
+                  : providerState.groq
+                    ? "연결됨 ✓"
+                    : "미연결"}
+              </div>
+            </div>
+
+            <div
+              style={{
+                border: "1px solid #30343a",
+                borderRadius: 12,
+                padding: 12,
+                background: "#0f1114",
+              }}
+            >
+              <div style={{ fontSize: 12, color: "#9ca3af" }}>Sanity</div>
+              <div
+                style={{
+                  marginTop: 6,
+                  fontWeight: 700,
+                  color:
+                    providerState === null
+                      ? "#9ca3af"
+                      : providerState.sanity
+                        ? "#8bd49c"
+                        : "#ff8f8f",
+                }}
+              >
+                {providerState === null
+                  ? "확인 전"
+                  : providerState.sanity
+                    ? "연결됨 ✓"
+                    : "미연결"}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 10, color: "#9ca3af", fontSize: 13 }}>
+            {providerChecking
+              ? "JARVIS Cloud에서 현재 Provider 상태를 확인하고 있습니다..."
+              : providerCheckedAt
+                ? "마지막 확인: " + providerCheckedAt
+                : "아직 상태를 조회하지 않았습니다."}
+          </div>
+
+          <button
+            onClick={() => void checkProviderStatus()}
+            disabled={providerChecking}
+            style={{
+              ...secondaryButton,
+              marginTop: 10,
+              opacity: providerChecking ? 0.65 : 1,
+            }}
+          >
+            {providerChecking ? "확인 중..." : "지금 다시 확인"}
+          </button>
         </section>
 
         <section style={card}>
@@ -327,12 +449,16 @@ export default function JarvisRemotePage() {
           <button
             onClick={async () => {
               if (!groqKey.trim()) return;
-              await callJarvis({
+              const data = await callJarvis({
                 action: "set_provider_secret",
                 provider: "groq",
                 secret: groqKey.trim(),
               });
-              setGroqKey("");
+              if (data?.ok) {
+                setGroqKey("");
+                setStatus("Groq 연결 저장 완료 — 상태를 다시 확인합니다.");
+                void checkProviderStatus();
+              }
             }}
             style={{ ...secondaryButton, marginTop: 10 }}
           >
@@ -352,12 +478,16 @@ export default function JarvisRemotePage() {
           <button
             onClick={async () => {
               if (!sanityKey.trim()) return;
-              await callJarvis({
+              const data = await callJarvis({
                 action: "set_provider_secret",
                 provider: "sanity",
                 secret: sanityKey.trim(),
               });
-              setSanityKey("");
+              if (data?.ok) {
+                setSanityKey("");
+                setStatus("Sanity 연결 저장 완료 — 상태를 다시 확인합니다.");
+                void checkProviderStatus();
+              }
             }}
             style={{ ...secondaryButton, marginTop: 10 }}
           >
