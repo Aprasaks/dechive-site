@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 const footerNavigation = [
@@ -11,13 +12,20 @@ export function SiteFooter() {
   return (
     <footer className="border-t border-[color:rgb(9_41_68_/_12%)] text-[var(--navy)]">
       <div className="mx-auto flex min-h-16 w-full max-w-[1440px] flex-col justify-center gap-3 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-7 lg:px-10 xl:px-12">
-        <div className="leading-none">
+        <div>
           <Link
             href="/"
-            className="text-[13px] font-bold tracking-[0.2em]"
+            className="inline-flex items-center gap-2 text-[13px] leading-none font-bold tracking-[0.2em]"
             aria-label="DECHIVE 홈"
           >
-            DECHIVE
+            <Image
+              src="/brand/dechive-mark.png"
+              alt=""
+              width={20}
+              height={20}
+              className="h-5 w-5 shrink-0"
+            />
+            <span>DECHIVE</span>
           </Link>
           <p className="mt-1.5 text-[11px] tracking-[0.04em] opacity-60">
             AI creates, Humans verify

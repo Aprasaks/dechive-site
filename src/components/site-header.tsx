@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -19,10 +20,18 @@ export function SiteHeader() {
       <div className="relative mx-auto flex h-full w-full max-w-[1440px] items-center px-5 sm:px-7 lg:px-10 xl:px-12">
         <Link
           href="/"
-          className="text-sm font-bold tracking-[0.24em] sm:text-[15px]"
+          className="flex items-center gap-2 text-sm font-bold tracking-[0.24em] sm:text-[15px]"
           aria-label="DECHIVE 홈"
         >
-          DECHIVE
+          <Image
+            src="/brand/dechive-mark.png"
+            alt=""
+            width={24}
+            height={24}
+            className="h-6 w-6 shrink-0"
+            priority
+          />
+          <span>DECHIVE</span>
         </Link>
 
         {isSnsSales ? (
