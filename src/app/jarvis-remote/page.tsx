@@ -88,6 +88,7 @@ export default function JarvisRemotePage() {
   const [status, setStatus] = useState("대기 중");
   const [result, setResult] = useState<JarvisResponse | null>(null);
   const [activeCommandId, setActiveCommandId] = useState<string | null>(null);
+  const [pairSaved, setPairSaved] = useState(() => Boolean(stored("jarvis_device_key") && stored("jarvis_device_token")));
 
   const approvalJobs = useMemo(() => {
     const jobs = result?.command?.result?.jobs ?? [];
@@ -186,6 +187,7 @@ export default function JarvisRemotePage() {
   function savePair() {
     window.localStorage.setItem("jarvis_device_key", deviceKey.trim());
     window.localStorage.setItem("jarvis_device_token", deviceToken.trim());
+    setPairSaved(true);
     setStatus("이 iPhone에 pairing 정보 저장 완료");
   }
 
@@ -213,7 +215,7 @@ export default function JarvisRemotePage() {
           </label>
           <input
             value={deviceKey}
-            onChange={(event) => setDeviceKey(event.target.value)}
+            onChange={(event) => { setDeviceKey(event.target.value); setPairSaved(false); }}
             placeholder="iphone-primary"
             style={inputStyle}
           />
@@ -222,17 +224,33 @@ export default function JarvisRemotePage() {
           </label>
           <input
             value={deviceToken}
-            onChange={(event) => setDeviceToken(event.target.value)}
+            onChange={(event) => { setDeviceToken(event.target.value); setPairSaved(false); }}
             type="password"
             placeholder="pairing token"
             style={inputStyle}
           />
           <button
             onClick={savePair}
-            style={{ ...secondaryButton, marginTop: 10 }}
+            style={{
+              ...secondaryButton,
+              marginTop: 10,
+              background: pairSaved ? "#17351f" : secondaryButton.background,
+              borderColor: pairSaved ? "#2f7a45" : secondaryButton.border,
+            }}
           >
-            이 기기에 저장
+            {pairSaved ? "저장됨 ✓" : "이 기기에 저장"}
           </button>
+          <div
+            style={{
+              marginTop: 10,
+              fontSize: 13,
+              color: pairSaved ? "#8bd49c" : "#9ca3af",
+            }}
+          >
+            {pairSaved
+              ? "이 iPhone이 JARVIS Remote에 연결되었습니다."
+              : "Device Key와 Token을 저장하면 이곳에 연결 상태가 표시됩니다."}
+          </div>
         </section>
 
         <section style={card}>
