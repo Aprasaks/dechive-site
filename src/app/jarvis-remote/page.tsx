@@ -291,7 +291,16 @@ export default function JarvisRemotePage() {
               marginTop: 12,
             }}
           >
-            <button onClick={() => void runKnowledge(1)} style={buttonStyle}>
+            <button
+              onClick={() => void runKnowledge(1)}
+              style={{
+                ...buttonStyle,
+                boxShadow:
+                  providerState?.groq && providerState?.sanity
+                    ? "0 0 0 2px rgba(139,212,156,0.35)"
+                    : "none",
+              }}
+            >
               Knowledge 1건 테스트
             </button>
             <button onClick={() => void runKnowledge(2)} style={buttonStyle}>
@@ -318,8 +327,50 @@ export default function JarvisRemotePage() {
           </div>
         </section>
 
-        <section style={card}>
-          <strong>Provider 연결 상태</strong>
+        <section
+          style={{
+            ...card,
+            borderColor:
+              providerState?.groq && providerState?.sanity
+                ? "#2f7a45"
+                : providerState
+                  ? "#7a3b3b"
+                  : "#272a2f",
+            background:
+              providerState?.groq && providerState?.sanity
+                ? "#102417"
+                : "#14161a",
+          }}
+        >
+          <div style={{ fontWeight: 800, fontSize: 18 }}>
+            {providerState === null
+              ? "Provider 연결 상태"
+              : providerState.groq && providerState.sanity
+                ? "✅ Provider 연결 완료"
+                : providerState.groq || providerState.sanity
+                  ? "⚠️ Provider 1/2 연결됨"
+                  : "❌ Provider 미연결"}
+          </div>
+          <div
+            style={{
+              marginTop: 6,
+              color:
+                providerState?.groq && providerState?.sanity
+                  ? "#8bd49c"
+                  : "#b9bec7",
+              fontSize: 14,
+            }}
+          >
+            {providerState === null
+              ? "아직 상태를 확인하지 않았습니다."
+              : providerState.groq && providerState.sanity
+                ? "Groq · Sanity 모두 연결됨"
+                : providerState.groq
+                  ? "Groq만 연결됨"
+                  : providerState.sanity
+                    ? "Sanity만 연결됨"
+                    : "Groq와 Sanity를 연결하세요"}
+          </div>
           <div
             style={{
               display: "grid",
@@ -394,6 +445,23 @@ export default function JarvisRemotePage() {
                 ? "마지막 확인: " + providerCheckedAt
                 : "아직 상태를 조회하지 않았습니다."}
           </div>
+
+          {providerState?.groq && providerState?.sanity ? (
+            <div
+              style={{
+                marginTop: 10,
+                padding: 12,
+                borderRadius: 12,
+                background: "#17351f",
+                border: "1px solid #2f7a45",
+                color: "#b7efc4",
+                fontWeight: 700,
+                fontSize: 14,
+              }}
+            >
+              이제 Knowledge 1건 테스트를 실행할 수 있습니다.
+            </div>
+          ) : null}
 
           <button
             onClick={() => void checkProviderStatus()}
