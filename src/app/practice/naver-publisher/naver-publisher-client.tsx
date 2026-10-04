@@ -13,6 +13,12 @@ type DraftBlock = {
   dataUrl?: string;
 };
 
+type StructureItem = {
+  type: "paragraph" | "heading" | "quote" | "divider" | "image";
+  paragraphIndex: number;
+  imageIndex: number;
+};
+
 const blockLabels: Record<BlockType, string> = {
   title: "제목",
   heading: "큰 제목",
@@ -202,6 +208,93 @@ function makeId(index: number) {
   return `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+function splitDraftParagraphs(source: string) {
+  const normalized = source.replace(/\r/g, "").trim();
+  if (!normalized) return [];
+
+  const paragraphs = normalized
+    .split(/\n\s*\n+/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
+  if (paragraphs.length === 1 && normalized.includes("\n")) {
+    return normalized
+      .split(/\n+/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean);
+  }
+
+  return paragraphs;
+}
+
+function blocksFromStructure(
+  items: StructureItem[],
+  paragraphs: string[],
+  images: DraftBlock[],
+) {
+  const result: DraftBlock[] = [];
+
+  items.forEach((item) => {
+    if (item.type === "divider") {
+      result.push({
+        id: makeId(result.length),
+        type: "divider",
+        content: "",
+      });
+      return;
+    }
+
+    if (item.type === "image") {
+      const image = images[item.imageIndex];
+      if (!image) return;
+      result.push({
+        ...image,
+        id: makeId(result.length),
+      });
+      return;
+    }
+
+    const content = paragraphs[item.paragraphIndex];
+    if (!content) return;
+
+    result.push({
+      id: makeId(result.length),
+      type: item.type,
+      content,
+    });
+  });
+
+  return result;
+}
+
+function resizeImageForAnalysis(dataUrl: string) {
+  return new Promise<string>((resolve) => {
+    const image = new Image();
+
+    image.onload = () => {
+      const maxSize = 900;
+      const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+      const width = Math.max(1, Math.round(image.width * scale));
+      const height = Math.max(1, Math.round(image.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const context = canvas.getContext("2d");
+      if (!context) {
+        resolve(dataUrl);
+        return;
+      }
+
+      context.drawImage(image, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", 0.76));
+    };
+
+    image.onerror = () => resolve(dataUrl);
+    image.src = dataUrl;
+  });
+}
+
 function structureDraft(source: string): DraftBlock[] {
   const normalized = source.replace(/\r/g, "").trim();
   const paragraphChunks = normalized
@@ -288,6 +381,7 @@ export function NaverPublisherClient() {
   const [message, setMessage] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isStructuring, setIsStructuring] = useState(false);
   const [bridgeState, setBridgeState] = useState<BridgeState>("checking");
   const [isSending, setIsSending] = useState(false);
   const [tagsText, setTagsText] = useState("");
@@ -317,23 +411,84 @@ export function NaverPublisherClient() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  const createPreview = () => {
-    const nextBlocks = structureDraft(draft);
+  const createPreview = async () => {
+    const paragraphs = splitDraftParagraphs(draft);
 
     if (!title.trim()) {
       setMessage("제목을 입력해 주세요.");
       return;
     }
 
-    if (nextBlocks.length === 0) {
+    if (paragraphs.length === 0) {
       setMessage("본문을 입력해 주세요.");
       return;
     }
 
-    setMessage(null);
-    startTransition(() => {
-      setBlocks([...nextBlocks, ...images]);
-    });
+    setIsStructuring(true);
+    setMessage("원고와 이미지를 읽고 네이버용 구조를 잡고 있습니다…");
+
+    try {
+      const analysisImages = await Promise.all(
+        images.map(async (image, index) => ({
+          index,
+          fileName: image.fileName,
+          dataUrl: image.dataUrl
+            ? await resizeImageForAnalysis(image.dataUrl)
+            : "",
+        })),
+      );
+
+      const response = await fetch(
+        "/api/practice/naver-publisher/structure",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            paragraphs,
+            images: analysisImages,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("AI_STRUCTURE_UNAVAILABLE");
+      }
+
+      const payload = (await response.json()) as {
+        items?: StructureItem[];
+      };
+
+      const nextBlocks = blocksFromStructure(
+        Array.isArray(payload.items) ? payload.items : [],
+        paragraphs,
+        images,
+      );
+
+      if (nextBlocks.length === 0) {
+        throw new Error("AI_STRUCTURE_EMPTY");
+      }
+
+      startTransition(() => {
+        setBlocks(nextBlocks);
+      });
+      setMessage(
+        images.length > 0
+          ? "AI가 글 구조와 이미지 위치를 함께 정리했습니다."
+          : "AI가 소제목·인용구·구분선을 판단해 정리했습니다.",
+      );
+    } catch {
+      const fallbackBlocks = structureDraft(draft);
+
+      startTransition(() => {
+        setBlocks([...fallbackBlocks, ...images]);
+      });
+      setMessage(
+        "AI 연결 전이라 기본 규칙으로 미리보기를 만들었습니다. AI 키를 연결하면 글과 이미지를 함께 판별합니다.",
+      );
+    } finally {
+      setIsStructuring(false);
+    }
   };
 
   const updateBlock = (id: string, patch: Partial<DraftBlock>) => {
@@ -383,26 +538,30 @@ export function NaverPublisherClient() {
     ]);
   };
 
-  const addImage = async (file: File | undefined) => {
-    if (!file) return;
+  const addImages = async (files: File[]) => {
+    if (files.length === 0) return;
 
     try {
-      const dataUrl = await readFileAsDataUrl(file);
-      setImages((current) => [
-        ...current,
-        {
-          id: makeId(current.length),
-          type: "image",
+      const nextImages = await Promise.all(
+        files.map(async (file, index) => ({
+          id: makeId(images.length + index),
+          type: "image" as const,
           content: "이미지 설명을 입력하세요.",
           fileName: file.name,
-          dataUrl,
-        },
-      ]);
+          dataUrl: await readFileAsDataUrl(file),
+        })),
+      );
+
+      setImages((current) => [...current, ...nextImages]);
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "이미지를 읽지 못했습니다.",
       );
     }
+  };
+
+  const removeImage = (id: string) => {
+    setImages((current) => current.filter((image) => image.id !== id));
   };
 
   const sendToNaver = async () => {
@@ -545,25 +704,69 @@ export function NaverPublisherClient() {
 
           <div className="mt-5">
             <p className="text-[14px] font-semibold">이미지</p>
-            <label
-              className="mt-2 inline-flex h-12 w-full cursor-pointer items-center justify-center border border-dashed border-[color:rgb(9_41_68_/_24%)] bg-white px-4 text-[14px] font-semibold transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]"
-            >
-              + 이미지 추가
-              <input
-                type="file"
-                accept="image/*"
-                className="sr-only"
-                onChange={(event) => {
-                  void addImage(event.target.files?.[0]);
-                  event.target.value = "";
-                }}
-              />
-            </label>
             {images.length > 0 ? (
-              <p className="mt-2 text-[13px] font-medium">
-                이미지 {images.length}장 준비됨
-              </p>
-            ) : null}
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {images.map((image, index) => (
+                  <div
+                    key={image.id}
+                    className="relative overflow-hidden border border-[color:rgb(9_41_68_/_14%)] bg-white"
+                  >
+                    {image.dataUrl ? (
+                      // User-selected local image preview.
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={image.dataUrl}
+                        alt={image.fileName || `이미지 ${index + 1}`}
+                        className="aspect-square w-full object-cover"
+                      />
+                    ) : null}
+                    <div className="flex items-center justify-between gap-1 px-2 py-1.5">
+                      <span className="truncate text-[11px] font-medium">
+                        이미지 {index + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeImage(image.id)}
+                        className="text-[13px] font-bold text-[var(--terracotta)]"
+                        aria-label={`이미지 ${index + 1} 삭제`}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                <label className="flex min-h-[110px] cursor-pointer items-center justify-center border border-dashed border-[color:rgb(9_41_68_/_24%)] bg-white text-[13px] font-semibold transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]">
+                  + 더 추가
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="sr-only"
+                    onChange={(event) => {
+                      void addImages(Array.from(event.target.files || []));
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+            ) : (
+              <label className="mt-2 inline-flex h-14 w-full cursor-pointer items-center justify-center border border-dashed border-[color:rgb(9_41_68_/_24%)] bg-white px-4 text-[14px] font-semibold transition-colors hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]">
+                + 이미지 추가
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="sr-only"
+                  onChange={(event) => {
+                    void addImages(Array.from(event.target.files || []));
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+            )}
+            <p className="mt-2 text-[12px] leading-5 opacity-65">
+              AI가 각 이미지를 보고 원고 내용과 가장 잘 맞는 위치를 추천합니다.
+            </p>
           </div>
 
           {message ? (
@@ -579,11 +782,11 @@ export function NaverPublisherClient() {
             <button
               type="button"
               onClick={createPreview}
-              disabled={isPending}
+              disabled={isPending || isStructuring}
               className="inline-flex h-12 w-full items-center justify-center bg-[var(--terracotta)] px-6 text-[15px] font-semibold text-[#fffaf2] transition-opacity hover:opacity-85 disabled:opacity-50"
             >
-              {isPending
-                ? "네이버용으로 정리하는 중…"
+              {isStructuring || isPending
+                ? "원고와 이미지를 분석하는 중…"
                 : "네이버용으로 변환하기 →"}
             </button>
           </div>
