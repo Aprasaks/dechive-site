@@ -247,15 +247,21 @@ export default function JarvisRemotePage() {
   const [sanityKey, setSanityKey] = useState("");
 
   useEffect(() => {
-    const dk = window.localStorage.getItem("jarvis_device_key") ?? "";
-    const dt = window.localStorage.getItem("jarvis_device_token") ?? "";
-    setDeviceKey(dk);
-    setDeviceToken(dt);
-    setPairSaved(Boolean(dk && dt));
+    const timer = window.setTimeout(() => {
+      const dk = window.localStorage.getItem("jarvis_device_key") ?? "";
+      const dt = window.localStorage.getItem("jarvis_device_token") ?? "";
 
-    if (dk && dt) {
-      void bootstrap(dk, dt);
-    }
+      setDeviceKey(dk);
+      setDeviceToken(dt);
+      setPairSaved(Boolean(dk && dt));
+
+      if (dk && dt) {
+        void bootstrap(dk, dt);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function request(
