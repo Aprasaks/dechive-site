@@ -115,7 +115,11 @@ function buildNaverPayload(
         slot: "IMAGE_" + String(imageIndex + 1),
         sequence: imageIndex,
       });
-      html.push('<p data-dd-photo-slot="' + String(imageIndex) + '"></p>');
+      // Keep the photo slot alive through SmartEditor paste normalization.
+      // Empty paragraphs can collapse before the connector replaces the slot.
+      html.push(
+        '<p data-dd-photo-slot="' + String(imageIndex) + '">ㅤ</p>',
+      );
 
       const caption = block.content.trim();
       if (caption && caption !== "이미지 설명을 입력하세요.") {
@@ -265,6 +269,55 @@ function blocksFromStructure(
   });
 
   return result;
+}
+
+function distributeFallbackImages(
+  sourceBlocks: DraftBlock[],
+  images: DraftBlock[],
+) {
+  if (images.length === 0) return sourceBlocks;
+
+  const blocks = [...sourceBlocks];
+  const paragraphIndexes = blocks
+    .map((block, index) => ({ block, index }))
+    .filter(({ block }) => block.type === "paragraph")
+    .map(({ index }) => index);
+
+  if (paragraphIndexes.length === 0) {
+    return [...blocks, ...images];
+  }
+
+  const insertionPlans = images.map((image, imageIndex) => {
+    let paragraphPosition = 0;
+
+    if (images.length === 1) {
+      // A single image behaves like a representative image in fallback mode:
+      // keep it near the introduction instead of dropping it at the very end.
+      paragraphPosition = Math.min(1, paragraphIndexes.length - 1);
+    } else {
+      const fraction = (imageIndex + 1) / (images.length + 1);
+      paragraphPosition = Math.min(
+        paragraphIndexes.length - 1,
+        Math.max(0, Math.round(fraction * (paragraphIndexes.length - 1))),
+      );
+    }
+
+    return {
+      image,
+      afterIndex: paragraphIndexes[paragraphPosition],
+    };
+  });
+
+  let offset = 0;
+  insertionPlans.forEach(({ image, afterIndex }) => {
+    blocks.splice(afterIndex + 1 + offset, 0, {
+      ...image,
+      id: makeId(blocks.length + offset),
+    });
+    offset += 1;
+  });
+
+  return blocks;
 }
 
 function resizeImageForAnalysis(dataUrl: string) {
@@ -481,7 +534,7 @@ export function NaverPublisherClient() {
       const fallbackBlocks = structureDraft(draft);
 
       startTransition(() => {
-        setBlocks([...fallbackBlocks, ...images]);
+        setBlocks(distributeFallbackImages(fallbackBlocks, images));
       });
       setMessage(
         "AI 연결 전이라 기본 규칙으로 미리보기를 만들었습니다. AI 키를 연결하면 글과 이미지를 함께 판별합니다.",
@@ -562,6 +615,9 @@ export function NaverPublisherClient() {
 
   const removeImage = (id: string) => {
     setImages((current) => current.filter((image) => image.id !== id));
+    setBlocks((current) =>
+      current.filter((block) => block.type !== "image" || block.id !== id),
+    );
   };
 
   const sendToNaver = async () => {
