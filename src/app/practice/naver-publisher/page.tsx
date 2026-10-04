@@ -5,21 +5,21 @@ import Link from "next/link";
 const flow = [
   {
     number: "01",
-    title: "원고 붙여넣기",
+    title: "원고 · 이미지 넣기",
     description:
-      "유튜브 대본, SNS 글, ChatGPT에서 완성한 원고, 직접 쓴 글을 그대로 넣습니다.",
+      "이미 완성한 원고와 사용할 이미지를 그대로 가져옵니다. 새 글을 다시 쓸 필요가 없습니다.",
   },
   {
     number: "02",
-    title: "네이버용 정리",
+    title: "구조 자동 정리",
     description:
-      "문단, 소제목, 인용구, 이미지 흐름을 네이버에서 읽기 좋은 구조로 나눕니다.",
+      "원문은 바꾸지 않고 소제목·인용구·구분선을 나누고, 이미지는 글 흐름에 맞는 위치에 배치합니다.",
   },
   {
     number: "03",
     title: "네이버 미리보기",
     description:
-      "실제로 올라갈 글의 흐름을 먼저 보고 필요한 부분만 직접 손봅니다.",
+      "네이버에서 어떻게 보일지 먼저 확인합니다. 자동 배치가 마음에 들지 않을 때만 직접 손봅니다.",
   },
   {
     number: "04",
@@ -38,10 +38,10 @@ const sources = [
 ];
 
 const v1Features = [
-  "원문을 바꾸지 않는 AI 구조 판별",
+  "완성된 원고와 이미지 가져오기",
+  "원문을 바꾸지 않는 구조 판별",
   "소제목 · 인용구 · 구분선 자동 배치",
-  "업로드 이미지 내용 분석",
-  "글 내용에 맞는 이미지 위치 추천",
+  "글 흐름에 맞는 이미지 위치 정리",
   "네이버형 미리보기",
   "필요할 때만 상세 수정",
   "네이버 SmartEditor 전송 · 임시저장",
@@ -84,21 +84,21 @@ export default function NaverPublisherPage() {
           </div>
 
           <h1 className="font-editorial mt-6 text-[2.2rem] leading-[1.14] font-semibold tracking-[-0.045em] sm:text-[2.8rem] lg:text-[3.2rem]">
-            이미 만든 콘텐츠를
+            글도 있고, 이미지도 있다면
             <br />
-            네이버에서 다시 만들지 마세요.
+            네이버용으로 다시 만들 필요 없습니다.
           </h1>
 
           <p className="font-editorial mt-4 text-lg leading-8 sm:text-xl">
-            원고를 넣으면 네이버 블로그용으로 정리하고,
+            원고와 이미지를 넣으면 네이버에서 읽기 좋은 구조로 조립하고,
             <br className="hidden sm:block" /> 미리보기한 뒤 임시저장까지
             연결합니다.
           </p>
 
           <p className="mt-5 max-w-xl text-[14px] leading-7">
-            DECHIVE NAVER PUBLISHER는 글을 새로 생성하는 자동화가 아닙니다. 이미
-            다른 곳에서 만든 콘텐츠를 가져와 네이버에 맞게 옮기는 퍼블리싱
-            도구입니다.
+            DECHIVE NAVER PUBLISHER는 글을 대신 써주는 AI Writer가 아닙니다.
+            이미 완성한 글과 이미지를 가져와 소제목, 인용구, 구분선, 이미지
+            위치를 정리하고 네이버에 옮기는 퍼블리싱 도구입니다.
           </p>
 
           <div className="mt-7 flex flex-wrap gap-2.5">
@@ -143,13 +143,13 @@ export default function NaverPublisherPage() {
               ONE CONTENT, ANOTHER CHANNEL
             </p>
             <h2 className="font-editorial mt-3 text-2xl leading-tight font-semibold sm:text-3xl">
-              여러 플랫폼을 운영할수록
+              콘텐츠는 이미 완성됐는데,
               <br />
-              같은 일을 반복하게 됩니다.
+              플랫폼마다 다시 편집하고 있습니다.
             </h2>
             <p className="mt-4 max-w-md text-[13px] leading-6">
-              콘텐츠는 이미 있는데 네이버에 올리기 위해 제목, 문단, 이미지,
-              인용구를 또 손보는 시간을 줄이는 것이 v1.0의 목표입니다.
+              네이버에 올리기 위해 문단을 다시 나누고, 강조 문장을 고르고,
+              이미지를 다시 배치하는 반복 작업을 줄이는 것이 v1.0의 목표입니다.
             </p>
           </div>
 
@@ -180,9 +180,9 @@ export default function NaverPublisherPage() {
             HOW IT WORKS
           </p>
           <h2 className="font-editorial mt-3 text-2xl font-semibold sm:text-3xl">
-            새로 쓰는 자동화가 아니라,
+            글은 그대로 두고,
             <br />
-            이미 쓴 글을 옮기는 자동화입니다.
+            네이버에 맞는 구조만 만듭니다.
           </h2>
         </div>
 
@@ -223,12 +223,13 @@ export default function NaverPublisherPage() {
             </span>
           </div>
           <h2 className="font-editorial mt-3 text-2xl font-semibold sm:text-3xl">
-            첫 공개 버전은
-            <br />한 가지에 집중합니다.
+            v1.0은 여기까지 합니다.
+            <br />더 넣지 않고 먼저 써봅니다.
           </h2>
           <p className="mt-4 max-w-sm text-[13px] leading-6">
-            원고를 네이버용으로 바꾸고 미리보기한 뒤 임시저장하는 흐름. 다음
-            기능은 실제 사용하면서 필요한 순서대로 Practice에 기록합니다.
+            원고와 이미지를 네이버용 구조로 조립하고, 결과를 미리 본 뒤
+            임시저장하는 흐름까지가 v1.0입니다. 다음 기능은 실제 사용에서
+            필요성이 확인될 때만 추가합니다.
           </p>
         </div>
 
@@ -252,11 +253,11 @@ export default function NaverPublisherPage() {
           NAVER PUBLISHER v1.0
         </p>
         <h2 className="font-editorial mt-3 text-3xl font-semibold">
-          원고가 있다면 바로 써볼 수 있습니다.
+          원고와 이미지가 있다면 바로 써볼 수 있습니다.
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-[14px] leading-7">
-          프로그램 화면에서는 설명을 걷어내고 원고, 네이버 미리보기,
-          임시저장에만 집중했습니다.
+          글을 새로 만들지 않습니다. 가지고 있는 원고와 이미지를 넣고,
+          네이버 미리보기에서 결과를 확인한 뒤 임시저장하면 됩니다.
         </p>
         <Link
           href="/practice/naver-publisher/app"
