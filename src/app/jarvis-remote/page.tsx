@@ -97,6 +97,8 @@ export default function JarvisRemotePage() {
   } | null>(null);
   const [providerChecking, setProviderChecking] = useState(false);
   const [providerCheckedAt, setProviderCheckedAt] = useState<string | null>(null);
+  const [activeAction, setActiveAction] = useState<string | null>(null);
+  const [lastAction, setLastAction] = useState<string | null>(null);
 
   const approvalJobs = useMemo(() => {
     const jobs = result?.command?.result?.jobs ?? [];
@@ -196,11 +198,55 @@ export default function JarvisRemotePage() {
   }
 
   async function runKnowledge(count: 1 | 2) {
+    const action = count === 1 ? "knowledge-one" : "knowledge-two";
+    setActiveAction(action);
+    setLastAction(
+      count === 1
+        ? "Knowledge 1건 테스트 버튼을 눌렀습니다."
+        : "Knowledge 오늘 2건 버튼을 눌렀습니다.",
+    );
+    setStatus("Knowledge 명령 접수 중...");
+
     const data = await callJarvis({
       text: "자비스, Knowledge 진행해",
       count,
     });
-    if (data?.command_id) void pollCommand(data.command_id);
+
+    setActiveAction(null);
+
+    if (data?.command_id) {
+      setLastAction(
+        count === 1
+          ? "Knowledge 1건 명령 접수 완료 ✓"
+          : "Knowledge 2건 명령 접수 완료 ✓",
+      );
+      void pollCommand(data.command_id);
+    }
+  }
+
+  async function checkTodayStatus() {
+    setActiveAction("today");
+    setLastAction("오늘 상태 버튼을 눌렀습니다.");
+    const data = await callJarvis({ text: "자비스, 오늘 어떻게 됐어?" });
+    setActiveAction(null);
+    if (data?.ok) {
+      setLastAction("오늘 상태 조회 완료 ✓");
+    }
+  }
+
+  async function sendFreeCommand() {
+    const text = commandText.trim();
+    if (!text) return;
+    setActiveAction("free-command");
+    setLastAction("자비스에게 명령을 전달했습니다.");
+    const data = await callJarvis({ text });
+    setActiveAction(null);
+    if (data?.intent === "knowledge_run" && data.command_id) {
+      setLastAction("Knowledge 명령 접수 완료 ✓");
+      void pollCommand(data.command_id);
+    } else if (data?.ok) {
+      setLastAction("명령 전달 완료 ✓");
+    }
   }
 
   async function approveKnowledge(jobId: string) {
@@ -213,10 +259,13 @@ export default function JarvisRemotePage() {
   }
 
   function savePair() {
+    setActiveAction("pair");
     window.localStorage.setItem("jarvis_device_key", deviceKey.trim());
     window.localStorage.setItem("jarvis_device_token", deviceToken.trim());
     setPairSaved(true);
     setStatus("이 iPhone에 pairing 정보 저장 완료");
+    setLastAction("기기 연결 정보 저장 완료 ✓");
+    setActiveAction(null);
   }
 
   return (
@@ -235,6 +284,24 @@ export default function JarvisRemotePage() {
         <p style={{ color: "#9ca3af", fontSize: 13, marginTop: 0 }}>
           iPhone → DECHIVE Cloud Control Plane
         </p>
+
+        <section
+          style={{
+            ...card,
+            padding: 12,
+            borderColor: activeAction ? "#5f6f86" : "#272a2f",
+            background: activeAction ? "#141d28" : "#111317",
+          }}
+        >
+          <div style={{ fontSize: 12, color: "#9ca3af" }}>
+            최근 동작
+          </div>
+          <div style={{ marginTop: 5, fontWeight: 700 }}>
+            {activeAction
+              ? "처리 중..."
+              : lastAction ?? "아직 누른 버튼이 없습니다."}
+          </div>
+        </section>
 
         <section style={card}>
           <strong>기기 연결</strong>
@@ -266,7 +333,11 @@ export default function JarvisRemotePage() {
               borderColor: pairSaved ? "#2f7a45" : secondaryButton.border,
             }}
           >
-            {pairSaved ? "저장됨 ✓" : "이 기기에 저장"}
+            {activeAction === "pair"
+              ? "저장 중..."
+              : pairSaved
+                ? "저장됨 ✓"
+                : "이 기기에 저장"}
           </button>
           <div
             style={{
@@ -293,26 +364,41 @@ export default function JarvisRemotePage() {
           >
             <button
               onClick={() => void runKnowledge(1)}
+              disabled={activeAction === "knowledge-one"}
               style={{
                 ...buttonStyle,
                 boxShadow:
                   providerState?.groq && providerState?.sanity
                     ? "0 0 0 2px rgba(139,212,156,0.35)"
                     : "none",
+                opacity: activeAction === "knowledge-one" ? 0.65 : 1,
               }}
             >
-              Knowledge 1건 테스트
-            </button>
-            <button onClick={() => void runKnowledge(2)} style={buttonStyle}>
-              Knowledge 오늘 2건
+              {activeAction === "knowledge-one"
+                ? "명령 접수 중..."
+                : "Knowledge 1건 테스트"}
             </button>
             <button
-              onClick={() =>
-                void callJarvis({ text: "자비스, 오늘 어떻게 됐어?" })
-              }
-              style={buttonStyle}
+              onClick={() => void runKnowledge(2)}
+              disabled={activeAction === "knowledge-two"}
+              style={{
+                ...buttonStyle,
+                opacity: activeAction === "knowledge-two" ? 0.65 : 1,
+              }}
             >
-              오늘 상태
+              {activeAction === "knowledge-two"
+                ? "명령 접수 중..."
+                : "Knowledge 오늘 2건"}
+            </button>
+            <button
+              onClick={() => void checkTodayStatus()}
+              disabled={activeAction === "today"}
+              style={{
+                ...buttonStyle,
+                opacity: activeAction === "today" ? 0.65 : 1,
+              }}
+            >
+              {activeAction === "today" ? "조회 중..." : "오늘 상태"}
             </button>
             <button
               onClick={() => void checkProviderStatus()}
@@ -485,17 +571,11 @@ export default function JarvisRemotePage() {
             style={{ ...inputStyle, minHeight: 96, marginTop: 12 }}
           />
           <button
-            onClick={async () => {
-              const text = commandText.trim();
-              if (!text) return;
-              const data = await callJarvis({ text });
-              if (data?.intent === "knowledge_run" && data.command_id) {
-                void pollCommand(data.command_id);
-              }
-            }}
+            onClick={() => void sendFreeCommand()}
+            disabled={activeAction === "free-command"}
             style={{ ...buttonStyle, marginTop: 10 }}
           >
-            진행해
+            {activeAction === "free-command" ? "전달 중..." : "진행해"}
           </button>
         </section>
 
@@ -517,20 +597,24 @@ export default function JarvisRemotePage() {
           <button
             onClick={async () => {
               if (!groqKey.trim()) return;
+              setActiveAction("groq-save");
+              setLastAction("Groq 연결 버튼을 눌렀습니다.");
               const data = await callJarvis({
                 action: "set_provider_secret",
                 provider: "groq",
                 secret: groqKey.trim(),
               });
+              setActiveAction(null);
               if (data?.ok) {
                 setGroqKey("");
                 setStatus("Groq 연결 저장 완료 — 상태를 다시 확인합니다.");
+                setLastAction("Groq 연결 저장 완료 ✓");
                 void checkProviderStatus();
               }
             }}
             style={{ ...secondaryButton, marginTop: 10 }}
           >
-            Groq 연결
+            {activeAction === "groq-save" ? "연결 중..." : "Groq 연결"}
           </button>
 
           <label style={{ display: "block", margin: "16px 0 6px" }}>
@@ -546,20 +630,24 @@ export default function JarvisRemotePage() {
           <button
             onClick={async () => {
               if (!sanityKey.trim()) return;
+              setActiveAction("sanity-save");
+              setLastAction("Sanity 연결 버튼을 눌렀습니다.");
               const data = await callJarvis({
                 action: "set_provider_secret",
                 provider: "sanity",
                 secret: sanityKey.trim(),
               });
+              setActiveAction(null);
               if (data?.ok) {
                 setSanityKey("");
                 setStatus("Sanity 연결 저장 완료 — 상태를 다시 확인합니다.");
+                setLastAction("Sanity 연결 저장 완료 ✓");
                 void checkProviderStatus();
               }
             }}
             style={{ ...secondaryButton, marginTop: 10 }}
           >
-            Sanity 연결
+            {activeAction === "sanity-save" ? "연결 중..." : "Sanity 연결"}
           </button>
         </section>
 
