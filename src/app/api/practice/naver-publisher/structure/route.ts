@@ -187,6 +187,7 @@ export async function POST(request: Request) {
     "7. Every uploaded image must appear exactly once. Do not place all images at the end unless that is genuinely the best match.",
     "8. Keep the overall paragraph order. Images and dividers may be inserted between paragraphs.",
     "9. The result should feel like a clean Naver Blog article that a human editor would approve.",
+    "10. Return ONLY a valid JSON object matching the requested schema. Do not use markdown fences or explanatory text.",
     "",
     `TITLE: ${title}`,
     "",
@@ -218,37 +219,51 @@ export async function POST(request: Request) {
   const model =
     process.env.OPENROUTER_MODEL || "google/gemma-4-31b-it:free";
 
-  try {
-    const response = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://dechive.dev",
-          "X-Title": "DECHIVE NAVER PUBLISHER",
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            {
-              role: "user",
-              content,
-            },
-          ],
-          temperature: 0.1,
-          response_format: {
-            type: "json_schema",
-            json_schema: {
-              name: "naver_publisher_structure",
-              strict: true,
-              schema: OUTPUT_SCHEMA,
-            },
-          },
-        }),
+  const requestOpenRouter = (useStructuredOutput: boolean) =>
+    fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://dechive.dev",
+        "X-Title": "DECHIVE NAVER PUBLISHER",
       },
-    );
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: "user",
+            content,
+          },
+        ],
+        temperature: 0.1,
+        ...(useStructuredOutput
+          ? {
+              response_format: {
+                type: "json_schema",
+                json_schema: {
+                  name: "naver_publisher_structure",
+                  strict: true,
+                  schema: OUTPUT_SCHEMA,
+                },
+              },
+            }
+          : {}),
+      }),
+    });
+
+  try {
+    let response = await requestOpenRouter(true);
+
+    if (!response.ok && (response.status === 400 || response.status === 422)) {
+      const structuredDetail = await response.text();
+      console.warn(
+        "OpenRouter structured output unavailable; retrying JSON-only prompt",
+        response.status,
+        structuredDetail,
+      );
+      response = await requestOpenRouter(false);
+    }
 
     if (!response.ok) {
       const detail = await response.text();
