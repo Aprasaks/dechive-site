@@ -38,6 +38,9 @@ type JobResult = {
     issues?: string[];
   };
   image_error?: string | null;
+  review_decision?: "confirmed" | "rejected" | null;
+  review_decided_at?: string | null;
+  publication_cancelled?: boolean;
 };
 type JobView = {
   job_id?: string;
@@ -173,11 +176,27 @@ function getHumanState(job: JobView | null) {
   }
 
   if (status === "waiting_for_user" && job.result?.sanity_document_id) {
+    if (job.result.review_decision === "confirmed") {
+      return {
+        tone: "review",
+        title: "발행 확인 대기",
+        detail: "사용자 확인이 끝났습니다. 발행 확인을 누르면 실제 발행됩니다.",
+        action: "publish_confirm",
+      };
+    }
+    if (job.result.review_decision === "rejected") {
+      return {
+        tone: "error",
+        title: "발행 취소 대기",
+        detail: "사용자가 거절했습니다. 발행 취소를 누르면 글과 대표 이미지가 삭제됩니다.",
+        action: "publish_cancel",
+      };
+    }
     return {
       tone: "review",
-      title: "검토 후 승인 필요",
-      detail: "글과 출처를 확인한 뒤 승인하면 실제 발행됩니다.",
-      action: "approve",
+      title: "사용자 승인 필요",
+      detail: "글·출처·대표 이미지를 확인한 뒤 확인 또는 거절을 선택하세요.",
+      action: "review_decision",
     };
   }
 
@@ -425,10 +444,12 @@ function getPipelineSteps(job: JobView | null): PipelineStep[] {
   else if (status === "verifying") currentStage = 2;
   else if (stage === "image_generate" || stage === "image_generating") currentStage = 3;
   else if (stage === "image_verifying" || stage === "image_review" || stage === "image_error") currentStage = 4;
-  else if (stage === "sanity_write" || result.sanity_document_id) currentStage = 5;
-  else if (status === "waiting_for_user" && result.sanity_document_id) currentStage = 6;
+  else if (status === "waiting_for_user" && result.sanity_document_id) {
+    currentStage = result.review_decision ? 7 : 6;
+  }
   else if (status === "publishing" || status === "post_verify") currentStage = 7;
   else if (status === "done") currentStage = 8;
+  else if (stage === "sanity_write" || result.sanity_document_id) currentStage = 5;
 
   if (
     status === "retry_wait" ||
@@ -476,8 +497,18 @@ function getPipelineSteps(job: JobView | null): PipelineStep[] {
         : "이미지 검증 통과"
       : "본문과 이미지의 관련성·오해 가능성 확인",
     result.sanity_document_id ? "review 문서 저장 완료" : "Sanity review 문서 저장",
-    "사람 검토 및 승인",
-    job.result_url || job.published_url ? "공개 페이지 확인 완료" : "DECHIVE 공개 확인",
+    result.review_decision === "confirmed"
+      ? "확인 선택 완료"
+      : result.review_decision === "rejected"
+        ? "거절 선택 완료"
+        : "사람 검토 및 승인",
+    job.result_url || job.published_url
+      ? "공개 페이지 확인 완료"
+      : result.review_decision === "confirmed"
+        ? "발행 확인을 기다리는 중"
+        : result.review_decision === "rejected"
+          ? "발행 취소를 기다리는 중"
+          : "DECHIVE 공개 확인",
   ];
 
   return labels.map((label, index) => {
@@ -814,9 +845,63 @@ export default function JarvisRemotePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pairSaved, knowledgeJob?.job_id, knowledgeJob?.status]);
 
+  async function setReviewDecision(
+    jobId: string,
+    decision: "confirmed" | "rejected",
+  ) {
+    setBusy(decision === "confirmed" ? "review-confirm" : "review-reject");
+    setStatusText(
+      decision === "confirmed" ? "사용자 확인 처리 중..." : "사용자 거절 처리 중...",
+    );
+
+    const data = await request({
+      action: "set_review_decision",
+      jobId,
+      decision,
+    });
+
+    setBusy(null);
+
+    if (data?.ok) {
+      setStatusText(
+        data.message ||
+          (decision === "confirmed"
+            ? "확인 완료. 발행 확인을 눌러주세요."
+            : "거절 완료. 발행 취소를 눌러주세요."),
+      );
+      await refreshKnowledge(true);
+    } else {
+      setStatusText(data?.error || "사용자 결정 처리 실패");
+    }
+  }
+
+  async function cancelPublication(jobId: string) {
+    const confirmed = window.confirm(
+      "발행을 취소할까요? 이 Knowledge 글과 대표 이미지가 함께 삭제됩니다.",
+    );
+    if (!confirmed) return;
+
+    setBusy("publish-cancel");
+    setStatusText("글과 대표 이미지 삭제 중...");
+
+    const data = await request({
+      action: "cancel_publication",
+      jobId,
+    });
+
+    setBusy(null);
+
+    if (data?.ok) {
+      setStatusText("발행 취소 완료. 글과 대표 이미지가 삭제되었습니다.");
+      await refreshKnowledge(true);
+    } else {
+      setStatusText(data?.error || "발행 취소 실패");
+    }
+  }
+
   async function approveKnowledge(jobId: string) {
     setBusy("approve");
-    setStatusText("승인 전달 중...");
+    setStatusText("발행 확인 전달 중...");
 
     const data = await request({
       action: "approve_knowledge",
@@ -824,7 +909,7 @@ export default function JarvisRemotePage() {
     });
 
     if (data?.ok) {
-      setStatusText("승인 완료. 실제 발행 확인 중...");
+      setStatusText("발행 확인 완료. 실제 공개 페이지 확인 중...");
       setBusy(null);
 
       if (activeCommandId) {
@@ -937,6 +1022,7 @@ export default function JarvisRemotePage() {
 
   const score = details.verification?.score;
   const sources = details.sources ?? [];
+  const reviewDecision = details.review_decision ?? null;
   const publicUrl = knowledgeJob?.result_url || knowledgeJob?.published_url;
   const pipelineSteps = useMemo(
     () => getPipelineSteps(knowledgeJob),
@@ -1631,19 +1717,30 @@ export default function JarvisRemotePage() {
               >
                 {busy === "start" ? "시작 중..." : "Knowledge 1건 시작"}
               </button>
-            ) : state.action === "approve" && knowledgeJob?.job_id ? (
+            ) : (
+              state.action === "review_decision" ||
+              state.action === "publish_confirm" ||
+              state.action === "publish_cancel"
+            ) && knowledgeJob?.job_id ? (
               <button
                 style={{
-                  ...primary,
-                  background: "#f2b66d",
-                  color: "#25170b",
+                  ...secondary,
+                  borderColor:
+                    state.action === "publish_cancel" ? "#7c3131" : "#31557b",
+                  color:
+                    state.action === "publish_cancel" ? "#ff9292" : "#a5c9ff",
                 }}
-                onClick={() => void approveKnowledge(knowledgeJob.job_id!)}
-                disabled={busy === "approve"}
+                onClick={() =>
+                  document
+                    .getElementById("pipeline-control")
+                    ?.scrollIntoView({ behavior: "smooth", block: "center" })
+                }
               >
-                {busy === "approve"
-                  ? "승인 처리 중..."
-                  : "검토 완료 — 승인 & 발행"}
+                {state.action === "review_decision"
+                  ? "사용자 승인 선택으로 이동"
+                  : state.action === "publish_confirm"
+                    ? "발행 확인으로 이동"
+                    : "발행 취소로 이동"}
               </button>
             ) : state.action === "image_retry" && knowledgeJob?.job_id ? (
               <button
@@ -1718,7 +1815,7 @@ export default function JarvisRemotePage() {
           ) : null}
         </section>
 
-        <section style={card}>
+        <section id="pipeline-control" style={card}>
           <div
             style={{
               display: "flex",
@@ -1745,8 +1842,22 @@ export default function JarvisRemotePage() {
           </div>
 
           <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
-            {pipelineSteps.map((step) => {
+            {pipelineSteps.map((step, index) => {
               const meta = pipelineStateMeta(step.state);
+              const isReviewStep = index === 6;
+              const isPublishStep = index === 7;
+              const canChooseReview =
+                isReviewStep &&
+                knowledgeJob?.status === "waiting_for_user" &&
+                Boolean(details.sanity_document_id);
+              const canPublish =
+                isPublishStep &&
+                knowledgeJob?.status === "waiting_for_user" &&
+                reviewDecision === "confirmed";
+              const canCancel =
+                isPublishStep &&
+                knowledgeJob?.status === "waiting_for_user" &&
+                reviewDecision === "rejected";
 
               return (
                 <div
@@ -1755,17 +1866,24 @@ export default function JarvisRemotePage() {
                   style={{
                     position: "relative",
                     overflow: "hidden",
-                    display: "grid",
-                    gridTemplateColumns: "34px 1fr auto",
-                    gap: 10,
-                    alignItems: "center",
                     padding: "11px 12px",
                     borderRadius: 12,
-                    background: step.state === "active" ? "#101821" : "#0f1114",
+                    background:
+                      canPublish
+                        ? "#102417"
+                        : canCancel
+                          ? "#271414"
+                          : step.state === "active"
+                            ? "#101821"
+                            : "#0f1114",
                     border:
-                      step.state === "active"
-                        ? "1px solid #31557b"
-                        : "1px solid #272b30",
+                      canPublish
+                        ? "1px solid #2f7a45"
+                        : canCancel
+                          ? "1px solid #7c3131"
+                          : step.state === "active"
+                            ? "1px solid #31557b"
+                            : "1px solid #272b30",
                   }}
                 >
                   {step.state === "active" ? (
@@ -1781,46 +1899,205 @@ export default function JarvisRemotePage() {
                       }}
                     />
                   ) : null}
+
                   <div
                     style={{
-                      width: 30,
-                      height: 30,
-                      borderRadius: 9,
-                      display: "flex",
+                      position: "relative",
+                      display: "grid",
+                      gridTemplateColumns: "34px 1fr auto",
+                      gap: 10,
                       alignItems: "center",
-                      justifyContent: "center",
-                      background: meta.background,
-                      color: meta.color,
-                      fontWeight: 900,
                     }}
                   >
-                    {meta.icon}
-                  </div>
-
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 800, fontSize: 14 }}>{step.label}</div>
                     <div
                       style={{
-                        marginTop: 3,
-                        color: "#9098a3",
-                        fontSize: 12,
-                        lineHeight: 1.4,
+                        width: 30,
+                        height: 30,
+                        borderRadius: 9,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background:
+                          isReviewStep && reviewDecision === "confirmed"
+                            ? "#102417"
+                            : isReviewStep && reviewDecision === "rejected"
+                              ? "#2b1515"
+                              : meta.background,
+                        color:
+                          isReviewStep && reviewDecision === "confirmed"
+                            ? "#91dda3"
+                            : isReviewStep && reviewDecision === "rejected"
+                              ? "#ff9292"
+                              : meta.color,
+                        fontWeight: 900,
                       }}
                     >
-                      {step.detail}
+                      {meta.icon}
+                    </div>
+
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: 14 }}>
+                        {step.label}
+                      </div>
+                      <div
+                        style={{
+                          marginTop: 3,
+                          color: "#9098a3",
+                          fontSize: 12,
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {step.detail}
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        color:
+                          canPublish
+                            ? "#91dda3"
+                            : canCancel
+                              ? "#ff9292"
+                              : meta.color,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {isReviewStep && reviewDecision === "confirmed"
+                        ? "확인"
+                        : isReviewStep && reviewDecision === "rejected"
+                          ? "거절"
+                          : meta.label}
                     </div>
                   </div>
 
-                  <div
-                    style={{
-                      color: meta.color,
-                      fontSize: 11,
-                      fontWeight: 800,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {meta.label}
-                  </div>
+                  {canChooseReview ? (
+                    <div
+                      style={{
+                        position: "relative",
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: 8,
+                        marginTop: 10,
+                      }}
+                    >
+                      <button
+                        style={{
+                          ...secondary,
+                          minHeight: 42,
+                          padding: "10px 12px",
+                          background:
+                            reviewDecision === "confirmed" ? "#123321" : "#12251b",
+                          borderColor:
+                            reviewDecision === "confirmed" ? "#5ee69a" : "#2f7a45",
+                          color: "#91dda3",
+                          boxShadow:
+                            reviewDecision === "confirmed"
+                              ? "0 0 18px rgba(94,230,154,0.16)"
+                              : "none",
+                        }}
+                        onClick={() =>
+                          void setReviewDecision(knowledgeJob!.job_id!, "confirmed")
+                        }
+                        disabled={busy === "review-confirm" || busy === "review-reject"}
+                      >
+                        {busy === "review-confirm" ? "확인 중..." : "✓ 확인"}
+                      </button>
+
+                      <button
+                        style={{
+                          ...secondary,
+                          minHeight: 42,
+                          padding: "10px 12px",
+                          background:
+                            reviewDecision === "rejected" ? "#351717" : "#271515",
+                          borderColor:
+                            reviewDecision === "rejected" ? "#ff6f61" : "#7c3131",
+                          color: "#ff9292",
+                          boxShadow:
+                            reviewDecision === "rejected"
+                              ? "0 0 18px rgba(255,111,97,0.14)"
+                              : "none",
+                        }}
+                        onClick={() =>
+                          void setReviewDecision(knowledgeJob!.job_id!, "rejected")
+                        }
+                        disabled={busy === "review-confirm" || busy === "review-reject"}
+                      >
+                        {busy === "review-reject" ? "거절 중..." : "× 거절"}
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {isPublishStep && knowledgeJob?.status === "waiting_for_user" ? (
+                    <div
+                      style={{
+                        position: "relative",
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: 8,
+                        marginTop: 10,
+                      }}
+                    >
+                      <button
+                        style={{
+                          ...secondary,
+                          minHeight: 42,
+                          padding: "10px 12px",
+                          background: canPublish ? "#123321" : "#171a1e",
+                          borderColor: canPublish ? "#5ee69a" : "#30353b",
+                          color: canPublish ? "#91dda3" : "#626b75",
+                          opacity: canPublish ? 1 : 0.7,
+                        }}
+                        onClick={() =>
+                          canPublish
+                            ? void approveKnowledge(knowledgeJob!.job_id!)
+                            : undefined
+                        }
+                        disabled={!canPublish || busy === "approve"}
+                      >
+                        {busy === "approve" ? "발행 처리 중..." : "발행 확인"}
+                      </button>
+
+                      <button
+                        style={{
+                          ...secondary,
+                          minHeight: 42,
+                          padding: "10px 12px",
+                          background: canCancel ? "#351717" : "#171a1e",
+                          borderColor: canCancel ? "#ff6f61" : "#30353b",
+                          color: canCancel ? "#ff9292" : "#626b75",
+                          opacity: canCancel ? 1 : 0.7,
+                        }}
+                        onClick={() =>
+                          canCancel
+                            ? void cancelPublication(knowledgeJob!.job_id!)
+                            : undefined
+                        }
+                        disabled={!canCancel || busy === "publish-cancel"}
+                      >
+                        {busy === "publish-cancel" ? "삭제 중..." : "발행 취소"}
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {isPublishStep && reviewDecision ? (
+                    <div
+                      style={{
+                        position: "relative",
+                        marginTop: 8,
+                        color:
+                          reviewDecision === "confirmed" ? "#78c992" : "#e58179",
+                        fontSize: 11,
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      {reviewDecision === "confirmed"
+                        ? "확인 선택 완료 · 발행 확인을 누르면 실제 공개 단계로 넘어갑니다."
+                        : "거절 선택 완료 · 발행 취소를 누르면 글과 대표 이미지가 함께 삭제됩니다."}
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
@@ -1914,7 +2191,12 @@ export default function JarvisRemotePage() {
         </section>
 
         {details.image_preview_url &&
-        (state.action === "approve" || state.action === "image_retry") ? (
+        (
+          state.action === "review_decision" ||
+          state.action === "publish_confirm" ||
+          state.action === "publish_cancel" ||
+          state.action === "image_retry"
+        ) ? (
           <section
             style={{
               ...card,
@@ -1974,12 +2256,18 @@ export default function JarvisRemotePage() {
           </section>
         ) : null}
 
-        {state.action === "approve" && knowledgeJob ? (
+        {(
+          state.action === "review_decision" ||
+          state.action === "publish_confirm" ||
+          state.action === "publish_cancel"
+        ) && knowledgeJob ? (
           <section style={{ ...card, borderColor: "#754a25" }}>
-            <div style={{ fontWeight: 900, fontSize: 18 }}>발행 전 확인</div>
+            <div style={{ fontWeight: 900, fontSize: 18 }}>발행 전 최종 검토</div>
             <div style={{ color: "#aeb4bd", marginTop: 6, lineHeight: 1.55 }}>
-              아래 글과 출처를 확인한 뒤 위의 <strong>승인 & 발행</strong>을
-              누르세요.
+              글·출처·대표 이미지를 확인한 뒤 작업 진행 현황의
+              <strong> 확인 / 거절</strong>을 선택하세요. 확인 후에는
+              <strong> 발행 확인</strong>, 거절 후에는
+              <strong> 발행 취소</strong>가 활성화됩니다.
             </div>
 
             {summary ? (
