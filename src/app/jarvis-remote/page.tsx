@@ -26,6 +26,18 @@ type JobResult = {
   };
   verification?: { score?: number };
   sources?: SourceItem[];
+  pipeline_stage?: string;
+  text_verified?: boolean;
+  image_verified?: boolean;
+  image_model?: string;
+  image_preview_url?: string | null;
+  sanity_asset_id?: string | null;
+  image_verification?: {
+    verdict?: string;
+    score?: number;
+    issues?: string[];
+  };
+  image_error?: string | null;
 };
 type JobView = {
   job_id?: string;
@@ -55,7 +67,7 @@ type JarvisResponse = {
   command_id?: string;
   command?: CommandView;
   knowledge_job?: JobView | null;
-  providers?: { groq?: boolean; sanity?: boolean };
+  providers?: { groq?: boolean; sanity?: boolean; openai?: boolean };
 };
 
 const shell = {
@@ -144,6 +156,22 @@ function getHumanState(job: JobView | null) {
     };
   }
 
+  if (
+    status === "waiting_for_user" &&
+    job.result?.image_verified === false &&
+    !job.result?.sanity_document_id
+  ) {
+    return {
+      tone: "error",
+      title: "대표 이미지 확인 필요",
+      detail:
+        job.last_error ||
+        job.result?.image_error ||
+        "대표 이미지가 검증 기준을 통과하지 못했습니다.",
+      action: "image_retry",
+    };
+  }
+
   if (status === "waiting_for_user" && job.result?.sanity_document_id) {
     return {
       tone: "review",
@@ -189,13 +217,40 @@ function getHumanState(job: JobView | null) {
     };
   }
 
-  if (status === "waiting_for_capability") {
-    return {
-      tone: "working",
-      title: "Sanity 저장 중",
-      detail: "검증은 끝났고 Sanity review 문서를 만드는 중입니다.",
-      action: "working",
-    };
+  if (status === "waiting_for_capability" || status === "claimed") {
+    const stage = job.result?.pipeline_stage;
+    if (stage === "image_generate" || stage === "image_generating") {
+      return {
+        tone: "working",
+        title: "대표 이미지 생성 중",
+        detail: "검증된 글을 바탕으로 Knowledge 대표 이미지를 만들고 있습니다.",
+        action: "working",
+      };
+    }
+    if (stage === "image_verifying") {
+      return {
+        tone: "working",
+        title: "이미지 검증 중",
+        detail: "생성된 이미지가 글의 핵심과 맞는지 독립적으로 확인하고 있습니다.",
+        action: "working",
+      };
+    }
+    if (stage === "sanity_write") {
+      return {
+        tone: "working",
+        title: "Sanity 저장 중",
+        detail: "본문과 이미지 검증이 끝나 Sanity review 문서를 만드는 중입니다.",
+        action: "working",
+      };
+    }
+    if (status === "waiting_for_capability") {
+      return {
+        tone: "working",
+        title: "다음 단계 준비 중",
+        detail: "검증 결과를 다음 Worker로 넘기고 있습니다.",
+        action: "working",
+      };
+    }
   }
 
   if (status === "verifying") {
@@ -279,16 +334,15 @@ function activityStage(eventType?: string) {
   if (eventType === "job.researching") return 0;
   if (eventType === "job.generating") return 1;
   if (eventType === "job.verifying") return 2;
-  if (
-    eventType === "job.waiting_for_capability" ||
-    eventType === "job.capability_stage_claimed"
-  ) return 3;
+  if (eventType === "job.image_generating") return 3;
+  if (eventType === "job.image_verifying") return 4;
+  if (eventType === "job.image_ready") return 5;
   if (
     eventType === "job.waiting_for_user" ||
     eventType === "knowledge.human_approved"
-  ) return 4;
-  if (eventType === "job.post_verify") return 5;
-  if (eventType === "job.done") return 6;
+  ) return 6;
+  if (eventType === "job.post_verify") return 7;
+  if (eventType === "job.done") return 8;
   return null;
 }
 
@@ -297,12 +351,17 @@ function activityLabel(eventType?: string) {
     "job.claimed.v2": "JARVIS가 작업을 가져왔습니다.",
     "job.researching": "자료 조사 시작",
     "job.generating": "원고 작성 시작",
-    "job.verifying": "사실 검증 시작",
+    "job.verifying": "본문 독립 검증 시작",
+    "job.image_generating": "대표 이미지 생성 시작",
+    "job.image_verifying": "대표 이미지 검증 시작",
+    "job.image_ready": "대표 이미지 검증 통과",
+    "job.image_rejected": "대표 이미지 검증 미통과",
+    "job.image_failed": "대표 이미지 처리 오류",
     "job.provider_retry": "Provider 응답 문제 — 자동 재시도 대기",
     "job.retry_wait": "자동 재시도 대기",
     "job.waiting_for_provider": "Provider 응답 대기",
     "job.waiting_for_capability": "다음 처리 단계 대기",
-    "job.capability_stage_claimed": "다음 처리 Worker가 작업을 가져왔습니다.",
+    "job.capability_stage_claimed": "다음 Worker가 작업을 가져왔습니다.",
     "job.waiting_for_user": "사용자 확인 필요",
     "knowledge.human_approved": "사용자 승인 완료",
     "job.post_verify": "공개 페이지 확인 중",
@@ -338,37 +397,44 @@ function formatElapsed(milliseconds: number) {
 }
 
 function getPipelineSteps(job: JobView | null): PipelineStep[] {
-  if (!job) {
-    return [
-      { label: "자료 조사", detail: "아직 시작하지 않음", state: "pending" },
-      { label: "원고 작성", detail: "대기", state: "pending" },
-      { label: "사실 검증", detail: "대기", state: "pending" },
-      { label: "Sanity 저장", detail: "대기", state: "pending" },
-      { label: "사용자 승인", detail: "대기", state: "pending" },
-      { label: "실제 발행", detail: "대기", state: "pending" },
-    ];
-  }
+  const empty = [
+    { label: "자료 조사", detail: "아직 시작하지 않음", state: "pending" as const },
+    { label: "원고 작성", detail: "대기", state: "pending" as const },
+    { label: "본문 검증", detail: "대기", state: "pending" as const },
+    { label: "대표 이미지 생성", detail: "대기", state: "pending" as const },
+    { label: "이미지 검증", detail: "대기", state: "pending" as const },
+    { label: "Sanity 저장", detail: "대기", state: "pending" as const },
+    { label: "사용자 승인", detail: "대기", state: "pending" as const },
+    { label: "실제 발행", detail: "대기", state: "pending" as const },
+  ];
+
+  if (!job) return empty;
 
   const status = job.status ?? "";
   const result = job.result ?? {};
+  const stage = result.pipeline_stage ?? "";
   const sources = result.sources ?? [];
-  const score = result.verification?.score;
+  const textScore = result.verification?.score;
+  const imageScore = result.image_verification?.score;
   const events = job.recent_activity ?? [];
 
-  const statusStage: Record<string, number> = {
-    researching: 0,
-    generating: 1,
-    verifying: 2,
-    waiting_for_capability: 3,
-    waiting_for_user: 4,
-    publishing: 5,
-    post_verify: 5,
-    done: 6,
-  };
+  let currentStage = -1;
 
-  let currentStage = statusStage[status] ?? -1;
+  if (status === "researching") currentStage = 0;
+  else if (status === "generating") currentStage = 1;
+  else if (status === "verifying") currentStage = 2;
+  else if (stage === "image_generate" || stage === "image_generating") currentStage = 3;
+  else if (stage === "image_verifying" || stage === "image_review" || stage === "image_error") currentStage = 4;
+  else if (stage === "sanity_write" || result.sanity_document_id) currentStage = 5;
+  else if (status === "waiting_for_user" && result.sanity_document_id) currentStage = 6;
+  else if (status === "publishing" || status === "post_verify") currentStage = 7;
+  else if (status === "done") currentStage = 8;
 
-  if (status === "retry_wait" || status === "waiting_for_provider" || status === "cancelled") {
+  if (
+    status === "retry_wait" ||
+    status === "waiting_for_provider" ||
+    status === "cancelled"
+  ) {
     const latestStage = events
       .map((event) => activityStage(event.event_type))
       .find((value) => value !== null);
@@ -382,36 +448,52 @@ function getPipelineSteps(job: JobView | null): PipelineStep[] {
     status === "waiting_for_provider" ||
     status === "waiting_for_user" ||
     status === "cancelled";
-  const isError = status === "failed" || status === "rejected";
+  const isError =
+    status === "failed" ||
+    status === "rejected" ||
+    stage === "image_error" ||
+    (stage === "image_review" && result.image_verified === false);
 
   const labels = [
     "자료 조사",
     "원고 작성",
-    "사실 검증",
+    "본문 검증",
+    "대표 이미지 생성",
+    "이미지 검증",
     "Sanity 저장",
     "사용자 승인",
     "실제 발행",
   ];
 
-  const defaultDetails = [
+  const details = [
     sources.length > 0 ? `${sources.length}개 출처 확인` : "공식 자료와 근거 확인",
     "Knowledge 원고 생성",
-    typeof score === "number" ? `검증 점수 ${score}` : "출처와 핵심 문장 재검증",
+    typeof textScore === "number" ? `검증 점수 ${textScore}` : "출처와 핵심 문장 재검증",
+    result.image_preview_url ? "대표 이미지 생성 완료" : "글의 핵심을 시각화",
+    result.image_verified
+      ? typeof imageScore === "number"
+        ? `이미지 검증 점수 ${imageScore}`
+        : "이미지 검증 통과"
+      : "본문과 이미지의 관련성·오해 가능성 확인",
     result.sanity_document_id ? "review 문서 저장 완료" : "Sanity review 문서 저장",
     "사람 검토 및 승인",
     job.result_url || job.published_url ? "공개 페이지 확인 완료" : "DECHIVE 공개 확인",
   ];
 
   return labels.map((label, index) => {
-    if (currentStage === 6 || index < currentStage) {
-      return { label, detail: defaultDetails[index], state: "done" as const };
+    if (currentStage === 8 || index < currentStage) {
+      return { label, detail: details[index], state: "done" as const };
     }
 
     if (index === currentStage) {
       if (isError) {
         return {
           label,
-          detail: job.last_error || "이 단계에서 작업이 중단됨",
+          detail:
+            stage === "image_review"
+              ? result.image_verification?.issues?.[0] ||
+                "대표 이미지가 자동 검증 기준을 통과하지 못했습니다."
+              : job.last_error || result.image_error || "이 단계에서 작업이 중단됨",
           state: "error" as const,
         };
       }
@@ -429,20 +511,20 @@ function getPipelineSteps(job: JobView | null): PipelineStep[] {
         };
       }
 
+      const activeDetails = [
+        "공식 자료와 근거를 찾는 중",
+        "조사 결과를 바탕으로 원고 작성 중",
+        "출처와 핵심 문장을 독립적으로 검증 중",
+        "글의 핵심에 맞는 대표 이미지를 생성 중",
+        "이미지 관련성·오해 가능성을 독립적으로 검증 중",
+        "Sanity review 문서를 저장 중",
+        "사용자 확인을 기다리는 중",
+        "공개 페이지를 확인하는 중",
+      ];
+
       return {
         label,
-        detail:
-          index === 0
-            ? "공식 자료와 근거를 찾는 중"
-            : index === 1
-              ? "조사 결과를 바탕으로 원고 작성 중"
-              : index === 2
-                ? "출처와 핵심 문장을 다시 확인 중"
-                : index === 3
-                  ? "Sanity review 문서를 저장 중"
-                  : index === 4
-                    ? "사용자 확인을 기다리는 중"
-                    : "공개 페이지를 확인하는 중",
+        detail: activeDetails[index],
         state: "active" as const,
       };
     }
@@ -475,6 +557,7 @@ export default function JarvisRemotePage() {
   const [providerState, setProviderState] = useState<{
     groq: boolean;
     sanity: boolean;
+    openai: boolean;
   } | null>(null);
   const [providerChecking, setProviderChecking] = useState(false);
   const [providerCheckedAt, setProviderCheckedAt] = useState<string | null>(null);
@@ -492,6 +575,7 @@ export default function JarvisRemotePage() {
   const [commandText, setCommandText] = useState("");
   const [groqKey, setGroqKey] = useState("");
   const [sanityKey, setSanityKey] = useState("");
+  const [openaiKey, setOpenaiKey] = useState("");
 
   useEffect(() => {
     const ticker = window.setInterval(() => setNow(Date.now()), 1000);
@@ -577,6 +661,7 @@ export default function JarvisRemotePage() {
       setProviderState({
         groq: Boolean(provider.providers.groq),
         sanity: Boolean(provider.providers.sanity),
+        openai: Boolean(provider.providers.openai),
       });
       setProviderCheckedAt(new Date().toLocaleTimeString("ko-KR"));
     }
@@ -645,6 +730,7 @@ export default function JarvisRemotePage() {
       setProviderState({
         groq: Boolean(data.providers.groq),
         sanity: Boolean(data.providers.sanity),
+        openai: Boolean(data.providers.openai),
       });
       setProviderCheckedAt(new Date().toLocaleTimeString("ko-KR"));
       setStatusText("Provider 상태 확인 완료");
@@ -768,6 +854,22 @@ export default function JarvisRemotePage() {
     }
   }
 
+  async function regenerateImage(jobId?: string) {
+    if (!jobId) return;
+    setBusy("image-retry");
+    setStatusText("대표 이미지 재생성 요청 중...");
+
+    const data = await request({ action: "regenerate_image", jobId });
+    setBusy(null);
+
+    if (data?.ok) {
+      setStatusText("대표 이미지 재생성 시작됨");
+      await refreshKnowledge(true);
+    } else {
+      setStatusText(data?.error || "대표 이미지 재생성 실패");
+    }
+  }
+
   async function retryKnowledge(jobId?: string) {
     if (!jobId) return;
     setBusy("retry");
@@ -885,7 +987,7 @@ export default function JarvisRemotePage() {
   );
 
   const providersReady = Boolean(
-    providerState?.groq && providerState?.sanity,
+    providerState?.groq && providerState?.sanity && providerState?.openai,
   );
   const connectionItems = [
     { label: "iPhone", checked: true, ok: pairSaved },
@@ -893,6 +995,11 @@ export default function JarvisRemotePage() {
       label: "Groq",
       checked: providerState !== null,
       ok: Boolean(providerState?.groq),
+    },
+    {
+      label: "OpenAI",
+      checked: providerState !== null,
+      ok: Boolean(providerState?.openai),
     },
     {
       label: "Sanity",
@@ -1098,8 +1205,8 @@ export default function JarvisRemotePage() {
                   lineHeight: 1.55,
                 }}
               >
-                상단 표시만 보면 iPhone, Groq, Sanity 연결 여부를 바로 확인할 수
-                있습니다.
+                상단 표시만 보면 iPhone, Groq, OpenAI 이미지, Sanity 연결 여부를
+                바로 확인할 수 있습니다.
               </div>
 
               <button
@@ -1538,6 +1645,20 @@ export default function JarvisRemotePage() {
                   ? "승인 처리 중..."
                   : "검토 완료 — 승인 & 발행"}
               </button>
+            ) : state.action === "image_retry" && knowledgeJob?.job_id ? (
+              <button
+                style={{
+                  ...primary,
+                  background: "#f0c56e",
+                  color: "#211709",
+                }}
+                onClick={() => void regenerateImage(knowledgeJob.job_id)}
+                disabled={busy === "image-retry"}
+              >
+                {busy === "image-retry"
+                  ? "대표 이미지 다시 만드는 중..."
+                  : "대표 이미지 다시 생성"}
+              </button>
             ) : state.action === "retry" && knowledgeJob?.job_id ? (
               <button
                 style={primary}
@@ -1791,6 +1912,67 @@ export default function JarvisRemotePage() {
             ) : null}
           </div>
         </section>
+
+        {details.image_preview_url &&
+        (state.action === "approve" || state.action === "image_retry") ? (
+          <section
+            style={{
+              ...card,
+              borderColor:
+                details.image_verified === true ? "#2f7a45" : "#754a25",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 10,
+              }}
+            >
+              <div style={{ fontWeight: 900, fontSize: 17 }}>대표 이미지</div>
+              <div
+                style={{
+                  color:
+                    details.image_verified === true ? "#91dda3" : "#f2b66d",
+                  fontSize: 12,
+                  fontWeight: 900,
+                }}
+              >
+                {details.image_verified === true
+                  ? `검증 통과${typeof details.image_verification?.score === "number" ? ` · ${details.image_verification.score}점` : ""}`
+                  : `확인 필요${typeof details.image_verification?.score === "number" ? ` · ${details.image_verification.score}점` : ""}`}
+              </div>
+            </div>
+
+            <img
+              src={details.image_preview_url}
+              alt={title + " 대표 이미지 미리보기"}
+              style={{
+                display: "block",
+                width: "100%",
+                aspectRatio: "16 / 9",
+                objectFit: "cover",
+                borderRadius: 14,
+                marginTop: 12,
+                border: "1px solid #30353b",
+              }}
+            />
+
+            {details.image_verification?.issues?.length ? (
+              <div
+                style={{
+                  marginTop: 10,
+                  color: "#aeb4bd",
+                  fontSize: 12,
+                  lineHeight: 1.55,
+                }}
+              >
+                {details.image_verification.issues.slice(0, 3).join(" · ")}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         {state.action === "approve" && knowledgeJob ? (
           <section style={{ ...card, borderColor: "#754a25" }}>
@@ -2053,8 +2235,8 @@ export default function JarvisRemotePage() {
                   lineHeight: 1.5,
                 }}
               >
-                연결 상태 확인은 상단 연결 바에서 합니다. 여기서는 키를 바꿀 때만
-                사용하세요.
+                연결 상태 확인은 상단 연결 바에서 합니다. Groq는 조사·원고·본문 검증,
+                OpenAI는 대표 이미지 생성·이미지 검증, Sanity는 저장·발행에 사용합니다.
               </div>
 
               <label
@@ -2093,6 +2275,46 @@ export default function JarvisRemotePage() {
                 }}
               >
                 {busy === "groq" ? "저장 중..." : "Groq 키 저장"}
+              </button>
+
+              <label
+                style={{
+                  display: "block",
+                  margin: "16px 0 6px",
+                  color: "#9aa1aa",
+                  fontSize: 12,
+                }}
+              >
+                OpenAI API Key · 대표 이미지 생성/검증
+              </label>
+              <input
+                style={input}
+                type="password"
+                value={openaiKey}
+                onChange={(event) => setOpenaiKey(event.target.value)}
+                placeholder="변경할 때만 입력"
+              />
+              <button
+                style={{ ...secondary, marginTop: 8 }}
+                onClick={async () => {
+                  if (!openaiKey.trim()) return;
+                  setBusy("openai");
+                  const data = await request({
+                    action: "set_provider_secret",
+                    provider: "openai",
+                    secret: openaiKey.trim(),
+                  });
+                  setBusy(null);
+                  if (data?.ok) {
+                    setOpenaiKey("");
+                    setStatusText("OpenAI 저장 완료");
+                    void refreshProviders();
+                  } else {
+                    setStatusText(data?.error || "OpenAI 저장 실패");
+                  }
+                }}
+              >
+                {busy === "openai" ? "저장 중..." : "OpenAI 키 저장"}
               </button>
 
               <label
