@@ -887,6 +887,20 @@ export default function JarvisRemotePage() {
   const providersReady = Boolean(
     providerState?.groq && providerState?.sanity,
   );
+  const connectionItems = [
+    { label: "iPhone", checked: true, ok: pairSaved },
+    {
+      label: "Groq",
+      checked: providerState !== null,
+      ok: Boolean(providerState?.groq),
+    },
+    {
+      label: "Sanity",
+      checked: providerState !== null,
+      ok: Boolean(providerState?.sanity),
+    },
+  ];
+  const allConnectionsReady = pairSaved && providersReady;
 
   return (
     <main style={shell}>
@@ -945,34 +959,175 @@ export default function JarvisRemotePage() {
         }
       `}</style>
       <div style={{ maxWidth: 680, margin: "0 auto" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            gap: 12,
-            margin: "6px 2px 18px",
-          }}
-        >
-          <div>
-            <h1 style={{ fontSize: 25, margin: 0 }}>JARVIS</h1>
-            <div style={{ color: "#8b929c", fontSize: 13, marginTop: 5 }}>
-              DECHIVE Remote
+        <div style={{ margin: "6px 2px 14px" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <div>
+              <h1 style={{ fontSize: 25, margin: 0 }}>JARVIS</h1>
+              <div style={{ color: "#8b929c", fontSize: 13, marginTop: 5 }}>
+                DECHIVE Remote
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: "7px 10px",
+                borderRadius: 999,
+                background: allConnectionsReady ? "#15331d" : "#2a2114",
+                color: allConnectionsReady ? "#93dda4" : "#e8c973",
+                fontSize: 12,
+                fontWeight: 900,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {allConnectionsReady
+                ? "연결 정상"
+                : providerState === null
+                  ? "연결 확인 중"
+                  : "연결 확인 필요"}
             </div>
           </div>
 
-          <div
+          <details
             style={{
-              padding: "7px 10px",
-              borderRadius: 999,
-              background: pairSaved ? "#15331d" : "#2a1b1b",
-              color: pairSaved ? "#93dda4" : "#ff9a9a",
-              fontSize: 12,
-              fontWeight: 800,
+              marginTop: 12,
+              borderRadius: 14,
+              border: "1px solid #282c31",
+              background: "#111318",
+              overflow: "hidden",
             }}
           >
-            {pairSaved ? "iPhone 연결됨" : "기기 연결 필요"}
-          </div>
+            <summary
+              style={{
+                cursor: "pointer",
+                listStyle: "none",
+                padding: "11px 12px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 7,
+                  }}
+                >
+                  {connectionItems.map((item) => {
+                    const color = !item.checked
+                      ? "#858d97"
+                      : item.ok
+                        ? "#91dda3"
+                        : "#ff9292";
+                    const background = !item.checked
+                      ? "#17191d"
+                      : item.ok
+                        ? "#102417"
+                        : "#2b1515";
+
+                    return (
+                      <span
+                        key={item.label}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          minHeight: 30,
+                          padding: "5px 9px",
+                          borderRadius: 999,
+                          background,
+                          color,
+                          border: "1px solid #2b3036",
+                          fontSize: 11,
+                          fontWeight: 900,
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: 99,
+                            background: color,
+                            boxShadow:
+                              item.checked && item.ok
+                                ? `0 0 8px ${color}`
+                                : "none",
+                          }}
+                        />
+                        {item.label}
+                      </span>
+                    );
+                  })}
+                </div>
+
+                <span
+                  style={{
+                    flexShrink: 0,
+                    color: "#89919c",
+                    fontSize: 12,
+                    fontWeight: 800,
+                  }}
+                >
+                  연결 · 설정
+                </span>
+              </div>
+            </summary>
+
+            <div
+              style={{
+                borderTop: "1px solid #282c31",
+                padding: "12px",
+              }}
+            >
+              <div
+                style={{
+                  color: "#9ca4ae",
+                  fontSize: 12,
+                  lineHeight: 1.55,
+                }}
+              >
+                상단 표시만 보면 iPhone, Groq, Sanity 연결 여부를 바로 확인할 수
+                있습니다.
+              </div>
+
+              <button
+                style={{ ...secondary, minHeight: 44, marginTop: 10 }}
+                onClick={() => void refreshProviders()}
+                disabled={providerChecking}
+              >
+                {providerChecking ? "연결 확인 중..." : "연결 상태 다시 확인"}
+              </button>
+
+              <button
+                style={{ ...secondary, minHeight: 44, marginTop: 8 }}
+                onClick={() =>
+                  document
+                    .getElementById("settings")
+                    ?.scrollIntoView({ behavior: "smooth" })
+                }
+              >
+                연결 정보 · API 키 열기
+              </button>
+
+              {providerCheckedAt ? (
+                <div style={{ color: "#747c87", fontSize: 11, marginTop: 8 }}>
+                  마지막 Provider 확인 {providerCheckedAt}
+                </div>
+              ) : null}
+            </div>
+          </details>
         </div>
 
         {showLiveMonitor ? (
@@ -1637,83 +1792,6 @@ export default function JarvisRemotePage() {
           </div>
         </section>
 
-        <section style={card}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-            }}
-          >
-            <div style={{ fontWeight: 900, fontSize: 17 }}>연결 상태</div>
-            <div
-              style={{
-                color: providersReady ? "#91dda3" : "#efd276",
-                fontSize: 12,
-                fontWeight: 800,
-              }}
-            >
-              {providerState === null
-                ? "확인 전"
-                : providersReady
-                  ? "모두 정상"
-                  : "확인 필요"}
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
-            {[
-              { label: "Groq", ok: providerState?.groq },
-              { label: "Sanity", ok: providerState?.sanity },
-            ].map((provider) => {
-              const checked = providerState !== null;
-              const ok = checked && Boolean(provider.ok);
-
-              return (
-                <div
-                  key={provider.label}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 12,
-                    padding: "12px 13px",
-                    borderRadius: 12,
-                    background: "#0f1114",
-                    border: "1px solid #272b30",
-                  }}
-                >
-                  <div style={{ fontWeight: 800 }}>{provider.label}</div>
-                  <div
-                    style={{
-                      color: !checked ? "#858d97" : ok ? "#91dda3" : "#ff9292",
-                      fontWeight: 800,
-                      fontSize: 13,
-                    }}
-                  >
-                    {!checked ? "○ 확인 전" : ok ? "✓ 정상" : "× 미연결"}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <button
-            style={{ ...secondary, marginTop: 10 }}
-            onClick={() => void refreshProviders()}
-            disabled={providerChecking}
-          >
-            {providerChecking ? "연결 상태 확인 중..." : "연결 상태 다시 확인"}
-          </button>
-
-          {providerCheckedAt ? (
-            <div style={{ color: "#7f8792", fontSize: 12, marginTop: 7 }}>
-              마지막 확인 {providerCheckedAt}
-            </div>
-          ) : null}
-        </section>
-
         {state.action === "approve" && knowledgeJob ? (
           <section style={{ ...card, borderColor: "#754a25" }}>
             <div style={{ fontWeight: 900, fontSize: 18 }}>발행 전 확인</div>
@@ -1896,7 +1974,7 @@ export default function JarvisRemotePage() {
                 padding: "2px 0",
               }}
             >
-              설정 · 연결
+              고급 설정
             </summary>
 
             <div style={{ marginTop: 16 }}>
@@ -1966,84 +2044,18 @@ export default function JarvisRemotePage() {
                 paddingTop: 18,
               }}
             >
-              <div style={{ fontWeight: 800 }}>Provider 키 · 연결 상세</div>
-
+              <div style={{ fontWeight: 800 }}>Provider 키</div>
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 9,
-                  marginTop: 10,
+                  marginTop: 7,
+                  color: "#858d97",
+                  fontSize: 12,
+                  lineHeight: 1.5,
                 }}
               >
-                <div
-                  style={{
-                    padding: 12,
-                    borderRadius: 12,
-                    background: "#0e1013",
-                    border: "1px solid #30343a",
-                  }}
-                >
-                  <div style={{ color: "#8f96a0", fontSize: 12 }}>Groq</div>
-                  <div
-                    style={{
-                      marginTop: 5,
-                      fontWeight: 800,
-                      color: providerState?.groq ? "#91dda3" : "#ff9c9c",
-                    }}
-                  >
-                    {providerState === null
-                      ? "확인 전"
-                      : providerState.groq
-                        ? "연결됨 ✓"
-                        : "미연결"}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    padding: 12,
-                    borderRadius: 12,
-                    background: "#0e1013",
-                    border: "1px solid #30343a",
-                  }}
-                >
-                  <div style={{ color: "#8f96a0", fontSize: 12 }}>Sanity</div>
-                  <div
-                    style={{
-                      marginTop: 5,
-                      fontWeight: 800,
-                      color: providerState?.sanity ? "#91dda3" : "#ff9c9c",
-                    }}
-                  >
-                    {providerState === null
-                      ? "확인 전"
-                      : providerState.sanity
-                        ? "연결됨 ✓"
-                        : "미연결"}
-                  </div>
-                </div>
+                연결 상태 확인은 상단 연결 바에서 합니다. 여기서는 키를 바꿀 때만
+                사용하세요.
               </div>
-
-              <button
-                style={{ ...secondary, marginTop: 9 }}
-                onClick={() => void refreshProviders()}
-                disabled={providerChecking}
-              >
-                {providerChecking ? "확인 중..." : "Provider 상태 다시 확인"}
-              </button>
-
-              {providerCheckedAt ? (
-                <div
-                  style={{
-                    color: "#858d97",
-                    fontSize: 12,
-                    marginTop: 7,
-                  }}
-                >
-                  마지막 확인 {providerCheckedAt}
-                </div>
-              ) : null}
 
               <label
                 style={{
