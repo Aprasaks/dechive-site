@@ -50,10 +50,14 @@ const OUTPUT_SCHEMA = {
   required: ["items"],
 };
 
-function parseDataUrl(dataUrl: string) {
-  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-  if (!match) return null;
-  return { mimeType: match[1], data: match[2] };
+function parseJsonResponse(value: string) {
+  const trimmed = value.trim();
+  const unwrapped = trimmed
+    .replace(/^\`\`\`(?:json)?\s*/i, "")
+    .replace(/\s*\`\`\`$/, "")
+    .trim();
+
+  return JSON.parse(unwrapped) as { items?: unknown };
 }
 
 function normalizeItems(
@@ -143,7 +147,7 @@ function normalizeItems(
 }
 
 export async function POST(request: Request) {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
       { error: "AI_NOT_CONFIGURED" },
@@ -192,43 +196,54 @@ export async function POST(request: Request) {
     `There are ${images.length} uploaded images. Image parts follow in index order.`,
   ].join("\n");
 
-  const parts: Array<Record<string, unknown>> = [{ text: prompt }];
+  const content: Array<Record<string, unknown>> = [
+    { type: "text", text: prompt },
+  ];
 
   for (let index = 0; index < images.length; index += 1) {
     const image = images[index];
-    const parsed = parseDataUrl(String(image.dataUrl || ""));
-    if (!parsed) continue;
+    const dataUrl = String(image.dataUrl || "").trim();
+    if (!dataUrl.startsWith("data:image/")) continue;
 
-    parts.push({
+    content.push({
+      type: "text",
       text: `IMAGE_INDEX=${index} FILE=${String(image.fileName || "image")}`,
     });
-    parts.push({
-      inlineData: {
-        mimeType: parsed.mimeType,
-        data: parsed.data,
-      },
+    content.push({
+      type: "image_url",
+      image_url: { url: dataUrl },
     });
   }
 
-  const model = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+  const model =
+    process.env.OPENROUTER_MODEL || "google/gemma-4-31b-it:free";
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      "https://openrouter.ai/api/v1/chat/completions",
       {
         method: "POST",
         headers: {
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
-          "x-goog-api-key": apiKey,
+          "HTTP-Referer": "https://dechive.dev",
+          "X-Title": "DECHIVE NAVER PUBLISHER",
         },
         body: JSON.stringify({
-          contents: [{ role: "user", parts }],
-          generationConfig: {
-            responseFormat: {
-              text: {
-                mimeType: "application/json",
-                schema: OUTPUT_SCHEMA,
-              },
+          model,
+          messages: [
+            {
+              role: "user",
+              content,
+            },
+          ],
+          temperature: 0.1,
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "naver_publisher_structure",
+              strict: true,
+              schema: OUTPUT_SCHEMA,
             },
           },
         }),
@@ -237,7 +252,11 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       const detail = await response.text();
-      console.error("Gemini structure request failed", response.status, detail);
+      console.error(
+        "OpenRouter structure request failed",
+        response.status,
+        detail,
+      );
       return NextResponse.json(
         { error: "AI_REQUEST_FAILED" },
         { status: 502 },
@@ -245,32 +264,34 @@ export async function POST(request: Request) {
     }
 
     const payload = (await response.json()) as {
-      candidates?: Array<{
-        content?: {
-          parts?: Array<{ text?: string }>;
+      choices?: Array<{
+        message?: {
+          content?: string;
         };
       }>;
     };
 
-    const text = payload.candidates?.[0]?.content?.parts
-      ?.map((part) => part.text || "")
-      .join("")
-      .trim();
+    const text = payload.choices?.[0]?.message?.content?.trim();
 
     if (!text) {
       return NextResponse.json({ error: "AI_EMPTY_RESPONSE" }, { status: 502 });
     }
 
-    const parsed = JSON.parse(text) as { items?: unknown };
+    const parsed = parseJsonResponse(text);
     const items = normalizeItems(
       parsed.items,
       paragraphs.length,
       images.length,
     );
 
-    return NextResponse.json({ items, mode: "ai" });
+    return NextResponse.json({
+      items,
+      mode: "ai",
+      provider: "openrouter",
+      model,
+    });
   } catch (error) {
-    console.error("Gemini structure route error", error);
+    console.error("OpenRouter structure route error", error);
     return NextResponse.json({ error: "AI_REQUEST_FAILED" }, { status: 502 });
   }
 }
