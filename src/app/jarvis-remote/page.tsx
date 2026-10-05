@@ -6,6 +6,12 @@ const COMMAND_URL =
   "https://pexoeftnkbcowauxhopf.supabase.co/functions/v1/jarvis-command";
 
 type SourceItem = { url?: string; title?: string };
+type ActivityEvent = {
+  event_type?: string;
+  severity?: string;
+  occurred_at?: string;
+};
+
 type JobResult = {
   sanity_document_id?: string;
   sanity_slug?: string;
@@ -31,6 +37,10 @@ type JobView = {
   published_url?: string | null;
   published_at?: string | null;
   channel_status?: string | null;
+  started_at?: string | null;
+  updated_at?: string | null;
+  finished_at?: string | null;
+  recent_activity?: ActivityEvent[];
 };
 type CommandView = {
   status?: string;
@@ -121,6 +131,15 @@ function getHumanState(job: JobView | null) {
       title: "발행 결과 확인 필요",
       detail: "작업은 완료됐지만 공개 페이지 주소를 아직 확인하지 못했습니다.",
       action: "wait",
+    };
+  }
+
+  if (status === "cancelled") {
+    return {
+      tone: "idle",
+      title: "작업 중지됨",
+      detail: "진행 중이던 Knowledge 작업을 중지했습니다. 새 작업을 시작할 수 있습니다.",
+      action: "start",
     };
   }
 
@@ -254,6 +273,69 @@ function formatTimestamp(value?: string | null) {
   });
 }
 
+function activityStage(eventType?: string) {
+  if (!eventType) return null;
+  if (eventType === "job.researching") return 0;
+  if (eventType === "job.generating") return 1;
+  if (eventType === "job.verifying") return 2;
+  if (
+    eventType === "job.waiting_for_capability" ||
+    eventType === "job.capability_stage_claimed"
+  ) return 3;
+  if (
+    eventType === "job.waiting_for_user" ||
+    eventType === "knowledge.human_approved"
+  ) return 4;
+  if (eventType === "job.post_verify") return 5;
+  if (eventType === "job.done") return 6;
+  return null;
+}
+
+function activityLabel(eventType?: string) {
+  const labels: Record<string, string> = {
+    "job.claimed.v2": "JARVIS가 작업을 가져왔습니다.",
+    "job.researching": "자료 조사 시작",
+    "job.generating": "원고 작성 시작",
+    "job.verifying": "사실 검증 시작",
+    "job.provider_retry": "Provider 응답 문제 — 자동 재시도 대기",
+    "job.retry_wait": "자동 재시도 대기",
+    "job.waiting_for_provider": "Provider 응답 대기",
+    "job.waiting_for_capability": "다음 처리 단계 대기",
+    "job.capability_stage_claimed": "다음 처리 Worker가 작업을 가져왔습니다.",
+    "job.waiting_for_user": "사용자 확인 필요",
+    "knowledge.human_approved": "사용자 승인 완료",
+    "job.post_verify": "공개 페이지 확인 중",
+    "job.done": "발행과 공개 확인 완료",
+    "job.cancelled": "사용자가 작업을 중지했습니다.",
+  };
+  return labels[eventType ?? ""] ?? "작업 상태가 갱신되었습니다.";
+}
+
+function formatClock(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+function formatElapsed(milliseconds: number) {
+  const total = Math.max(0, Math.floor(milliseconds / 1000));
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  const hours = Math.floor(minutes / 60);
+  const minutePart = minutes % 60;
+
+  if (hours > 0) {
+    return `${String(hours).padStart(2, "0")}:${String(minutePart).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
 function getPipelineSteps(job: JobView | null): PipelineStep[] {
   if (!job) {
     return [
@@ -268,11 +350,11 @@ function getPipelineSteps(job: JobView | null): PipelineStep[] {
 
   const status = job.status ?? "";
   const result = job.result ?? {};
-  const draft = result.draft ?? {};
   const sources = result.sources ?? [];
   const score = result.verification?.score;
+  const events = job.recent_activity ?? [];
 
-  const statusOrder: Record<string, number> = {
+  const statusStage: Record<string, number> = {
     researching: 0,
     generating: 1,
     verifying: 2,
@@ -283,113 +365,87 @@ function getPipelineSteps(job: JobView | null): PipelineStep[] {
     done: 6,
   };
 
-  const order = statusOrder[status] ?? -1;
-  const hasResearch = sources.length > 0 || order > 0;
-  const hasDraft =
-    Boolean(draft.body_markdown || draft.title || result.review_title || result.title) ||
-    order > 1;
-  const hasVerification = typeof score === "number" || order > 2;
-  const hasSanity = Boolean(result.sanity_document_id) || order > 3;
-  const hasApproval = ["publishing", "post_verify", "done"].includes(status);
-  const hasPublished = Boolean(
-    (job.result_url || job.published_url) &&
-      (status === "done" || Boolean(job.published_at)),
-  );
+  let currentStage = statusStage[status] ?? -1;
 
-  const steps: PipelineStep[] = [
-    {
-      label: "자료 조사",
-      detail: hasResearch
-        ? sources.length > 0
-          ? `${sources.length}개 출처 확보`
-          : "조사 완료"
-        : status === "researching"
-          ? "공식 자료와 근거 확인 중"
-          : "대기",
-      state: hasResearch ? "done" : status === "researching" ? "active" : "pending",
-    },
-    {
-      label: "원고 작성",
-      detail: hasDraft
-        ? "원고 생성 완료"
-        : status === "generating"
-          ? "Knowledge 원고 작성 중"
-          : "대기",
-      state: hasDraft ? "done" : status === "generating" ? "active" : "pending",
-    },
-    {
-      label: "사실 검증",
-      detail: hasVerification
-        ? typeof score === "number"
-          ? `검증 점수 ${score}`
-          : "검증 완료"
-        : status === "verifying"
-          ? "출처와 문장 다시 확인 중"
-          : "대기",
-      state: hasVerification
-        ? "done"
-        : status === "verifying"
-          ? "active"
-          : "pending",
-    },
-    {
-      label: "Sanity 저장",
-      detail: hasSanity
-        ? "review 문서 저장 완료"
-        : status === "waiting_for_capability"
-          ? "review 문서 저장 중"
-          : "대기",
-      state: hasSanity
-        ? "done"
-        : status === "waiting_for_capability"
-          ? "active"
-          : "pending",
-    },
-    {
-      label: "사용자 승인",
-      detail: hasApproval
-        ? "승인 완료"
-        : status === "waiting_for_user" && result.sanity_document_id
-          ? "승인 필요"
-          : "대기",
-      state: hasApproval
-        ? "done"
-        : status === "waiting_for_user" && result.sanity_document_id
-          ? "waiting"
-          : "pending",
-    },
-    {
-      label: "실제 발행",
-      detail: hasPublished
-        ? "DECHIVE 공개 페이지 확인 완료"
-        : status === "publishing" || status === "post_verify"
-          ? "실제 공개 페이지 확인 중"
-          : "대기",
-      state: hasPublished
-        ? "done"
-        : status === "publishing" || status === "post_verify"
-          ? "active"
-          : "pending",
-    },
+  if (status === "retry_wait" || status === "waiting_for_provider" || status === "cancelled") {
+    const latestStage = events
+      .map((event) => activityStage(event.event_type))
+      .find((value): value is number => typeof value === "number");
+    if (typeof latestStage === "number") currentStage = latestStage;
+  }
+
+  const isWaiting =
+    status === "retry_wait" ||
+    status === "waiting_for_provider" ||
+    status === "waiting_for_user" ||
+    status === "cancelled";
+  const isError = status === "failed" || status === "rejected";
+
+  const labels = [
+    "자료 조사",
+    "원고 작성",
+    "사실 검증",
+    "Sanity 저장",
+    "사용자 승인",
+    "실제 발행",
   ];
 
-  if (status === "failed" || status === "rejected") {
-    const target = steps.find((step) => step.state !== "done");
-    if (target) {
-      target.state = "error";
-      target.detail = job.last_error || "이 단계에서 작업이 중단됨";
-    }
-  }
+  const defaultDetails = [
+    sources.length > 0 ? `${sources.length}개 출처 확인` : "공식 자료와 근거 확인",
+    "Knowledge 원고 생성",
+    typeof score === "number" ? `검증 점수 ${score}` : "출처와 핵심 문장 재검증",
+    result.sanity_document_id ? "review 문서 저장 완료" : "Sanity review 문서 저장",
+    "사람 검토 및 승인",
+    job.result_url || job.published_url ? "공개 페이지 확인 완료" : "DECHIVE 공개 확인",
+  ];
 
-  if (status === "retry_wait" || status === "waiting_for_provider") {
-    const target = steps.find((step) => step.state !== "done");
-    if (target) {
-      target.state = "waiting";
-      target.detail = "Provider 응답을 기다린 뒤 자동 재시도";
+  return labels.map((label, index) => {
+    if (currentStage === 6 || index < currentStage) {
+      return { label, detail: defaultDetails[index], state: "done" as const };
     }
-  }
 
-  return steps;
+    if (index === currentStage) {
+      if (isError) {
+        return {
+          label,
+          detail: job.last_error || "이 단계에서 작업이 중단됨",
+          state: "error" as const,
+        };
+      }
+
+      if (isWaiting) {
+        return {
+          label,
+          detail:
+            status === "cancelled"
+              ? "사용자가 작업을 중지했습니다."
+              : status === "waiting_for_user"
+                ? "사용자 확인이 필요합니다."
+                : "응답을 기다린 뒤 자동으로 다시 시도합니다.",
+          state: "waiting" as const,
+        };
+      }
+
+      return {
+        label,
+        detail:
+          index === 0
+            ? "공식 자료와 근거를 찾는 중"
+            : index === 1
+              ? "조사 결과를 바탕으로 원고 작성 중"
+              : index === 2
+                ? "출처와 핵심 문장을 다시 확인 중"
+                : index === 3
+                  ? "Sanity review 문서를 저장 중"
+                  : index === 4
+                    ? "사용자 확인을 기다리는 중"
+                    : "공개 페이지를 확인하는 중",
+        state: "active" as const,
+      };
+    }
+
+    return { label, detail: "대기", state: "pending" as const };
+  });
 }
 
 function pipelineStateMeta(state: PipelineState) {
@@ -428,10 +484,16 @@ export default function JarvisRemotePage() {
   const [statusText, setStatusText] = useState("대기 중");
   const [busy, setBusy] = useState<string | null>(null);
   const [result, setResult] = useState<JarvisResponse | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   const [commandText, setCommandText] = useState("");
   const [groqKey, setGroqKey] = useState("");
   const [sanityKey, setSanityKey] = useState("");
+
+  useEffect(() => {
+    const ticker = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(ticker);
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -638,6 +700,31 @@ export default function JarvisRemotePage() {
     }
   }
 
+  useEffect(() => {
+    const liveStatuses = new Set([
+      "claimed",
+      "researching",
+      "generating",
+      "verifying",
+      "waiting_for_capability",
+      "publishing",
+      "post_verify",
+      "retry_wait",
+      "waiting_for_provider",
+    ]);
+
+    if (!pairSaved || !knowledgeJob?.status || !liveStatuses.has(knowledgeJob.status)) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      void refreshKnowledge(true);
+    }, 2000);
+
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pairSaved, knowledgeJob?.job_id, knowledgeJob?.status]);
+
   async function approveKnowledge(jobId: string) {
     setBusy("approve");
     setStatusText("승인 전달 중...");
@@ -751,6 +838,35 @@ export default function JarvisRemotePage() {
     [knowledgeJob],
   );
   const publishedAtLabel = formatTimestamp(knowledgeJob?.published_at);
+  const liveStatuses = new Set([
+    "claimed",
+    "researching",
+    "generating",
+    "verifying",
+    "waiting_for_capability",
+    "publishing",
+    "post_verify",
+  ]);
+  const waitingStatuses = new Set(["retry_wait", "waiting_for_provider"]);
+  const isLive = Boolean(
+    knowledgeJob?.status && liveStatuses.has(knowledgeJob.status),
+  );
+  const isWaitingLive = Boolean(
+    knowledgeJob?.status && waitingStatuses.has(knowledgeJob.status),
+  );
+  const startedAtMs = knowledgeJob?.started_at
+    ? new Date(knowledgeJob.started_at).getTime()
+    : Number.NaN;
+  const updatedAtMs = knowledgeJob?.updated_at
+    ? new Date(knowledgeJob.updated_at).getTime()
+    : Number.NaN;
+  const elapsedLabel = Number.isNaN(startedAtMs)
+    ? "00:00"
+    : formatElapsed(now - startedAtMs);
+  const lastSignalSeconds = Number.isNaN(updatedAtMs)
+    ? null
+    : Math.max(0, Math.floor((now - updatedAtMs) / 1000));
+  const recentActivity = knowledgeJob?.recent_activity ?? [];
 
   const providersReady = Boolean(
     providerState?.groq && providerState?.sanity,
@@ -758,6 +874,29 @@ export default function JarvisRemotePage() {
 
   return (
     <main style={shell}>
+      <style>{`
+        @keyframes jarvisPulse {
+          0%, 100% { opacity: 0.45; transform: scale(0.92); }
+          50% { opacity: 1; transform: scale(1.08); }
+        }
+        @keyframes jarvisSweep {
+          0% { transform: translateX(-110%); }
+          100% { transform: translateX(260%); }
+        }
+        @keyframes jarvisGlow {
+          0%, 100% { box-shadow: 0 0 0 rgba(165, 201, 255, 0); }
+          50% { box-shadow: 0 0 22px rgba(165, 201, 255, 0.13); }
+        }
+        .jarvis-live-dot {
+          animation: jarvisPulse 1.25s ease-in-out infinite;
+        }
+        .jarvis-live-card {
+          animation: jarvisGlow 2.2s ease-in-out infinite;
+        }
+        .jarvis-sweep {
+          animation: jarvisSweep 1.8s linear infinite;
+        }
+      `}</style>
       <div style={{ maxWidth: 680, margin: "0 auto" }}>
         <div
           style={{
@@ -823,6 +962,85 @@ export default function JarvisRemotePage() {
           >
             {state.detail}
           </div>
+
+          {knowledgeJob && (isLive || isWaitingLive) ? (
+            <div
+              className={isLive ? "jarvis-live-card" : undefined}
+              style={{
+                position: "relative",
+                overflow: "hidden",
+                marginTop: 14,
+                padding: "12px 13px",
+                borderRadius: 13,
+                background: isLive ? "#101c29" : "#272214",
+                border: isLive ? "1px solid #31557b" : "1px solid #6d5b2c",
+              }}
+            >
+              {isLive ? (
+                <div
+                  className="jarvis-sweep"
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    width: "40%",
+                    background:
+                      "linear-gradient(90deg, transparent, rgba(165,201,255,0.09), transparent)",
+                    pointerEvents: "none",
+                  }}
+                />
+              ) : null}
+              <div
+                style={{
+                  position: "relative",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontWeight: 900,
+                    color: isLive ? "#a5c9ff" : "#efd276",
+                  }}
+                >
+                  <span
+                    className={isLive ? "jarvis-live-dot" : undefined}
+                    style={{
+                      display: "inline-block",
+                      width: 9,
+                      height: 9,
+                      borderRadius: 999,
+                      background: isLive ? "#7eb7ff" : "#d9bd63",
+                    }}
+                  />
+                  {isLive ? "실시간 실행 중" : "응답 대기 중"}
+                </div>
+                <div style={{ fontVariantNumeric: "tabular-nums", fontWeight: 900 }}>
+                  {elapsedLabel}
+                </div>
+              </div>
+              <div
+                style={{
+                  position: "relative",
+                  marginTop: 7,
+                  color: "#929aa5",
+                  fontSize: 12,
+                }}
+              >
+                {lastSignalSeconds === null
+                  ? "서버 응답 확인 중"
+                  : lastSignalSeconds <= 5
+                    ? `마지막 서버 신호 ${lastSignalSeconds}초 전`
+                    : lastSignalSeconds <= 20
+                      ? `마지막 서버 신호 ${lastSignalSeconds}초 전 · 처리 중`
+                      : `마지막 서버 신호 ${lastSignalSeconds}초 전 · 지연 확인 필요`}
+              </div>
+            </div>
+          ) : null}
 
           {knowledgeJob ? (
             <div
@@ -980,17 +1198,36 @@ export default function JarvisRemotePage() {
               return (
                 <div
                   key={step.label}
+                  className={step.state === "active" ? "jarvis-live-card" : undefined}
                   style={{
+                    position: "relative",
+                    overflow: "hidden",
                     display: "grid",
                     gridTemplateColumns: "34px 1fr auto",
                     gap: 10,
                     alignItems: "center",
                     padding: "11px 12px",
                     borderRadius: 12,
-                    background: "#0f1114",
-                    border: "1px solid #272b30",
+                    background: step.state === "active" ? "#101821" : "#0f1114",
+                    border:
+                      step.state === "active"
+                        ? "1px solid #31557b"
+                        : "1px solid #272b30",
                   }}
                 >
+                  {step.state === "active" ? (
+                    <div
+                      className="jarvis-sweep"
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        width: "36%",
+                        background:
+                          "linear-gradient(90deg, transparent, rgba(165,201,255,0.07), transparent)",
+                        pointerEvents: "none",
+                      }}
+                    />
+                  ) : null}
                   <div
                     style={{
                       width: 30,
@@ -1035,6 +1272,62 @@ export default function JarvisRemotePage() {
               );
             })}
           </div>
+
+          {recentActivity.length > 0 ? (
+            <div
+              style={{
+                borderTop: "1px solid #2a2e34",
+                marginTop: 14,
+                paddingTop: 13,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                }}
+              >
+                <div style={{ fontWeight: 900, fontSize: 14 }}>최근 활동</div>
+                <div style={{ color: "#737b86", fontSize: 11 }}>
+                  실제 JARVIS 이벤트
+                </div>
+              </div>
+              <div style={{ display: "grid", gap: 7, marginTop: 10 }}>
+                {recentActivity.slice(0, 6).map((event, index) => (
+                  <div
+                    key={`${event.occurred_at ?? "event"}-${index}`}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "72px 1fr",
+                      gap: 9,
+                      alignItems: "start",
+                      fontSize: 12,
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: index === 0 && isLive ? "#a5c9ff" : "#737b86",
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {formatClock(event.occurred_at)}
+                    </div>
+                    <div
+                      style={{
+                        color: index === 0 ? "#dce2e9" : "#9aa2ac",
+                        fontWeight: index === 0 ? 800 : 600,
+                      }}
+                    >
+                      {activityLabel(event.event_type)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div
             style={{
