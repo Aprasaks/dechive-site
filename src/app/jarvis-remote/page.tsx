@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 
 const COMMAND_URL =
   "https://pexoeftnkbcowauxhopf.supabase.co/functions/v1/jarvis-command";
+const IMAGE_UPLOAD_URL =
+  "https://pexoeftnkbcowauxhopf.supabase.co/functions/v1/jarvis-image-upload";
 
 type SourceItem = { url?: string; title?: string };
 type ActivityEvent = {
@@ -38,6 +40,11 @@ type JobResult = {
     issues?: string[];
   };
   image_error?: string | null;
+  image_prompt?: string | null;
+  image_rule?: string | null;
+  image_rule_version?: string | null;
+  image_verification_method?: string | null;
+  image_uploaded_at?: string | null;
   review_decision?: "confirmed" | "rejected" | null;
   review_decided_at?: string | null;
   publication_cancelled?: boolean;
@@ -156,6 +163,20 @@ function getHumanState(job: JobView | null) {
       title: "작업 중지됨",
       detail: "진행 중이던 Knowledge 작업을 중지했습니다. 새 작업을 시작할 수 있습니다.",
       action: "start",
+    };
+  }
+
+  if (
+    status === "waiting_for_user" &&
+    job.result?.pipeline_stage === "image_handoff" &&
+    !job.result?.sanity_document_id
+  ) {
+    return {
+      tone: "review",
+      title: "대표 이미지 제작 필요",
+      detail:
+        "본문 검증이 끝났습니다. JARVIS가 준비한 요청문으로 ChatGPT에서 이미지를 만든 뒤 업로드하세요.",
+      action: "image_handoff",
     };
   }
 
@@ -353,7 +374,9 @@ function activityStage(eventType?: string) {
   if (eventType === "job.researching") return 0;
   if (eventType === "job.generating") return 1;
   if (eventType === "job.verifying") return 2;
+  if (eventType === "job.image_handoff") return 3;
   if (eventType === "job.image_generating") return 3;
+  if (eventType === "job.image_uploaded") return 4;
   if (eventType === "job.image_verifying") return 4;
   if (eventType === "job.image_ready") return 5;
   if (
@@ -371,7 +394,9 @@ function activityLabel(eventType?: string) {
     "job.researching": "자료 조사 시작",
     "job.generating": "원고 작성 시작",
     "job.verifying": "본문 독립 검증 시작",
+    "job.image_handoff": "GPT 대표 이미지 제작 대기",
     "job.image_generating": "대표 이미지 생성 시작",
+    "job.image_uploaded": "사용자 선택 대표 이미지 업로드 완료",
     "job.image_verifying": "대표 이미지 검증 시작",
     "job.image_ready": "대표 이미지 검증 통과",
     "job.image_rejected": "대표 이미지 검증 미통과",
@@ -420,8 +445,8 @@ function getPipelineSteps(job: JobView | null): PipelineStep[] {
     { label: "자료 조사", detail: "아직 시작하지 않음", state: "pending" as const },
     { label: "원고 작성", detail: "대기", state: "pending" as const },
     { label: "본문 검증", detail: "대기", state: "pending" as const },
-    { label: "대표 이미지 생성", detail: "대기", state: "pending" as const },
-    { label: "이미지 검증", detail: "대기", state: "pending" as const },
+    { label: "대표 이미지 제작", detail: "대기", state: "pending" as const },
+    { label: "이미지 확인·업로드", detail: "대기", state: "pending" as const },
     { label: "Sanity 저장", detail: "대기", state: "pending" as const },
     { label: "사용자 승인", detail: "대기", state: "pending" as const },
     { label: "실제 발행", detail: "대기", state: "pending" as const },
@@ -442,8 +467,17 @@ function getPipelineSteps(job: JobView | null): PipelineStep[] {
   if (status === "researching") currentStage = 0;
   else if (status === "generating") currentStage = 1;
   else if (status === "verifying") currentStage = 2;
-  else if (stage === "image_generate" || stage === "image_generating") currentStage = 3;
-  else if (stage === "image_verifying" || stage === "image_review" || stage === "image_error") currentStage = 4;
+  else if (
+    stage === "image_handoff" ||
+    stage === "image_generate" ||
+    stage === "image_generating"
+  ) currentStage = 3;
+  else if (
+    stage === "image_uploaded" ||
+    stage === "image_verifying" ||
+    stage === "image_review" ||
+    stage === "image_error"
+  ) currentStage = 4;
   else if (status === "waiting_for_user" && result.sanity_document_id) {
     currentStage = result.review_decision ? 7 : 6;
   }
@@ -479,8 +513,8 @@ function getPipelineSteps(job: JobView | null): PipelineStep[] {
     "자료 조사",
     "원고 작성",
     "본문 검증",
-    "대표 이미지 생성",
-    "이미지 검증",
+    "대표 이미지 제작",
+    "이미지 확인·업로드",
     "Sanity 저장",
     "사용자 승인",
     "실제 발행",
@@ -490,12 +524,18 @@ function getPipelineSteps(job: JobView | null): PipelineStep[] {
     sources.length > 0 ? `${sources.length}개 출처 확인` : "공식 자료와 근거 확인",
     "Knowledge 원고 생성",
     typeof textScore === "number" ? `검증 점수 ${textScore}` : "출처와 핵심 문장 재검증",
-    result.image_preview_url ? "대표 이미지 생성 완료" : "글의 핵심을 시각화",
-    result.image_verified
-      ? typeof imageScore === "number"
-        ? `이미지 검증 점수 ${imageScore}`
-        : "이미지 검증 통과"
-      : "본문과 이미지의 관련성·오해 가능성 확인",
+    result.image_prompt
+      ? "SITE 이미지 규칙 기반 GPT 요청문 준비 완료"
+      : result.image_preview_url
+        ? "대표 이미지 준비 완료"
+        : "글의 핵심을 시각화",
+    result.image_verification_method === "human_upload"
+      ? "사용자 선택 이미지 업로드 완료"
+      : result.image_verified
+        ? typeof imageScore === "number"
+          ? `이미지 검증 점수 ${imageScore}`
+          : "이미지 검증 통과"
+        : "대표 이미지를 확인하고 업로드",
     result.sanity_document_id ? "review 문서 저장 완료" : "Sanity review 문서 저장",
     result.review_decision === "confirmed"
       ? "확인 선택 완료"
@@ -535,9 +575,11 @@ function getPipelineSteps(job: JobView | null): PipelineStep[] {
           detail:
             status === "cancelled"
               ? "사용자가 작업을 중지했습니다."
-              : status === "waiting_for_user"
-                ? "사용자 확인이 필요합니다."
-                : "응답을 기다린 뒤 자동으로 다시 시도합니다.",
+              : status === "waiting_for_user" && stage === "image_handoff"
+                ? "ChatGPT에서 이미지를 만든 뒤 JARVIS에 업로드해주세요."
+                : status === "waiting_for_user"
+                  ? "사용자 확인이 필요합니다."
+                  : "응답을 기다린 뒤 자동으로 다시 시도합니다.",
           state: "waiting" as const,
         };
       }
@@ -546,8 +588,8 @@ function getPipelineSteps(job: JobView | null): PipelineStep[] {
         "공식 자료와 근거를 찾는 중",
         "조사 결과를 바탕으로 원고 작성 중",
         "출처와 핵심 문장을 독립적으로 검증 중",
-        "글의 핵심에 맞는 대표 이미지를 생성 중",
-        "이미지 관련성·오해 가능성을 독립적으로 검증 중",
+        "대표 이미지 제작 요청을 준비 중",
+        "선택한 대표 이미지를 업로드하는 중",
         "Sanity review 문서를 저장 중",
         "사용자 확인을 기다리는 중",
         "공개 페이지를 확인하는 중",
@@ -606,7 +648,6 @@ export default function JarvisRemotePage() {
   const [commandText, setCommandText] = useState("");
   const [groqKey, setGroqKey] = useState("");
   const [sanityKey, setSanityKey] = useState("");
-  const [openaiKey, setOpenaiKey] = useState("");
 
   useEffect(() => {
     const ticker = window.setInterval(() => setNow(Date.now()), 1000);
@@ -942,16 +983,108 @@ export default function JarvisRemotePage() {
   async function regenerateImage(jobId?: string) {
     if (!jobId) return;
     setBusy("image-retry");
-    setStatusText("대표 이미지 재생성 요청 중...");
+    setStatusText("대표 이미지 제작 단계로 되돌리는 중...");
 
     const data = await request({ action: "regenerate_image", jobId });
     setBusy(null);
 
     if (data?.ok) {
-      setStatusText("대표 이미지 재생성 시작됨");
+      setStatusText(data.message || "대표 이미지 제작 단계로 이동했습니다.");
       await refreshKnowledge(true);
     } else {
-      setStatusText(data?.error || "대표 이미지 재생성 실패");
+      setStatusText(data?.error || "대표 이미지 단계 이동 실패");
+    }
+  }
+
+  async function copyImagePrompt() {
+    const prompt = details.image_prompt?.trim();
+    if (!prompt) {
+      setStatusText("복사할 이미지 요청문이 없습니다.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setStatusText("GPT 이미지 요청문을 복사했습니다.");
+    } catch {
+      setStatusText("클립보드 복사에 실패했습니다. 요청문을 직접 선택해 복사하세요.");
+    }
+  }
+
+  async function readImageDimensions(file: File) {
+    return await new Promise<{ width: number; height: number }>((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const image = new Image();
+
+      image.onload = () => {
+        const dimensions = {
+          width: image.naturalWidth,
+          height: image.naturalHeight,
+        };
+        URL.revokeObjectURL(url);
+        resolve(dimensions);
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("이미지를 읽을 수 없습니다."));
+      };
+      image.src = url;
+    });
+  }
+
+  async function uploadKnowledgeImage(file: File, jobId: string) {
+    setBusy("image-upload");
+    setStatusText("대표 이미지 확인 중...");
+
+    try {
+      const dimensions = await readImageDimensions(file);
+      const ratio = dimensions.width / dimensions.height;
+      const target = 16 / 9;
+      const offRatio = Math.abs(ratio - target) > 0.08;
+
+      if (
+        offRatio &&
+        !window.confirm(
+          `선택한 이미지는 ${dimensions.width}×${dimensions.height}입니다. SITE 대표 이미지는 16:9가 기준입니다. 그래도 업로드할까요?`,
+        )
+      ) {
+        setBusy(null);
+        setStatusText("대표 이미지 업로드를 취소했습니다.");
+        return;
+      }
+
+      const key = deviceKey.trim();
+      const token = deviceToken.trim();
+      if (!key || !token) {
+        throw new Error("기기 연결 정보가 없습니다.");
+      }
+
+      const form = new FormData();
+      form.append("jobId", jobId);
+      form.append("file", file);
+
+      const response = await fetch(IMAGE_UPLOAD_URL, {
+        method: "POST",
+        headers: {
+          "x-jarvis-device": key,
+          "x-jarvis-token": token,
+        },
+        body: form,
+      });
+      const data = (await response.json().catch(() => ({}))) as JarvisResponse;
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || "대표 이미지 업로드 실패");
+      }
+
+      setStatusText(data.message || "대표 이미지 업로드 완료. Sanity 저장을 진행합니다.");
+      await refreshKnowledge(true);
+    } catch (error) {
+      setStatusText(
+        error instanceof Error ? error.message : "대표 이미지 업로드 실패",
+      );
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -1073,7 +1206,7 @@ export default function JarvisRemotePage() {
   );
 
   const providersReady = Boolean(
-    providerState?.groq && providerState?.sanity && providerState?.openai,
+    providerState?.groq && providerState?.sanity,
   );
   const connectionItems = [
     { label: "iPhone", checked: true, ok: pairSaved },
@@ -1081,11 +1214,6 @@ export default function JarvisRemotePage() {
       label: "Groq",
       checked: providerState !== null,
       ok: Boolean(providerState?.groq),
-    },
-    {
-      label: "OpenAI",
-      checked: providerState !== null,
-      ok: Boolean(providerState?.openai),
     },
     {
       label: "Sanity",
@@ -1291,8 +1419,8 @@ export default function JarvisRemotePage() {
                   lineHeight: 1.55,
                 }}
               >
-                상단 표시만 보면 iPhone, Groq, OpenAI 이미지, Sanity 연결 여부를
-                바로 확인할 수 있습니다.
+                상단 표시만 보면 iPhone, Groq, Sanity 연결 여부를 바로 확인할 수 있습니다.
+                대표 이미지는 현재 ChatGPT에서 제작한 뒤 JARVIS에 업로드합니다.
               </div>
 
               <button
@@ -1716,6 +1844,21 @@ export default function JarvisRemotePage() {
                 onClick={() => void startKnowledge()}
               >
                 {busy === "start" ? "시작 중..." : "Knowledge 1건 시작"}
+              </button>
+            ) : state.action === "image_handoff" && knowledgeJob?.job_id ? (
+              <button
+                style={{
+                  ...primary,
+                  background: "#f0c56e",
+                  color: "#211709",
+                }}
+                onClick={() =>
+                  document
+                    .getElementById("image-handoff")
+                    ?.scrollIntoView({ behavior: "smooth", block: "center" })
+                }
+              >
+                대표 이미지 만들기로 이동
               </button>
             ) : (
               state.action === "review_decision" ||
@@ -2190,6 +2333,118 @@ export default function JarvisRemotePage() {
           </div>
         </section>
 
+        {state.action === "image_handoff" && knowledgeJob?.job_id ? (
+          <section
+            id="image-handoff"
+            style={{ ...card, borderColor: "#875322", background: "#211a10" }}
+          >
+            <div style={{ fontWeight: 900, fontSize: 18 }}>대표 이미지 제작</div>
+            <div
+              style={{
+                marginTop: 7,
+                color: "#c7b590",
+                fontSize: 13,
+                lineHeight: 1.55,
+              }}
+            >
+              본문 검증은 끝났습니다. 아래 요청문은 현재 DECHIVE SITE 기준인
+              <strong> Dark Editorial · 16:9</strong> 규칙으로 준비되어 있습니다.
+              ChatGPT에서 이미지를 만든 뒤 이 화면으로 돌아와 업로드하세요.
+            </div>
+
+            <div
+              style={{
+                marginTop: 12,
+                padding: 12,
+                borderRadius: 12,
+                border: "1px solid #3b3428",
+                background: "#0d0f12",
+              }}
+            >
+              <div style={{ color: "#8e96a0", fontSize: 11, fontWeight: 900 }}>
+                GPT IMAGE REQUEST · {details.image_rule_version || "SITE"}
+              </div>
+              <pre
+                style={{
+                  whiteSpace: "pre-wrap",
+                  overflowWrap: "anywhere",
+                  margin: "9px 0 0",
+                  color: "#d7dbe1",
+                  fontSize: 12,
+                  lineHeight: 1.55,
+                  maxHeight: 300,
+                  overflow: "auto",
+                }}
+              >
+                {details.image_prompt || "이미지 요청문을 준비하지 못했습니다."}
+              </pre>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 8,
+                marginTop: 10,
+              }}
+            >
+              <button
+                style={{ ...secondary, minHeight: 44 }}
+                onClick={() => void copyImagePrompt()}
+                disabled={!details.image_prompt}
+              >
+                요청문 복사
+              </button>
+              <button
+                style={{ ...secondary, minHeight: 44 }}
+                onClick={() => window.open("https://chatgpt.com/", "_blank", "noopener,noreferrer")}
+              >
+                ChatGPT 열기
+              </button>
+            </div>
+
+            <label
+              style={{
+                ...primary,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginTop: 9,
+                background: "#91dda3",
+                cursor: busy === "image-upload" ? "wait" : "pointer",
+                opacity: busy === "image-upload" ? 0.65 : 1,
+              }}
+            >
+              {busy === "image-upload" ? "이미지 업로드 중..." : "완성 이미지 선택 & 업로드"}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                disabled={busy === "image-upload"}
+                style={{ display: "none" }}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.currentTarget.value = "";
+                  if (file) {
+                    void uploadKnowledgeImage(file, knowledgeJob.job_id!);
+                  }
+                }}
+              />
+            </label>
+
+            <div
+              style={{
+                marginTop: 9,
+                color: "#9a8b70",
+                fontSize: 11,
+                lineHeight: 1.5,
+              }}
+            >
+              SITE 기준: 16:9 · Dark Editorial · 이미지 안 긴 텍스트 없음 ·
+              generic AI 로봇/뇌/회로 남발 금지. 업로드 후 Sanity 저장 단계는 자동으로 이어집니다.
+            </div>
+          </section>
+        ) : null}
+
         {details.image_preview_url &&
         (
           state.action === "review_decision" ||
@@ -2524,7 +2779,8 @@ export default function JarvisRemotePage() {
                 }}
               >
                 연결 상태 확인은 상단 연결 바에서 합니다. Groq는 조사·원고·본문 검증,
-                OpenAI는 대표 이미지 생성·이미지 검증, Sanity는 저장·발행에 사용합니다.
+                Sanity는 이미지 저장·review·발행에 사용합니다. 대표 이미지는 ChatGPT에서
+                만든 결과를 JARVIS에 업로드하는 방식으로 연결합니다.
               </div>
 
               <label
@@ -2563,46 +2819,6 @@ export default function JarvisRemotePage() {
                 }}
               >
                 {busy === "groq" ? "저장 중..." : "Groq 키 저장"}
-              </button>
-
-              <label
-                style={{
-                  display: "block",
-                  margin: "16px 0 6px",
-                  color: "#9aa1aa",
-                  fontSize: 12,
-                }}
-              >
-                OpenAI API Key · 대표 이미지 생성/검증
-              </label>
-              <input
-                style={input}
-                type="password"
-                value={openaiKey}
-                onChange={(event) => setOpenaiKey(event.target.value)}
-                placeholder="변경할 때만 입력"
-              />
-              <button
-                style={{ ...secondary, marginTop: 8 }}
-                onClick={async () => {
-                  if (!openaiKey.trim()) return;
-                  setBusy("openai");
-                  const data = await request({
-                    action: "set_provider_secret",
-                    provider: "openai",
-                    secret: openaiKey.trim(),
-                  });
-                  setBusy(null);
-                  if (data?.ok) {
-                    setOpenaiKey("");
-                    setStatusText("OpenAI 저장 완료");
-                    void refreshProviders();
-                  } else {
-                    setStatusText(data?.error || "OpenAI 저장 실패");
-                  }
-                }}
-              >
-                {busy === "openai" ? "저장 중..." : "OpenAI 키 저장"}
               </button>
 
               <label
