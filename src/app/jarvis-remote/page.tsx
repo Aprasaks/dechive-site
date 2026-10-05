@@ -370,8 +370,10 @@ function getPipelineSteps(job: JobView | null): PipelineStep[] {
   if (status === "retry_wait" || status === "waiting_for_provider" || status === "cancelled") {
     const latestStage = events
       .map((event) => activityStage(event.event_type))
-      .find((value): value is number => typeof value === "number");
-    if (typeof latestStage === "number") currentStage = latestStage;
+      .find((value) => value !== null);
+    if (latestStage !== undefined && latestStage !== null) {
+      currentStage = latestStage;
+    }
   }
 
   const isWaiting =
