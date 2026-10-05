@@ -216,6 +216,7 @@ export async function POST(request: Request) {
     });
   }
 
+  // Keep the provider swappable; v1 defaults to OpenRouter's free Gemma vision model.
   const model =
     process.env.OPENROUTER_MODEL || "google/gemma-4-31b-it:free";
 
