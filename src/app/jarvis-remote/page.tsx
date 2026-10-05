@@ -877,6 +877,12 @@ export default function JarvisRemotePage() {
     ? null
     : Math.max(0, Math.floor((now - updatedAtMs) / 1000));
   const recentActivity = knowledgeJob?.recent_activity ?? [];
+  const currentPipelineStep = pipelineSteps.find(
+    (step) => step.state === "active" || step.state === "waiting",
+  );
+  const showLiveMonitor = Boolean(
+    isLive || isWaitingLive || busy === "start" || activeCommandId,
+  );
 
   const providersReady = Boolean(
     providerState?.groq && providerState?.sanity,
@@ -894,17 +900,48 @@ export default function JarvisRemotePage() {
           100% { transform: translateX(260%); }
         }
         @keyframes jarvisGlow {
-          0%, 100% { box-shadow: 0 0 0 rgba(165, 201, 255, 0); }
-          50% { box-shadow: 0 0 22px rgba(165, 201, 255, 0.13); }
+          0%, 100% {
+            box-shadow:
+              0 0 0 rgba(91, 214, 255, 0),
+              inset 0 0 0 rgba(91, 214, 255, 0);
+          }
+          50% {
+            box-shadow:
+              0 0 30px rgba(91, 214, 255, 0.22),
+              inset 0 0 22px rgba(91, 214, 255, 0.05);
+          }
+        }
+        @keyframes jarvisRail {
+          0% { transform: translateX(-130%); }
+          100% { transform: translateX(330%); }
+        }
+        @keyframes jarvisBars {
+          0%, 100% { height: 5px; opacity: 0.45; }
+          50% { height: 22px; opacity: 1; }
+        }
+        @keyframes jarvisBorderPulse {
+          0%, 100% { border-color: rgba(91, 214, 255, 0.35); }
+          50% { border-color: rgba(91, 214, 255, 0.95); }
         }
         .jarvis-live-dot {
-          animation: jarvisPulse 1.25s ease-in-out infinite;
+          animation: jarvisPulse 1s ease-in-out infinite;
         }
         .jarvis-live-card {
-          animation: jarvisGlow 2.2s ease-in-out infinite;
+          animation: jarvisGlow 1.8s ease-in-out infinite;
+        }
+        .jarvis-live-monitor {
+          animation:
+            jarvisGlow 1.8s ease-in-out infinite,
+            jarvisBorderPulse 1.8s ease-in-out infinite;
         }
         .jarvis-sweep {
-          animation: jarvisSweep 1.8s linear infinite;
+          animation: jarvisSweep 1.35s linear infinite;
+        }
+        .jarvis-rail {
+          animation: jarvisRail 1.15s linear infinite;
+        }
+        .jarvis-wave-bar {
+          animation: jarvisBars 0.9s ease-in-out infinite;
         }
       `}</style>
       <div style={{ maxWidth: 680, margin: "0 auto" }}>
@@ -937,6 +974,232 @@ export default function JarvisRemotePage() {
             {pairSaved ? "iPhone 연결됨" : "기기 연결 필요"}
           </div>
         </div>
+
+        {showLiveMonitor ? (
+          <section
+            className={isLive || busy === "start" || activeCommandId ? "jarvis-live-monitor" : undefined}
+            style={{
+              position: "relative",
+              overflow: "hidden",
+              borderRadius: 20,
+              marginBottom: 14,
+              padding: "16px 16px 14px",
+              border: isWaitingLive
+                ? "1px solid #7b672f"
+                : "1px solid rgba(91,214,255,0.72)",
+              background: isWaitingLive
+                ? "linear-gradient(180deg, #211d11, #15130d)"
+                : "radial-gradient(circle at 15% 0%, rgba(36,160,220,0.18), transparent 42%), linear-gradient(180deg, #0e1821, #0a1016)",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                opacity: 0.26,
+                backgroundImage:
+                  "linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px)",
+                backgroundSize: "100% 5px",
+                pointerEvents: "none",
+              }}
+            />
+
+            {!isWaitingLive ? (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 2,
+                  overflow: "hidden",
+                  background: "rgba(91,214,255,0.12)",
+                }}
+              >
+                <div
+                  className="jarvis-rail"
+                  style={{
+                    width: "32%",
+                    height: "100%",
+                    background:
+                      "linear-gradient(90deg, transparent, #8fe8ff 45%, #ffffff 50%, #8fe8ff 55%, transparent)",
+                    boxShadow: "0 0 14px #69dcff",
+                  }}
+                />
+              </div>
+            ) : null}
+
+            <div
+              style={{
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  minWidth: 0,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-end",
+                    gap: 3,
+                    height: 24,
+                    width: 35,
+                  }}
+                >
+                  {[0, 1, 2, 3, 4].map((index) => (
+                    <span
+                      key={index}
+                      className={!isWaitingLive ? "jarvis-wave-bar" : undefined}
+                      style={{
+                        display: "block",
+                        width: 4,
+                        height: isWaitingLive ? 6 : 10,
+                        borderRadius: 99,
+                        background: isWaitingLive ? "#d6bd64" : "#78ddff",
+                        boxShadow: isWaitingLive ? "none" : "0 0 8px rgba(120,221,255,0.7)",
+                        animationDelay: `${index * 0.11}s`,
+                      }}
+                    />
+                  ))}
+                </div>
+
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 7,
+                      color: isWaitingLive ? "#efd276" : "#a8edff",
+                      fontSize: 12,
+                      fontWeight: 900,
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    <span
+                      className={!isWaitingLive ? "jarvis-live-dot" : undefined}
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: 99,
+                        background: isWaitingLive ? "#d6bd64" : "#72e2ff",
+                        boxShadow: isWaitingLive ? "none" : "0 0 12px #72e2ff",
+                      }}
+                    />
+                    {isWaitingLive ? "WAITING" : "LIVE"}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 3,
+                      color: "#f7fbff",
+                      fontSize: 17,
+                      fontWeight: 950,
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {isWaitingLive
+                      ? "JARVIS 응답 대기"
+                      : currentPipelineStep?.label
+                        ? `${currentPipelineStep.label} 진행 중`
+                        : "JARVIS 작업 실행 중"}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  flexShrink: 0,
+                  textAlign: "right",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                <div
+                  style={{
+                    color: isWaitingLive ? "#efd276" : "#bceeff",
+                    fontSize: 18,
+                    fontWeight: 950,
+                  }}
+                >
+                  {isWaitingLive && retryCountdownLabel
+                    ? retryCountdownLabel
+                    : elapsedLabel}
+                </div>
+                <div style={{ marginTop: 2, color: "#73808c", fontSize: 10 }}>
+                  {isWaitingLive ? "RETRY" : "ELAPSED"}
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                position: "relative",
+                marginTop: 13,
+                height: 6,
+                overflow: "hidden",
+                borderRadius: 99,
+                background: isWaitingLive
+                  ? "rgba(239,210,118,0.10)"
+                  : "rgba(110,220,255,0.10)",
+                border: isWaitingLive
+                  ? "1px solid rgba(239,210,118,0.18)"
+                  : "1px solid rgba(110,220,255,0.18)",
+              }}
+            >
+              {!isWaitingLive ? (
+                <div
+                  className="jarvis-rail"
+                  style={{
+                    width: "35%",
+                    height: "100%",
+                    borderRadius: 99,
+                    background:
+                      "linear-gradient(90deg, transparent, #49cfff 38%, #c9f6ff 50%, #49cfff 62%, transparent)",
+                    boxShadow: "0 0 15px rgba(73,207,255,0.95)",
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: "38%",
+                    height: "100%",
+                    borderRadius: 99,
+                    background: "#b79b45",
+                    opacity: 0.65,
+                  }}
+                />
+              )}
+            </div>
+
+            <div
+              style={{
+                position: "relative",
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 10,
+                marginTop: 9,
+                color: "#76818c",
+                fontSize: 11,
+              }}
+            >
+              <span>
+                {isWaitingLive && retryCountdownLabel
+                  ? `다음 재시도까지 ${retryCountdownLabel}`
+                  : lastSignalSeconds === null
+                    ? "서버 신호 확인 중"
+                    : `마지막 서버 신호 ${lastSignalSeconds}초 전`}
+              </span>
+              <span>실제 JARVIS 상태 동기화</span>
+            </div>
+          </section>
+        ) : null}
 
         <section
           style={{
