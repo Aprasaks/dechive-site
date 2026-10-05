@@ -38,6 +38,7 @@ type JobView = {
   published_at?: string | null;
   channel_status?: string | null;
   started_at?: string | null;
+  scheduled_at?: string | null;
   updated_at?: string | null;
   finished_at?: string | null;
   recent_activity?: ActivityEvent[];
@@ -862,9 +863,16 @@ export default function JarvisRemotePage() {
   const updatedAtMs = knowledgeJob?.updated_at
     ? new Date(knowledgeJob.updated_at).getTime()
     : Number.NaN;
+  const scheduledAtMs = knowledgeJob?.scheduled_at
+    ? new Date(knowledgeJob.scheduled_at).getTime()
+    : Number.NaN;
   const elapsedLabel = Number.isNaN(startedAtMs)
     ? "00:00"
     : formatElapsed(now - startedAtMs);
+  const retryCountdownLabel =
+    isWaitingLive && !Number.isNaN(scheduledAtMs)
+      ? formatElapsed(Math.max(0, scheduledAtMs - now))
+      : null;
   const lastSignalSeconds = Number.isNaN(updatedAtMs)
     ? null
     : Math.max(0, Math.floor((now - updatedAtMs) / 1000));
@@ -1022,7 +1030,9 @@ export default function JarvisRemotePage() {
                   {isLive ? "실시간 실행 중" : "응답 대기 중"}
                 </div>
                 <div style={{ fontVariantNumeric: "tabular-nums", fontWeight: 900 }}>
-                  {elapsedLabel}
+                  {isWaitingLive && retryCountdownLabel
+                    ? `재시도 ${retryCountdownLabel}`
+                    : elapsedLabel}
                 </div>
               </div>
               <div
@@ -1033,13 +1043,15 @@ export default function JarvisRemotePage() {
                   fontSize: 12,
                 }}
               >
-                {lastSignalSeconds === null
-                  ? "서버 응답 확인 중"
-                  : lastSignalSeconds <= 5
-                    ? `마지막 서버 신호 ${lastSignalSeconds}초 전`
-                    : lastSignalSeconds <= 20
-                      ? `마지막 서버 신호 ${lastSignalSeconds}초 전 · 처리 중`
-                      : `마지막 서버 신호 ${lastSignalSeconds}초 전 · 지연 확인 필요`}
+                {isWaitingLive && retryCountdownLabel
+                  ? `다음 자동 재시도까지 ${retryCountdownLabel} · 그 전에는 다시 호출하지 않습니다.`
+                  : lastSignalSeconds === null
+                    ? "서버 응답 확인 중"
+                    : lastSignalSeconds <= 5
+                      ? `마지막 서버 신호 ${lastSignalSeconds}초 전`
+                      : lastSignalSeconds <= 20
+                        ? `마지막 서버 신호 ${lastSignalSeconds}초 전 · 처리 중`
+                        : `마지막 서버 신호 ${lastSignalSeconds}초 전 · 지연 확인 필요`}
               </div>
             </div>
           ) : null}
