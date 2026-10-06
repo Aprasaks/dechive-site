@@ -271,6 +271,93 @@ function blocksFromStructure(
   return result;
 }
 
+function quoteCandidateScore(content: string) {
+  const compact = content.replace(/\s+/g, " ").trim();
+
+  if (
+    compact.length < 24 ||
+    compact.length > 150 ||
+    /[?？]$/.test(compact) ||
+    /^(?:안녕하세요|예를 들어|다음|이번 글|이제 )/.test(compact)
+  ) {
+    return -1;
+  }
+
+  let score = 0;
+
+  if (compact.length >= 38 && compact.length <= 120) score += 3;
+  if (
+    /(?:핵심|중요|결국|즉[, ]|한마디로|다시 말해|정리하면|기억|차이는|목표는|의미합니다|것입니다|아닙니다|가깝습니다|서로 다른|오해)/.test(
+      compact,
+    )
+  ) {
+    score += 5;
+  }
+  if (/(?:아니라|하지만|따라서|그래서|보다|때문입니다|필요합니다)/.test(compact)) {
+    score += 2;
+  }
+
+  const sentenceCount = compact
+    .split(/[.!。！？]+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean).length;
+
+  if (sentenceCount <= 1) score += 2;
+  if (sentenceCount >= 3) score -= 3;
+
+  return score;
+}
+
+function ensureQuoteBlocks(sourceBlocks: DraftBlock[]) {
+  const existingQuoteCount = sourceBlocks.filter(
+    (block) => block.type === "quote",
+  ).length;
+
+  const textBlockCount = sourceBlocks.filter((block) =>
+    editableBlockTypes.includes(block.type),
+  ).length;
+
+  const targetQuoteCount = textBlockCount >= 22 ? 2 : 1;
+  if (existingQuoteCount >= targetQuoteCount) return sourceBlocks;
+
+  const candidates = sourceBlocks
+    .map((block, index) => ({
+      block,
+      index,
+      score:
+        block.type === "paragraph" ? quoteCandidateScore(block.content) : -1,
+    }))
+    .filter(({ score }) => score >= 4)
+    .sort((a, b) => b.score - a.score);
+
+  const selectedIndexes: number[] = [];
+  for (const candidate of candidates) {
+    if (existingQuoteCount + selectedIndexes.length >= targetQuoteCount) break;
+
+    const tooClose = selectedIndexes.some(
+      (selectedIndex) => Math.abs(selectedIndex - candidate.index) < 4,
+    );
+    if (tooClose && candidates.length > targetQuoteCount) continue;
+
+    selectedIndexes.push(candidate.index);
+  }
+
+  if (selectedIndexes.length === 0) return sourceBlocks;
+
+  const selected = new Set(selectedIndexes);
+  return sourceBlocks.map((block, index) =>
+    selected.has(index) ? { ...block, type: "quote" as const } : block,
+  );
+}
+
+function structureCounts(blocks: DraftBlock[]) {
+  return {
+    heading: blocks.filter((block) => block.type === "heading").length,
+    quote: blocks.filter((block) => block.type === "quote").length,
+    divider: blocks.filter((block) => block.type === "divider").length,
+  };
+}
+
 function distributeFallbackImages(
   sourceBlocks: DraftBlock[],
   images: DraftBlock[],
@@ -512,32 +599,37 @@ export function NaverPublisherClient() {
         items?: StructureItem[];
       };
 
-      const nextBlocks = blocksFromStructure(
-        Array.isArray(payload.items) ? payload.items : [],
-        paragraphs,
-        images,
+      const nextBlocks = ensureQuoteBlocks(
+        blocksFromStructure(
+          Array.isArray(payload.items) ? payload.items : [],
+          paragraphs,
+          images,
+        ),
       );
 
       if (nextBlocks.length === 0) {
         throw new Error("AI_STRUCTURE_EMPTY");
       }
 
+      const counts = structureCounts(nextBlocks);
+
       startTransition(() => {
         setBlocks(nextBlocks);
       });
       setMessage(
-        images.length > 0
-          ? "AI가 글 구조와 이미지 위치를 함께 정리했습니다."
-          : "AI가 소제목·인용구·구분선을 판단해 정리했습니다.",
+        `AI 구조 정리 완료 · 소제목 ${counts.heading} · 인용구 ${counts.quote} · 구분선 ${counts.divider}`,
       );
     } catch {
-      const fallbackBlocks = structureDraft(draft);
+      const fallbackBlocks = ensureQuoteBlocks(
+        distributeFallbackImages(structureDraft(draft), images),
+      );
+      const counts = structureCounts(fallbackBlocks);
 
       startTransition(() => {
-        setBlocks(distributeFallbackImages(fallbackBlocks, images));
+        setBlocks(fallbackBlocks);
       });
       setMessage(
-        "AI 연결 전이라 기본 규칙으로 미리보기를 만들었습니다. AI 키를 연결하면 글과 이미지를 함께 판별합니다.",
+        `AI 응답을 사용하지 못해 기본 규칙으로 정리했습니다 · 소제목 ${counts.heading} · 인용구 ${counts.quote} · 구분선 ${counts.divider}`,
       );
     } finally {
       setIsStructuring(false);
