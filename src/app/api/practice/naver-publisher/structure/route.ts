@@ -60,6 +60,99 @@ function parseJsonResponse(value: string) {
   return JSON.parse(unwrapped) as { items?: unknown };
 }
 
+function quoteCandidateScore(content: string) {
+  const compact = content.replace(/\s+/g, " ").trim();
+
+  if (
+    compact.length < 24 ||
+    compact.length > 170 ||
+    /[?？]$/.test(compact) ||
+    /^(?:안녕하세요|예를 들어|다음|이번 글|이제 )/.test(compact)
+  ) {
+    return -1;
+  }
+
+  let score = 0;
+
+  if (compact.length >= 38 && compact.length <= 125) score += 3;
+  if (
+    /(?:핵심|중요|결국|즉[, ]|한마디로|다시 말해|정리하면|기억|차이는|목표는|의미합니다|것입니다|아닙니다|가깝습니다|서로 다른|오해|강력한 이유|기준이 돼야|핵심입니다)/.test(
+      compact,
+    )
+  ) {
+    score += 5;
+  }
+  if (
+    /(?:아니라|하지만|따라서|그래서|보다|때문입니다|필요합니다|뜻입니다|말합니다)/.test(
+      compact,
+    )
+  ) {
+    score += 2;
+  }
+
+  const sentenceCount = compact
+    .split(/[.!。！？]+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean).length;
+
+  if (sentenceCount <= 1) score += 2;
+  if (sentenceCount >= 3) score -= 3;
+
+  return score;
+}
+
+function ensureQuoteItems(
+  items: StructureItem[],
+  paragraphs: string[],
+): StructureItem[] {
+  const existingQuoteCount = items.filter((item) => item.type === "quote").length;
+  const targetQuoteCount = paragraphs.length >= 18 ? 2 : paragraphs.length >= 6 ? 1 : 0;
+
+  if (existingQuoteCount >= targetQuoteCount || targetQuoteCount === 0) {
+    return items;
+  }
+
+  const candidates = items
+    .map((item, orderIndex) => ({
+      item,
+      orderIndex,
+      score:
+        item.type === "paragraph"
+          ? quoteCandidateScore(paragraphs[item.paragraphIndex] || "")
+          : -1,
+    }))
+    .filter(({ score }) => score >= 4)
+    .sort((a, b) => b.score - a.score);
+
+  const selectedParagraphIndexes = new Set<number>();
+
+  for (const candidate of candidates) {
+    if (
+      existingQuoteCount + selectedParagraphIndexes.size >=
+      targetQuoteCount
+    ) {
+      break;
+    }
+
+    const paragraphIndex = candidate.item.paragraphIndex;
+    const tooClose = [...selectedParagraphIndexes].some(
+      (selected) => Math.abs(selected - paragraphIndex) < 4,
+    );
+
+    if (tooClose && candidates.length > targetQuoteCount) continue;
+    selectedParagraphIndexes.add(paragraphIndex);
+  }
+
+  if (selectedParagraphIndexes.size === 0) return items;
+
+  return items.map((item) =>
+    item.type === "paragraph" &&
+    selectedParagraphIndexes.has(item.paragraphIndex)
+      ? { ...item, type: "quote" as const }
+      : item,
+  );
+}
+
 function normalizeItems(
   rawItems: unknown,
   paragraphCount: number,
@@ -294,10 +387,9 @@ export async function POST(request: Request) {
     }
 
     const parsed = parseJsonResponse(text);
-    const items = normalizeItems(
-      parsed.items,
-      paragraphs.length,
-      images.length,
+    const items = ensureQuoteItems(
+      normalizeItems(parsed.items, paragraphs.length, images.length),
+      paragraphs,
     );
 
     return NextResponse.json({
@@ -305,6 +397,11 @@ export async function POST(request: Request) {
       mode: "ai",
       provider: "openrouter",
       model,
+      editorial: {
+        quotes: items.filter((item) => item.type === "quote").length,
+        dividers: items.filter((item) => item.type === "divider").length,
+        headings: items.filter((item) => item.type === "heading").length,
+      },
     });
   } catch (error) {
     console.error("OpenRouter structure route error", error);
