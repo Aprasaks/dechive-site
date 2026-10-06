@@ -14,6 +14,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "workers/chatgpt-plan-worker/**",
   ]),
 ]);
 
