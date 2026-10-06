@@ -240,8 +240,10 @@ function normalizeItems(
 }
 
 export async function POST(request: Request) {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
+  const geminiApiKey = process.env.GEMINI_API_KEY;
+  const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+
+  if (!geminiApiKey && !openRouterApiKey) {
     return NextResponse.json(
       { error: "AI_NOT_CONFIGURED" },
       { status: 503 },
@@ -290,44 +292,96 @@ export async function POST(request: Request) {
     `There are ${images.length} uploaded images. Image parts follow in index order.`,
   ].join("\n");
 
-  const content: Array<Record<string, unknown>> = [
+  const openRouterContent: Array<Record<string, unknown>> = [
     { type: "text", text: prompt },
   ];
+  const geminiParts: Array<Record<string, unknown>> = [{ text: prompt }];
 
   for (let index = 0; index < images.length; index += 1) {
     const image = images[index];
     const dataUrl = String(image.dataUrl || "").trim();
     if (!dataUrl.startsWith("data:image/")) continue;
 
-    content.push({
+    openRouterContent.push({
       type: "text",
       text: `IMAGE_INDEX=${index} FILE=${String(image.fileName || "image")}`,
     });
-    content.push({
+    openRouterContent.push({
       type: "image_url",
       image_url: { url: dataUrl },
     });
+
+    const match = dataUrl.match(/^data:(image\/[^;]+);base64,(.+)$/);
+    if (!match) continue;
+
+    geminiParts.push({
+      text: `IMAGE_INDEX=${index} FILE=${String(image.fileName || "image")}`,
+    });
+    geminiParts.push({
+      inlineData: {
+        mimeType: match[1],
+        data: match[2],
+      },
+    });
   }
 
-  // Keep the provider swappable; v1 defaults to OpenRouter's free Gemma vision model.
-  const model =
+  const geminiModel = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+  const openRouterModel =
     process.env.OPENROUTER_MODEL || "google/gemma-4-31b-it:free";
 
-  const requestOpenRouter = (useStructuredOutput: boolean) =>
-    fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const requestGemini = (useStructuredOutput: boolean) => {
+    if (!geminiApiKey) return null;
+
+    return fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel)}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "x-goog-api-key": geminiApiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: geminiParts,
+            },
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            ...(useStructuredOutput
+              ? {
+                  responseFormat: {
+                    text: {
+                      mimeType: "application/json",
+                      schema: OUTPUT_SCHEMA,
+                    },
+                  },
+                }
+              : {}),
+          },
+        }),
+      },
+    );
+  };
+
+  const requestOpenRouter = (useStructuredOutput: boolean) => {
+    if (!openRouterApiKey) return null;
+
+    return fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${openRouterApiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": "https://dechive.dev",
         "X-Title": "DECHIVE NAVER PUBLISHER",
       },
       body: JSON.stringify({
-        model,
+        model: openRouterModel,
         messages: [
           {
             role: "user",
-            content,
+            content: openRouterContent,
           },
         ],
         temperature: 0.1,
@@ -345,57 +399,22 @@ export async function POST(request: Request) {
           : {}),
       }),
     });
+  };
 
-  try {
-    let response = await requestOpenRouter(true);
-
-    if (!response.ok && (response.status === 400 || response.status === 422)) {
-      const structuredDetail = await response.text();
-      console.warn(
-        "OpenRouter structured output unavailable; retrying JSON-only prompt",
-        response.status,
-        structuredDetail,
-      );
-      response = await requestOpenRouter(false);
-    }
-
-    if (!response.ok) {
-      const detail = await response.text();
-      console.error(
-        "OpenRouter structure request failed",
-        response.status,
-        detail,
-      );
-      return NextResponse.json(
-        { error: "AI_REQUEST_FAILED" },
-        { status: 502 },
-      );
-    }
-
-    const payload = (await response.json()) as {
-      choices?: Array<{
-        message?: {
-          content?: string;
-        };
-      }>;
-    };
-
-    const text = payload.choices?.[0]?.message?.content?.trim();
-
-    if (!text) {
-      return NextResponse.json({ error: "AI_EMPTY_RESPONSE" }, { status: 502 });
-    }
-
-    const parsed = parseJsonResponse(text);
+  const finalize = (
+    rawItems: unknown,
+    provider: "gemini" | "openrouter",
+    model: string,
+  ) => {
     const items = ensureQuoteItems(
-      normalizeItems(parsed.items, paragraphs.length, images.length),
+      normalizeItems(rawItems, paragraphs.length, images.length),
       paragraphs,
     );
 
     return NextResponse.json({
       items,
       mode: "ai",
-      provider: "openrouter",
+      provider,
       model,
       editorial: {
         quotes: items.filter((item) => item.type === "quote").length,
@@ -403,8 +422,105 @@ export async function POST(request: Request) {
         headings: items.filter((item) => item.type === "heading").length,
       },
     });
-  } catch (error) {
-    console.error("OpenRouter structure route error", error);
-    return NextResponse.json({ error: "AI_REQUEST_FAILED" }, { status: 502 });
+  };
+
+  if (geminiApiKey) {
+    try {
+      let response = await requestGemini(true);
+
+      if (
+        response &&
+        !response.ok &&
+        (response.status === 400 || response.status === 422)
+      ) {
+        const structuredDetail = await response.text();
+        console.warn(
+          "Gemini structured output unavailable; retrying JSON-only prompt",
+          response.status,
+          structuredDetail,
+        );
+        response = await requestGemini(false);
+      }
+
+      if (response?.ok) {
+        const payload = (await response.json()) as {
+          candidates?: Array<{
+            content?: {
+              parts?: Array<{
+                text?: string;
+              }>;
+            };
+          }>;
+        };
+
+        const text = payload.candidates?.[0]?.content?.parts
+          ?.map((part) => part.text || "")
+          .join("")
+          .trim();
+
+        if (text) {
+          const parsed = parseJsonResponse(text);
+          return finalize(parsed.items, "gemini", geminiModel);
+        }
+
+        console.warn("Gemini structure response was empty");
+      } else if (response) {
+        const detail = await response.text();
+        console.warn("Gemini structure request failed", response.status, detail);
+      }
+    } catch (error) {
+      console.warn("Gemini structure route error; trying OpenRouter", error);
+    }
   }
+
+  if (openRouterApiKey) {
+    try {
+      let response = await requestOpenRouter(true);
+
+      if (
+        response &&
+        !response.ok &&
+        (response.status === 400 || response.status === 422)
+      ) {
+        const structuredDetail = await response.text();
+        console.warn(
+          "OpenRouter structured output unavailable; retrying JSON-only prompt",
+          response.status,
+          structuredDetail,
+        );
+        response = await requestOpenRouter(false);
+      }
+
+      if (response?.ok) {
+        const payload = (await response.json()) as {
+          choices?: Array<{
+            message?: {
+              content?: string;
+            };
+          }>;
+        };
+
+        const text = payload.choices?.[0]?.message?.content?.trim();
+
+        if (text) {
+          const parsed = parseJsonResponse(text);
+          return finalize(parsed.items, "openrouter", openRouterModel);
+        }
+
+        console.warn("OpenRouter structure response was empty");
+      } else if (response) {
+        const detail = await response.text();
+        console.warn(
+          "OpenRouter structure request failed",
+          response.status,
+          detail,
+        );
+      }
+    } catch (error) {
+      console.warn("OpenRouter structure route error", error);
+    }
+  }
+
+  return NextResponse.json({ error: "AI_REQUEST_FAILED" }, { status: 502 });
+
 }
