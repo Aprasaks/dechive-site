@@ -50,6 +50,38 @@ const OUTPUT_SCHEMA = {
   required: ["items"],
 };
 
+const GEMINI_OUTPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    items: {
+      type: "array",
+      description:
+        "Final reading order for the Naver blog preview. Use every paragraph exactly once and every image exactly once.",
+      items: {
+        type: "object",
+        properties: {
+          type: {
+            type: "string",
+            enum: ["paragraph", "heading", "quote", "divider", "image"],
+          },
+          paragraphIndex: {
+            type: "integer",
+            description:
+              "Zero-based paragraph index. Use -1 for divider and image items.",
+          },
+          imageIndex: {
+            type: "integer",
+            description:
+              "Zero-based image index. Use -1 for paragraph, heading, quote and divider items.",
+          },
+        },
+        required: ["type", "paragraphIndex", "imageIndex"],
+      },
+    },
+  },
+  required: ["items"],
+};
+
 function parseJsonResponse(value: string) {
   const trimmed = value.trim();
   const unwrapped = trimmed
@@ -360,7 +392,7 @@ export async function POST(request: Request) {
             ...(useStructuredOutput
               ? {
                   responseMimeType: "application/json",
-                  responseSchema: OUTPUT_SCHEMA,
+                  responseSchema: GEMINI_OUTPUT_SCHEMA,
                 }
               : {}),
           },
