@@ -359,8 +359,8 @@ export async function POST(request: Request) {
 
   const geminiModels = Array.from(
     new Set([
-      process.env.GEMINI_MODEL || "gemini-3.8-flash",
-      "gemini-3.5-flash",
+      process.env.GEMINI_MODEL || "gemini-3.5-flash",
+      "gemini-3.8-flash",
     ]),
   );
   const openRouterModel =
@@ -380,6 +380,7 @@ export async function POST(request: Request) {
           "x-goog-api-key": geminiApiKey,
           "Content-Type": "application/json",
         },
+        signal: AbortSignal.timeout(30000),
         body: JSON.stringify({
           contents: [
             {
@@ -388,7 +389,9 @@ export async function POST(request: Request) {
             },
           ],
           generationConfig: {
-            temperature: 0.1,
+            thinkingConfig: {
+              thinkingLevel: "LOW",
+            },
             ...(useStructuredOutput
               ? {
                   responseMimeType: "application/json",
@@ -412,6 +415,7 @@ export async function POST(request: Request) {
         "HTTP-Referer": "https://dechive.dev",
         "X-Title": "DECHIVE NAVER PUBLISHER",
       },
+      signal: AbortSignal.timeout(20000),
       body: JSON.stringify({
         model: openRouterModel,
         messages: [
