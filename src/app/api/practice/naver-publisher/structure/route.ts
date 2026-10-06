@@ -185,6 +185,52 @@ function ensureQuoteItems(
   );
 }
 
+function limitDividerItems(
+  items: StructureItem[],
+  paragraphCount: number,
+): StructureItem[] {
+  const dividerPositions = items
+    .map((item, index) => (item.type === "divider" ? index : -1))
+    .filter((index) => index >= 0);
+
+  if (dividerPositions.length === 0) return items;
+
+  const headingCount = items.filter((item) => item.type === "heading").length;
+  const maxDividers =
+    headingCount >= 8
+      ? 4
+      : headingCount >= 5
+        ? 3
+        : headingCount >= 3
+          ? 2
+          : paragraphCount >= 8
+            ? 1
+            : 0;
+
+  if (dividerPositions.length <= maxDividers) return items;
+  if (maxDividers === 0) {
+    return items.filter((item) => item.type !== "divider");
+  }
+
+  const selected = new Set<number>();
+
+  for (let slot = 1; slot <= maxDividers; slot += 1) {
+    const target = (items.length * slot) / (maxDividers + 1);
+    const available = dividerPositions.filter((index) => !selected.has(index));
+    if (available.length === 0) break;
+
+    const closest = available.reduce((best, current) =>
+      Math.abs(current - target) < Math.abs(best - target) ? current : best,
+    );
+
+    selected.add(closest);
+  }
+
+  return items.filter(
+    (item, index) => item.type !== "divider" || selected.has(index),
+  );
+}
+
 function normalizeItems(
   rawItems: unknown,
   paragraphCount: number,
@@ -309,7 +355,7 @@ export async function POST(request: Request) {
     "2. Never invent, merge, split, summarize, or rewrite text. Return indexes only.",
     "3. Classify a paragraph as heading only when that paragraph itself clearly functions as a section heading.",
     "4. You MUST classify 1 to 3 strong takeaway paragraphs as quote for a normal-length article. For articles with 12 or more paragraphs, target 2 quotes. Use zero quotes only when there is genuinely no suitable standalone takeaway. A quote should be a meaningful conclusion, key insight, or memorable sentence, not a random sentence.",
-    "5. Insert divider items only at meaningful topic transitions. Usually before a new major section. Avoid decorative overuse.",
+    "5. Insert divider items only at major topic transitions that separate groups of sections. Do NOT put a divider before every heading. A normal long article should usually have 2 to 4 dividers total, and never more than 4. If there are 8 to 10 headings, aim for about 3 to 4 dividers.",
     "6. Inspect each image and place it near the paragraph or section whose meaning best matches the image.",
     "7. Every uploaded image must appear exactly once. Do not place all images at the end unless that is genuinely the best match.",
     "8. Keep the overall paragraph order. Images and dividers may be inserted between paragraphs.",
@@ -446,9 +492,12 @@ export async function POST(request: Request) {
     provider: "gemini" | "openrouter",
     model: string,
   ) => {
-    const items = ensureQuoteItems(
-      normalizeItems(rawItems, paragraphs.length, images.length),
-      paragraphs,
+    const items = limitDividerItems(
+      ensureQuoteItems(
+        normalizeItems(rawItems, paragraphs.length, images.length),
+        paragraphs,
+      ),
+      paragraphs.length,
     );
 
     return NextResponse.json({
