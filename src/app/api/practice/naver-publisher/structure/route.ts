@@ -181,7 +181,7 @@ export async function POST(request: Request) {
     "1. Every paragraph index must appear exactly once.",
     "2. Never invent, merge, split, summarize, or rewrite text. Return indexes only.",
     "3. Classify a paragraph as heading only when that paragraph itself clearly functions as a section heading.",
-    "4. Classify 1 to 3 strong takeaway sentences as quote when useful. A quote should be a meaningful conclusion, key insight, or memorable sentence, not a random sentence.",
+    "4. You MUST classify 1 to 3 strong takeaway paragraphs as quote for a normal-length article. For articles with 12 or more paragraphs, target 2 quotes. Use zero quotes only when there is genuinely no suitable standalone takeaway. A quote should be a meaningful conclusion, key insight, or memorable sentence, not a random sentence.",
     "5. Insert divider items only at meaningful topic transitions. Usually before a new major section. Avoid decorative overuse.",
     "6. Inspect each image and place it near the paragraph or section whose meaning best matches the image.",
     "7. Every uploaded image must appear exactly once. Do not place all images at the end unless that is genuinely the best match.",
