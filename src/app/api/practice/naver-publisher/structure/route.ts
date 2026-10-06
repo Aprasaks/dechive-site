@@ -325,15 +325,23 @@ export async function POST(request: Request) {
     });
   }
 
-  const geminiModel = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+  const geminiModels = Array.from(
+    new Set([
+      process.env.GEMINI_MODEL || "gemini-3.8-flash",
+      "gemini-3.5-flash",
+    ]),
+  );
   const openRouterModel =
     process.env.OPENROUTER_MODEL || "google/gemma-4-31b-it:free";
 
-  const requestGemini = (useStructuredOutput: boolean) => {
+  const requestGemini = (
+    model: string,
+    useStructuredOutput: boolean,
+  ) => {
     if (!geminiApiKey) return null;
 
     return fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel)}:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
       {
         method: "POST",
         headers: {
@@ -351,12 +359,8 @@ export async function POST(request: Request) {
             temperature: 0.1,
             ...(useStructuredOutput
               ? {
-                  responseFormat: {
-                    text: {
-                      mimeType: "application/json",
-                      schema: OUTPUT_SCHEMA,
-                    },
-                  },
+                  responseMimeType: "application/json",
+                  responseSchema: OUTPUT_SCHEMA,
                 }
               : {}),
           },
@@ -425,51 +429,63 @@ export async function POST(request: Request) {
   };
 
   if (geminiApiKey) {
-    try {
-      let response = await requestGemini(true);
+    for (const geminiModel of geminiModels) {
+      try {
+        let response = await requestGemini(geminiModel, true);
 
-      if (
-        response &&
-        !response.ok &&
-        (response.status === 400 || response.status === 422)
-      ) {
-        const structuredDetail = await response.text();
-        console.warn(
-          "Gemini structured output unavailable; retrying JSON-only prompt",
-          response.status,
-          structuredDetail,
-        );
-        response = await requestGemini(false);
-      }
-
-      if (response?.ok) {
-        const payload = (await response.json()) as {
-          candidates?: Array<{
-            content?: {
-              parts?: Array<{
-                text?: string;
-              }>;
-            };
-          }>;
-        };
-
-        const text = payload.candidates?.[0]?.content?.parts
-          ?.map((part) => part.text || "")
-          .join("")
-          .trim();
-
-        if (text) {
-          const parsed = parseJsonResponse(text);
-          return finalize(parsed.items, "gemini", geminiModel);
+        if (
+          response &&
+          !response.ok &&
+          (response.status === 400 || response.status === 422)
+        ) {
+          const structuredDetail = await response.text();
+          console.warn(
+            "Gemini structured output unavailable; retrying JSON-only prompt",
+            geminiModel,
+            response.status,
+            structuredDetail,
+          );
+          response = await requestGemini(geminiModel, false);
         }
 
-        console.warn("Gemini structure response was empty");
-      } else if (response) {
-        const detail = await response.text();
-        console.warn("Gemini structure request failed", response.status, detail);
+        if (response?.ok) {
+          const payload = (await response.json()) as {
+            candidates?: Array<{
+              content?: {
+                parts?: Array<{
+                  text?: string;
+                }>;
+              };
+            }>;
+          };
+
+          const text = payload.candidates?.[0]?.content?.parts
+            ?.map((part) => part.text || "")
+            .join("")
+            .trim();
+
+          if (text) {
+            const parsed = parseJsonResponse(text);
+            return finalize(parsed.items, "gemini", geminiModel);
+          }
+
+          console.warn("Gemini structure response was empty", geminiModel);
+        } else if (response) {
+          const detail = await response.text();
+          console.warn(
+            "Gemini structure request failed",
+            geminiModel,
+            response.status,
+            detail,
+          );
+        }
+      } catch (error) {
+        console.warn(
+          "Gemini structure route error; trying next provider",
+          geminiModel,
+          error,
+        );
       }
-    } catch (error) {
-      console.warn("Gemini structure route error; trying OpenRouter", error);
     }
   }
 
