@@ -1,0 +1,18 @@
+{
+  "name": "dechive-chatgpt-plan-worker",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "auth": "node src/auth.mjs",
+    "models": "node src/models.mjs",
+    "smoke": "node src/smoke-test.mjs"
+  },
+  "dependencies": {
+    "jose": "^6.1.0"
+  }
+}
