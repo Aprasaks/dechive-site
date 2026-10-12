@@ -14,6 +14,11 @@ import type { KnowledgeSummary } from "@/sanity/lib/types";
 export const metadata: Metadata = {
   title: "Knowledge | DECHIVE",
   description: "질문하고 확인하며 쌓아가는 DECHIVE의 지식 아카이브",
+  alternates: {
+    types: {
+      "application/rss+xml": "/knowledge/rss.xml",
+    },
+  },
 };
 
 // Sanity Live keeps active sessions fresh. This timed fallback also catches
