@@ -33,7 +33,7 @@ const knowledgePostsQuery = defineQuery(`
     "category": category->title,
     keywords,
     thumbnail ${imageProjection},
-    "bodyText": pt::text(body)
+    "bodyText": pt::text(body) + " " + coalesce(array::join(body[_type == "table"].rows[].cells[], " "), "")
   }
 `);
 
@@ -51,7 +51,7 @@ const knowledgePostQuery = defineQuery(`
       ...,
       _type == "bodyImage" => ${imageProjection}
     },
-    "bodyText": pt::text(body)
+    "bodyText": pt::text(body) + " " + coalesce(array::join(body[_type == "table"].rows[].cells[], " "), "")
   }
 `);
 

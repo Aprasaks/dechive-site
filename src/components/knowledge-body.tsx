@@ -5,6 +5,7 @@ import { knowledgeImageUrl } from "@/sanity/lib/knowledge-image";
 import type {
   KnowledgeBodyBlock,
   KnowledgeBodyImage,
+  KnowledgeTable,
 } from "@/sanity/lib/types";
 
 type KnowledgeBodyProps = {
@@ -70,6 +71,56 @@ const components: PortableTextComponents = {
     ),
   },
   types: {
+    table: ({ value }) => {
+      const table = value as KnowledgeTable;
+      const [header, ...rows] = table.rows;
+
+      if (!header) return null;
+
+      return (
+        <div
+          role="region"
+          aria-label={table.caption || "비교 표"}
+          tabIndex={0}
+          className="my-8 overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--terracotta)]"
+        >
+          <table className="w-full min-w-[480px] border-collapse text-left text-sm leading-7">
+            {table.caption ? (
+              <caption className="mb-3 text-left font-semibold">
+                {table.caption}
+              </caption>
+            ) : null}
+            <thead>
+              <tr className="border-y border-[color:rgb(9_41_68_/_25%)] bg-[color:rgb(9_41_68_/_5%)]">
+                {header.cells.map((cell, index) => (
+                  <th
+                    key={index}
+                    scope="col"
+                    className="px-4 py-3 font-semibold"
+                  >
+                    {cell}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr
+                  key={row._key}
+                  className="border-b border-[color:rgb(9_41_68_/_16%)]"
+                >
+                  {row.cells.map((cell, index) => (
+                    <td key={index} className="px-4 py-3">
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    },
     bodyImage: ({ value }) => {
       const image = value as KnowledgeBodyImage;
 

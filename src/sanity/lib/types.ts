@@ -46,8 +46,19 @@ type KnowledgeCodeBlock = {
   language?: string;
 };
 
+export type KnowledgeTable = {
+  _key: string;
+  _type: "table";
+  caption?: string;
+  rows: {
+    _key: string;
+    _type: "tableRow";
+    cells: string[];
+  }[];
+};
+
 export type KnowledgeBodyBlock =
-  PortableTextBlock | KnowledgeBodyImage | KnowledgeCodeBlock;
+  PortableTextBlock | KnowledgeBodyImage | KnowledgeCodeBlock | KnowledgeTable;
 
 export type KnowledgeSummary = {
   _id: string;

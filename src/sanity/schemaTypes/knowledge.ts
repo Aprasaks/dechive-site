@@ -95,6 +95,50 @@ export const knowledge = defineType({
       group: "content",
       of: [
         defineArrayMember({
+          name: "table",
+          title: "표",
+          type: "object",
+          fields: [
+            defineField({ name: "caption", title: "표 제목", type: "string" }),
+            defineField({
+              name: "rows",
+              title: "행 (첫 행은 열 제목)",
+              type: "array",
+              of: [
+                defineArrayMember({
+                  name: "tableRow",
+                  title: "행",
+                  type: "object",
+                  fields: [
+                    defineField({
+                      name: "cells",
+                      title: "셀",
+                      type: "array",
+                      of: [defineArrayMember({ type: "string" })],
+                      validation: (Rule) => Rule.required().min(1),
+                    }),
+                  ],
+                }),
+              ],
+              validation: (Rule) =>
+                Rule.required()
+                  .min(2)
+                  .custom((rows) => {
+                    if (!rows?.length) return true;
+                    const cells = rows as { cells?: string[] }[];
+                    const width = cells[0].cells?.length;
+                    return cells.every((row) => row.cells?.length === width)
+                      ? true
+                      : "모든 행의 셀 개수를 첫 행과 맞춰주세요.";
+                  }),
+            }),
+          ],
+          preview: {
+            select: { title: "caption" },
+            prepare: ({ title }) => ({ title: title || "표" }),
+          },
+        }),
+        defineArrayMember({
           type: "block",
           styles: [
             { title: "본문", value: "normal" },
@@ -177,7 +221,18 @@ export const knowledge = defineType({
       title: "최초 발행일",
       type: "datetime",
       group: "publishing",
-      validation: (Rule) => Rule.required(),
+      validation: (Rule) =>
+        Rule.custom((value, context) => {
+          if (
+            ["published", "scheduled"].includes(
+              String(context.document?.status),
+            ) &&
+            !value
+          ) {
+            return "발행 완료 또는 발행 예정 글에는 발행일이 필요합니다.";
+          }
+          return true;
+        }),
     }),
     defineField({
       name: "status",
